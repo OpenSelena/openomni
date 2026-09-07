@@ -88,7 +88,7 @@ To try it as a global command without publishing: `npm link`, then run
 - [ ] Playlist / thread-with-multiple-videos support
 - [x] Clipboard detection: launch bare and auto-suggest the url you copied
 - [ ] Self-update for the bundled yt-dlp binary (`yt-dlp -U`)
-- [x] Publish to npm (`npm i -g open-omni` / `npx open-omni`)
+- [ ] Publish to npm (`npm i -g open-omni` / `npx open-omni`)
 - [ ] `curl open-omni.sh | sh` installer
 
 ## A note on fair use
