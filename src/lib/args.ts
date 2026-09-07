@@ -11,6 +11,8 @@ export type CliArgs = {
   themeMode?: ThemeMode
   format?: FormatMode
   outputDir?: string
+  updateYtDlp?: boolean
+  force?: boolean
   error?: string
 }
 
@@ -24,6 +26,10 @@ export function parseArgs(args: string[]): CliArgs {
       result.help = true
     } else if (arg === '-v' || arg === '--version') {
       result.version = true
+    } else if (arg === '-U' || arg === '--update' || arg === '--update-ytdlp') {
+      result.updateYtDlp = true
+    } else if (arg === '--force') {
+      result.force = true
     } else if (arg === '--best') {
       if (result.format === 'mp3') return {...result, error: 'cannot use both --best and --mp3'}
       result.format = 'best'
@@ -55,7 +61,11 @@ export function parseArgs(args: string[]): CliArgs {
   }
 
   if (positional.length > 1) return {...result, error: 'expected a single url'}
-  result.initialUrl = positional[0]
+  if (positional.length === 1) result.initialUrl = positional[0]
+
+  if (result.force && !result.updateYtDlp) {
+    return {...result, error: '--force can only be used with -U or --update-ytdlp'}
+  }
 
   if (result.format && !result.initialUrl && !result.help && !result.version) {
     return {...result, error: `--${result.format} requires a url`}

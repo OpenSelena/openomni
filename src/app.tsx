@@ -827,6 +827,11 @@ function InnerApp({
       {phase.name === 'error' && (
         <Box flexDirection="column" alignItems="center" width={Math.max(10, Math.min(columns - 6, 72))}>
           <Text bold color={theme.primary}>✗ {phase.message}</Text>
+          <Box marginTop={1}>
+            <Text color={theme.gray} dimColor={theme.dimSecondary}>
+              Hint: Try running 'open-omni -U' to update the video extractor.
+            </Text>
+          </Box>
         </Box>
       )}
 

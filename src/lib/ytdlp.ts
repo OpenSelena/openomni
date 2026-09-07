@@ -39,29 +39,155 @@ function commandWorks(cmd: string, args: string[]): Promise<boolean> {
  * downloaded copy, then download the standalone binary from GitHub releases.
  */
 export async function ensureYtDlp(onStatus: (message: string) => void, signal?: AbortSignal): Promise<string> {
-  if (await commandWorks('yt-dlp', ['--version'])) return 'yt-dlp'
-
   const binaryName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp'
   const local = path.join(OPEN_OMNI_DIR, binaryName)
-  if (await commandWorks(local, ['--version'])) return local
+  const hasLocal = await commandWorks(local, ['--version'])
+  const hasSystem = await commandWorks('yt-dlp', ['--version'])
+
+  if (hasLocal && hasSystem) {
+    const localVer = await getYtDlpVersion(local)
+    const sysVer = await getYtDlpVersion('yt-dlp')
+    if (localVer && sysVer) {
+      return localVer >= sysVer ? local : 'yt-dlp'
+    }
+    return local
+  }
+
+  if (hasSystem) return 'yt-dlp'
+  if (hasLocal) return local
 
   const legacy = path.join(LEGACY_YOINKS_DIR, binaryName)
   if (await commandWorks(legacy, ['--version'])) return legacy
 
   onStatus('first run: fetching yt-dlp…')
-  await fs.mkdir(OPEN_OMNI_DIR, {recursive: true})
+  return await downloadLatestYtDlp(OPEN_OMNI_DIR, signal)
+}
 
+export function isYtDlpUpToDateMessage(output: string): boolean {
+  return /up[- ]to[- ]date|latest version/i.test(output)
+}
+
+export function isYtDlpPackageManaged(output: string): boolean {
+  return /pip|homebrew|apt|pacman|package manager|wheel from pypi/i.test(output)
+}
+
+export function getYtDlpVersion(executablePath: string): Promise<string | undefined> {
+  return new Promise(resolve => {
+    let child: ChildProcess
+    let out = ''
+    try {
+      child = spawn(executablePath, ['--version'])
+    } catch {
+      resolve(undefined)
+      return
+    }
+    child.stdout?.on('data', (d: Buffer) => {
+      out += d.toString()
+    })
+    child.on('error', () => resolve(undefined))
+    child.on('close', code => {
+      if (code === 0 && out.trim()) {
+        resolve(out.trim())
+      } else {
+        resolve(undefined)
+      }
+    })
+  })
+}
+
+export async function downloadLatestYtDlp(targetDir = OPEN_OMNI_DIR, signal?: AbortSignal): Promise<string> {
+  await fs.mkdir(targetDir, {recursive: true})
+  const binaryName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp'
+  const local = path.join(targetDir, binaryName)
   const url = `${RELEASE_BASE}/${ytDlpAssetName()}`
   const response = await fetch(url, {signal})
   if (!response.ok || !response.body) {
     throw new Error(`Could not download yt-dlp (${response.status}). Check your connection and try again.`)
   }
-
   const tmp = `${local}.download`
   await pipeline(Readable.fromWeb(response.body as never), createWriteStream(tmp), {signal})
   await fs.chmod(tmp, 0o755)
   await fs.rename(tmp, local)
   return local
+}
+
+export type UpdateResult = {
+  binaryPath: string
+  previousVersion?: string
+  currentVersion: string
+  updated: boolean
+  source: 'native' | 'download'
+}
+
+export async function updateYtDlp(options?: {
+  force?: boolean
+  onStatus?: (msg: string) => void
+  signal?: AbortSignal
+}): Promise<UpdateResult> {
+  const onStatus = options?.onStatus ?? (() => {})
+  const signal = options?.signal
+
+  const binary = await ensureYtDlp(onStatus, signal)
+  const previousVersion = await getYtDlpVersion(binary)
+
+  if (options?.force) {
+    onStatus('downloading fresh standalone yt-dlp from GitHub releases…')
+    const downloadedPath = await downloadLatestYtDlp(OPEN_OMNI_DIR, signal)
+    const currentVersion = (await getYtDlpVersion(downloadedPath)) ?? 'unknown'
+    return {
+      binaryPath: downloadedPath,
+      previousVersion,
+      currentVersion,
+      updated: true,
+      source: 'download',
+    }
+  }
+
+  onStatus(`checking for updates (current: ${previousVersion ?? 'unknown'})…`)
+
+  const nativeResult = await new Promise<{code: number | null; output: string}>(resolve => {
+    let child: ChildProcess
+    let combined = ''
+    try {
+      child = spawn(binary, ['-U'], {signal})
+    } catch (e) {
+      resolve({code: -1, output: String(e)})
+      return
+    }
+    child.stdout?.on('data', (d: Buffer) => {
+      combined += d.toString()
+    })
+    child.stderr?.on('data', (d: Buffer) => {
+      combined += d.toString()
+    })
+    child.on('error', err => resolve({code: -1, output: err.message}))
+    child.on('close', code => resolve({code, output: combined}))
+  })
+
+  if (nativeResult.code !== 0 || isYtDlpPackageManaged(nativeResult.output)) {
+    onStatus(`system binary cannot self-update; downloading standalone release into ${OPEN_OMNI_DIR}…`)
+    const downloadedPath = await downloadLatestYtDlp(OPEN_OMNI_DIR, signal)
+    const currentVersion = (await getYtDlpVersion(downloadedPath)) ?? 'unknown'
+    return {
+      binaryPath: downloadedPath,
+      previousVersion,
+      currentVersion,
+      updated: currentVersion !== previousVersion,
+      source: 'download',
+    }
+  }
+
+  const currentVersion = (await getYtDlpVersion(binary)) ?? previousVersion ?? 'unknown'
+  const isUpToDate = isYtDlpUpToDateMessage(nativeResult.output)
+  const updated = previousVersion ? currentVersion !== previousVersion : !isUpToDate
+
+  return {
+    binaryPath: binary,
+    previousVersion,
+    currentVersion,
+    updated,
+    source: 'native',
+  }
 }
 
 /**

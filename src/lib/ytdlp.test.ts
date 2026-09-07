@@ -3,6 +3,9 @@ import test from 'node:test'
 import {
   parseProbeOutput,
   extractSingleVideoUrl,
+  isYtDlpUpToDateMessage,
+  isYtDlpPackageManaged,
+  getYtDlpVersion,
   type VideoInfo
 } from './ytdlp.js'
 
@@ -67,4 +70,30 @@ test('parseProbeOutput distinguishes between single videos and playlists', () =>
     assert.equal(playlistResult.playlist.validEntries.length, 1)
     assert.equal(playlistResult.singleVideoUrl, 'https://www.youtube.com/watch?v=track1')
   }
+})
+
+test('isYtDlpUpToDateMessage correctly identifies already updated outputs', () => {
+  assert.equal(isYtDlpUpToDateMessage('yt-dlp is up to date (2026.08.19)'), true)
+  assert.equal(isYtDlpUpToDateMessage('Latest version: 2026.08.19'), true)
+  assert.equal(isYtDlpUpToDateMessage('Updating to version 2026.09.01...'), false)
+})
+
+test('isYtDlpPackageManaged detects package manager refusal messages', () => {
+  assert.equal(
+    isYtDlpPackageManaged('You installed yt-dlp with pip or using the wheel from PyPi; Use that to update'),
+    true
+  )
+  assert.equal(
+    isYtDlpPackageManaged('yt-dlp is managed by Homebrew; use brew upgrade yt-dlp'),
+    true
+  )
+  assert.equal(
+    isYtDlpPackageManaged('Updating to version 2026.09.01...'),
+    false
+  )
+})
+
+test('getYtDlpVersion reads version string from real executable', async () => {
+  const version = await getYtDlpVersion('yt-dlp')
+  assert.match(version ?? '', /^\d{4}\.\d{2}\.\d{2}/)
 })

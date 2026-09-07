@@ -65,6 +65,35 @@ test('parses scriptable format flags (--best, --mp3) and output directory (-o, -
   })
 })
 
+test('parses yt-dlp update flags (-U, --update, --update-ytdlp, --force)', () => {
+  assert.deepEqual(parseArgs(['-U']), {
+    help: false,
+    version: false,
+    updateYtDlp: true,
+  })
+
+  assert.deepEqual(parseArgs(['--update']), {
+    help: false,
+    version: false,
+    updateYtDlp: true,
+  })
+
+  assert.deepEqual(parseArgs(['--update-ytdlp']), {
+    help: false,
+    version: false,
+    updateYtDlp: true,
+  })
+
+  assert.deepEqual(parseArgs(['-U', '--force']), {
+    help: false,
+    version: false,
+    updateYtDlp: true,
+    force: true,
+  })
+
+  assert.match(parseArgs(['--force']).error ?? '', /--force can only be used with/)
+})
+
 test('resolves output directory following priority: CLI > OPEN_OMNI_DIR > ~/Downloads', () => {
   const custom = './my-folder'
   assert.equal(resolveOutputDir(custom), path.resolve(custom))

@@ -37,3 +37,13 @@ _Avoid_: Job list, task queue, download pool
 **Dual Progress**:
 A terminal display presenting both overall batch completion metrics and the active item's download stream progress.
 _Avoid_: Stacked bars, multi-meter
+
+### Lifecycle & Maintenance
+
+**Bundled Binary**:
+The standalone executable copy of `yt-dlp` managed by Open Omni in `~/.open-omni/bin`.
+_Avoid_: Packaged tool, embedded helper, daemon
+
+**Binary Self-Update**:
+The maintenance routine that checks, downloads, and atomically updates the active `yt-dlp` executable via native update or GitHub release fetch.
+_Avoid_: Hotpatch, auto-upgrade, sync

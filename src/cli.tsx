@@ -8,7 +8,7 @@ import {captureFrames} from './lib/click-map.js'
 import {parseArgs, resolveOutputDir} from './lib/args.js'
 import {readClipboard} from './lib/clipboard.js'
 import {isProbablyUrl} from './lib/platforms.js'
-import {buildChoices, download, ensureYtDlp, findFfmpeg, probe, type DownloadChoice} from './lib/ytdlp.js'
+import {buildChoices, download, ensureYtDlp, findFfmpeg, probe, updateYtDlp, type DownloadChoice} from './lib/ytdlp.js'
 import {
   buildQualityTierArgs,
   formatTrackFilename,
@@ -31,12 +31,15 @@ const HELP = `
     $ open-omni https://youtu.be/dQw4w9WgXcQ
     $ open-omni https://youtu.be/dQw4w9WgXcQ --best
     $ open-omni https://youtu.be/dQw4w9WgXcQ --mp3 -o ~/Music
+    $ open-omni -U              (updates bundled yt-dlp)
     $ open-omni                 (prompts for a url)
 
   Options
     --best          skip picker and download highest video resolution
     --mp3           skip picker and extract audio as mp3
     -o, --output    output directory (default: ~/Downloads, or $OPEN_OMNI_DIR)
+    -U, --update    update bundled yt-dlp to latest version (--update-ytdlp)
+    --force         force re-download clean yt-dlp binary (with -U)
     --theme <mode>  use auto, light, or dark for this run
     -h, --help      show this help
     -v, --version   show version
@@ -60,6 +63,29 @@ if (args.help) {
 if (args.version) {
   console.log(VERSION)
   process.exit(0)
+}
+
+if (args.updateYtDlp) {
+  try {
+    const result = await updateYtDlp({
+      force: args.force,
+      onStatus: status => console.error(`[open-omni] ${status}`),
+    })
+    if (result.updated) {
+      if (result.previousVersion && result.previousVersion !== result.currentVersion) {
+        console.log(`✓ yt-dlp updated: ${result.previousVersion} → ${result.currentVersion}`)
+      } else {
+        console.log(`✓ yt-dlp updated to version ${result.currentVersion}`)
+      }
+    } else {
+      console.log(`✓ yt-dlp is already up to date (version ${result.currentVersion})`)
+    }
+    process.exit(0)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`open-omni: update failed: ${msg}`)
+    process.exit(1)
+  }
 }
 
 const initialUrl = args.initialUrl

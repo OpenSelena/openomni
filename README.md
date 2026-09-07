@@ -63,6 +63,7 @@ click the theme control in the footer to cycle through `auto`, `light`, and
 - Powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp). On first run,
   Open Omni downloads the standalone yt-dlp binary to `~/.open-omni/bin` —
   no Python required. If you already have yt-dlp installed, it uses yours.
+  Keep it up-to-date with `open-omni -U` (or `open-omni --update-ytdlp`).
 - ffmpeg (needed for merging high-res streams and mp3 extraction) is found
   on your PATH, with `ffmpeg-static` as a bundled fallback.
 - The UI is [Ink](https://github.com/vadimdemedes/ink) — React for the
@@ -87,7 +88,7 @@ To try it as a global command without publishing: `npm link`, then run
 - [x] `-o <dir>` to choose the output folder
 - [x] Playlist / thread-with-multiple-videos support
 - [x] Clipboard detection: launch bare and auto-suggest the url you copied
-- [ ] Self-update for the bundled yt-dlp binary (`yt-dlp -U`)
+- [x] Self-update for the bundled yt-dlp binary (`yt-dlp -U`)
 - [ ] Publish to npm (`npm i -g open-omni` / `npx open-omni`)
 - [ ] `curl open-omni.sh | sh` installer
 
