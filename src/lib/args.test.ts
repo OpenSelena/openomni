@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {parseArgs} from './args.js'
+import path from 'node:path'
+import os from 'node:os'
+import {parseArgs, resolveOutputDir} from './args.js'
 import {isThemeMode, nextThemeMode, themeFor} from '../theme.js'
 
 test('parses a url and a spaced theme option without confusing the value for the url', () => {
@@ -26,6 +28,48 @@ test('rejects missing, invalid, and unknown options', () => {
   assert.match(parseArgs(['--theme', 'sepia']).error ?? '', /unknown theme/)
   assert.match(parseArgs(['--wat']).error ?? '', /unknown option/)
   assert.match(parseArgs(['one', 'two']).error ?? '', /single url/)
+  assert.match(parseArgs(['--best', '--mp3', 'https://example.com']).error ?? '', /cannot use both/)
+  assert.match(parseArgs(['--best']).error ?? '', /requires a url/)
+  assert.match(parseArgs(['--mp3']).error ?? '', /requires a url/)
+  assert.match(parseArgs(['-o']).error ?? '', /needs a directory path/)
+  assert.match(parseArgs(['--output']).error ?? '', /needs a directory path/)
+})
+
+test('parses scriptable format flags (--best, --mp3) and output directory (-o, --output)', () => {
+  assert.deepEqual(parseArgs(['--best', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    format: 'best',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(parseArgs(['https://example.com/video', '--mp3']), {
+    help: false,
+    version: false,
+    format: 'mp3',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(parseArgs(['-o', './out', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    outputDir: './out',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(parseArgs(['--output=/custom/dir', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    outputDir: '/custom/dir',
+    initialUrl: 'https://example.com/video',
+  })
+})
+
+test('resolves output directory following priority: CLI > OPEN_OMNI_DIR > ~/Downloads', () => {
+  const custom = './my-folder'
+  assert.equal(resolveOutputDir(custom), path.resolve(custom))
+  assert.equal(resolveOutputDir(undefined, './env-folder'), path.resolve('./env-folder'))
+  assert.equal(resolveOutputDir(undefined, undefined), path.join(os.homedir(), 'Downloads'))
 })
 
 test('recognizes only supported modes and cycles through all of them', () => {

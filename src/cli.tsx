@@ -1,11 +1,13 @@
 import React from 'react'
+import fs from 'node:fs/promises'
 import {createRequire} from 'node:module'
 import {render} from 'ink'
 import {App, type Outcome} from './app.js'
 import {captureFrames} from './lib/click-map.js'
-import {parseArgs} from './lib/args.js'
+import {parseArgs, resolveOutputDir} from './lib/args.js'
 import {readClipboard} from './lib/clipboard.js'
 import {isProbablyUrl} from './lib/platforms.js'
+import {buildChoices, download, ensureYtDlp, findFfmpeg, probe} from './lib/ytdlp.js'
 
 // read at runtime from the shipped package.json so npm version bumps
 // can't drift from a hardcoded constant
@@ -15,19 +17,23 @@ const HELP = `
   Open Omni — grab any video. paste. download. done.
 
   Usage
-    $ open-omni [url]
+    $ open-omni [url] [options]
 
   Examples
     $ open-omni https://youtu.be/dQw4w9WgXcQ
-    $ open-omni https://x.com/user/status/123456
+    $ open-omni https://youtu.be/dQw4w9WgXcQ --best
+    $ open-omni https://youtu.be/dQw4w9WgXcQ --mp3 -o ~/Music
     $ open-omni                 (prompts for a url)
 
   Options
+    --best          skip picker and download highest video resolution
+    --mp3           skip picker and extract audio as mp3
+    -o, --output    output directory (default: ~/Downloads, or $OPEN_OMNI_DIR)
     --theme <mode>  use auto, light, or dark for this run
     -h, --help      show this help
     -v, --version   show version
 
-  Downloads are saved to ~/Downloads.
+  Downloads are saved to ~/Downloads (or custom output directory).
   Powered by yt-dlp — YouTube, X, Instagram, Threads, TikTok & 1800+ sites.
 `
 
@@ -50,8 +56,52 @@ if (args.version) {
 
 const initialUrl = args.initialUrl
 const initialThemeMode = args.themeMode ?? 'auto'
-
+const outDir = resolveOutputDir(args.outputDir)
 const isTTY = Boolean(process.stdout.isTTY)
+
+if (!isTTY && args.format && initialUrl) {
+  try {
+    await fs.mkdir(outDir, {recursive: true})
+    const ytdlp = await ensureYtDlp(status => console.error(`[open-omni] ${status}`))
+    console.error(`[open-omni] fetching video info…`)
+    const {info, infoJsonPath} = await probe(ytdlp, initialUrl)
+    const choices = buildChoices(info)
+    const choice =
+      args.format === 'mp3'
+        ? (choices.find(c => c.kind === 'audio') ?? choices[choices.length - 1]!)
+        : (choices.find(c => c.kind === 'video') ?? choices[0]!)
+
+    console.error(`[open-omni] downloading ${info.title ? `“${info.title}” ` : ''}(${choice.label})…`)
+    const ffmpegLocation = await findFfmpeg()
+    const filepath = await download(
+      {
+        ytdlp,
+        ffmpegLocation,
+        url: initialUrl,
+        choice,
+        outDir,
+        infoJsonPath,
+      },
+      {
+        onProgress: progress => {
+          if (progress.totalBytes) {
+            const pct = Math.round((progress.downloadedBytes / progress.totalBytes) * 100)
+            process.stderr.write(`\r[open-omni] downloading: ${pct}%`)
+          }
+        },
+        onProcessing: () => {
+          process.stderr.write(`\r[open-omni] processing…\n`)
+        },
+      },
+    )
+    process.stderr.write('\n')
+    console.log(`✓ downloaded → ${filepath}`)
+    process.exit(0)
+  } catch (error) {
+    console.error(`✗ ${error instanceof Error ? error.message : String(error)}`)
+    process.exit(1)
+  }
+}
 
 // no url given — offer the clipboard url (⇥ to paste) when it already holds one
 let clipboardUrl: string | undefined
@@ -85,6 +135,8 @@ const {waitUntilExit} = render(
     initialUrl={initialUrl}
     clipboardUrl={clipboardUrl}
     initialThemeMode={initialThemeMode}
+    autoSelect={args.format}
+    outDir={outDir}
     onOutcome={result => (outcome = result)}
   />,
   // keep a copy of every frame so clicks can be hit-tested against it

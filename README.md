@@ -32,16 +32,20 @@ automatically.
 ## Usage
 
 ```sh
-$ open-omni https://youtu.be/dQw4w9WgXcQ    # straight to the format picker
-$ open-omni                                 # prompts for a url
-$ open-omni --theme light                   # force the light palette
+$ open-omni https://youtu.be/dQw4w9WgXcQ             # straight to the format picker
+$ open-omni https://youtu.be/dQw4w9WgXcQ --best      # skip picker, download highest resolution
+$ open-omni https://youtu.be/dQw4w9WgXcQ --mp3       # skip picker, extract audio only
+$ open-omni https://youtu.be/dQw4w9WgXcQ -o ~/Videos # download to custom folder
+$ open-omni                                          # prompts for a url (or ⇥ pastes from clipboard)
+$ open-omni --theme light                            # force the light palette
 ```
 
 Open Omni takes over the terminal (full-screen, centered — and restores your
 scrollback on exit). Pick a format with ↑/↓ (or j/k, or number keys) and
 hit enter. `esc` goes back, `^c` quits. Or just use the mouse — the download
 button, the format list and the footer hints are all clickable, and
-clicking the logo takes you back home. Files are saved to `~/Downloads`,
+clicking the logo takes you back home. Files are saved to `~/Downloads` by default
+(or the directory specified via `-o <dir>`, `--output <dir>`, or `$OPEN_OMNI_DIR`),
 and the file path is printed to your terminal when you're done.
 
 The default `auto` theme uses your terminal's own foreground and background,
@@ -77,10 +81,10 @@ To try it as a global command without publishing: `npm link`, then run
 
 ## Roadmap
 
-- [ ] `--best` / `--mp3` flags to skip the picker (scriptable mode)
-- [ ] `-o <dir>` to choose the output folder
+- [x] `--best` / `--mp3` flags to skip the picker (scriptable mode)
+- [x] `-o <dir>` to choose the output folder
 - [ ] Playlist / thread-with-multiple-videos support
-- [ ] Clipboard detection: launch bare and auto-suggest the url you copied
+- [x] Clipboard detection: launch bare and auto-suggest the url you copied
 - [ ] Self-update for the bundled yt-dlp binary (`yt-dlp -U`)
 - [x] Publish to npm (`npm i -g open-omni` / `npx open-omni`)
 - [ ] `curl open-omni.sh | sh` installer

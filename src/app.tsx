@@ -1,4 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react'
+import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import {Box, Text, useApp, useInput, useStdout} from 'ink'
@@ -129,6 +130,8 @@ type AppProps = {
   initialUrl?: string
   clipboardUrl?: string
   initialThemeMode?: ThemeMode
+  autoSelect?: 'best' | 'mp3'
+  outDir?: string
   onOutcome: (outcome: Outcome) => void
 }
 
@@ -148,11 +151,15 @@ export function App({initialThemeMode = 'auto', ...props}: AppProps) {
 function AppContent({
   initialUrl,
   clipboardUrl,
+  autoSelect,
+  outDir,
   onOutcome,
   cycleTheme,
 }: {
   initialUrl?: string
   clipboardUrl?: string
+  autoSelect?: 'best' | 'mp3'
+  outDir?: string
   onOutcome: (outcome: Outcome) => void
   cycleTheme: () => void
 }) {
@@ -175,30 +182,96 @@ function AppContent({
   const boxWidth = Math.max(14, Math.min(64, columns - 6))
   const contentWidth = Math.max(10, Math.min(columns - 4, 78))
 
-  const startProbe = useCallback(async (targetUrl: string) => {
-    const controller = new AbortController()
-    abortRef.current = controller
-    setPlatform(detectPlatform(targetUrl))
-    setPhase({name: 'probing', status: 'warming up…'})
-    try {
-      const ytdlp =
-        ytdlpRef.current ||
-        (await ensureYtDlp(status => setPhase({name: 'probing', status}), controller.signal))
-      ytdlpRef.current = ytdlp
-      if (controller.signal.aborted) return
-      setPhase({name: 'probing', status: 'fetching video info…'})
-      const {info: videoInfo, infoJsonPath} = await probe(ytdlp, targetUrl, controller.signal)
-      if (controller.signal.aborted) return
-      infoJsonRef.current = infoJsonPath
-      setInfo(videoInfo)
-      setChoices(buildChoices(videoInfo))
-      highlightRef.current = 0
-      setPhase({name: 'picking'})
-    } catch (error) {
-      if (controller.signal.aborted) return
-      setPhase({name: 'error', message: error instanceof Error ? error.message : String(error)})
-    }
-  }, [])
+  const executeDownload = useCallback(
+    (choice: DownloadChoice, targetUrl: string, cachedInfoJsonPath?: string) => {
+      const controller = new AbortController()
+      abortRef.current = controller
+      setPhase({name: 'downloading', choice, processing: false})
+      void (async () => {
+        const handlers = {
+          onProgress: (progress: DownloadProgress) =>
+            setPhase(prev => (prev.name === 'downloading' ? {...prev, progress, processing: false} : prev)),
+          onProcessing: () =>
+            setPhase(prev => (prev.name === 'downloading' ? {...prev, processing: true} : prev)),
+        }
+        try {
+          const targetDir = outDir ?? OUT_DIR
+          await fs.mkdir(targetDir, {recursive: true})
+          const ffmpegLocation = await findFfmpeg()
+          const base = {ytdlp: ytdlpRef.current, ffmpegLocation, url: targetUrl, choice, outDir: targetDir}
+          let filepath: string
+          try {
+            // reuse the probe's metadata — starts immediately instead of re-extracting
+            filepath = await download(
+              {...base, infoJsonPath: cachedInfoJsonPath ?? infoJsonRef.current},
+              handlers,
+              controller.signal,
+            )
+          } catch (error) {
+            if (controller.signal.aborted) throw error
+            // media urls in the cached info can expire — retry with a fresh extraction
+            setPhase(prev =>
+              prev.name === 'downloading' ? {...prev, progress: undefined, refreshing: true} : prev,
+            )
+            filepath = await download(base, handlers, controller.signal)
+          }
+          onOutcome({filepath})
+          setHistory(addToHistory(targetUrl))
+          setPhase({name: 'done', filepath})
+          if (autoSelect) {
+            exit()
+          }
+        } catch (error) {
+          if (controller.signal.aborted) return
+          setPhase({name: 'error', message: error instanceof Error ? error.message : String(error)})
+          if (autoSelect) {
+            exit(error instanceof Error ? error : new Error(String(error)))
+          }
+        }
+      })()
+    },
+    [outDir, onOutcome, autoSelect, exit],
+  )
+
+  const startProbe = useCallback(
+    async (targetUrl: string) => {
+      const controller = new AbortController()
+      abortRef.current = controller
+      setPlatform(detectPlatform(targetUrl))
+      setPhase({name: 'probing', status: 'warming up…'})
+      try {
+        const ytdlp =
+          ytdlpRef.current ||
+          (await ensureYtDlp(status => setPhase({name: 'probing', status}), controller.signal))
+        ytdlpRef.current = ytdlp
+        if (controller.signal.aborted) return
+        setPhase({name: 'probing', status: 'fetching video info…'})
+        const {info: videoInfo, infoJsonPath} = await probe(ytdlp, targetUrl, controller.signal)
+        if (controller.signal.aborted) return
+        infoJsonRef.current = infoJsonPath
+        setInfo(videoInfo)
+        const availableChoices = buildChoices(videoInfo)
+        setChoices(availableChoices)
+        highlightRef.current = 0
+        if (autoSelect) {
+          const picked =
+            autoSelect === 'mp3'
+              ? (availableChoices.find(c => c.kind === 'audio') ?? availableChoices[availableChoices.length - 1]!)
+              : (availableChoices.find(c => c.kind === 'video') ?? availableChoices[0]!)
+          executeDownload(picked, targetUrl, infoJsonPath)
+        } else {
+          setPhase({name: 'picking'})
+        }
+      } catch (error) {
+        if (controller.signal.aborted) return
+        setPhase({name: 'error', message: error instanceof Error ? error.message : String(error)})
+        if (autoSelect) {
+          exit(error instanceof Error ? error : new Error(String(error)))
+        }
+      }
+    },
+    [autoSelect, executeDownload, exit],
+  )
 
   useEffect(() => {
     if (initialUrl) void startProbe(initialUrl)
@@ -247,39 +320,7 @@ function AppContent({
 
   const handlePick = (item: {value: number}) => {
     const choice = choices[item.value]
-    const controller = new AbortController()
-    abortRef.current = controller
-    setPhase({name: 'downloading', choice, processing: false})
-    void (async () => {
-      const handlers = {
-        onProgress: (progress: DownloadProgress) =>
-          setPhase(prev => (prev.name === 'downloading' ? {...prev, progress, processing: false} : prev)),
-        onProcessing: () =>
-          setPhase(prev => (prev.name === 'downloading' ? {...prev, processing: true} : prev)),
-      }
-      try {
-        const ffmpegLocation = await findFfmpeg()
-        const base = {ytdlp: ytdlpRef.current, ffmpegLocation, url, choice, outDir: OUT_DIR}
-        let filepath: string
-        try {
-          // reuse the probe's metadata — starts immediately instead of re-extracting
-          filepath = await download({...base, infoJsonPath: infoJsonRef.current}, handlers, controller.signal)
-        } catch (error) {
-          if (controller.signal.aborted) throw error
-          // media urls in the cached info can expire — retry with a fresh extraction
-          setPhase(prev =>
-            prev.name === 'downloading' ? {...prev, progress: undefined, refreshing: true} : prev,
-          )
-          filepath = await download(base, handlers, controller.signal)
-        }
-        onOutcome({filepath})
-        setHistory(addToHistory(url))
-        setPhase({name: 'done', filepath})
-      } catch (error) {
-        if (controller.signal.aborted) return
-        setPhase({name: 'error', message: error instanceof Error ? error.message : String(error)})
-      }
-    })()
+    if (choice) executeDownload(choice, url, infoJsonRef.current)
   }
 
   let hints: Array<[string, string]> = [...HINTS[phase.name], ['^t', `theme:${theme.mode}`]]
