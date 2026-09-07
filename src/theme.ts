@@ -17,14 +17,12 @@ export type Theme = {
 const themes: Record<ThemeMode, Theme> = {
   auto: {
     mode: 'auto',
-    // Leaving colors unset is more reliable than trying to detect whether a
-    // terminal is light or dark. ANSI defaults already follow its theme.
-    primary: undefined,
+    primary: '#859900',
     gray: undefined,
-    dark: undefined,
+    dark: '#18181b',
     background: undefined,
     dimSecondary: true,
-    inverseButton: true,
+    inverseButton: false,
   },
   light: {
     mode: 'light',
