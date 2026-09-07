@@ -39,22 +39,11 @@ function commandWorks(cmd: string, args: string[]): Promise<boolean> {
  * downloaded copy, then download the standalone binary from GitHub releases.
  */
 export async function ensureYtDlp(onStatus: (message: string) => void, signal?: AbortSignal): Promise<string> {
+  if (await commandWorks('yt-dlp', ['--version'])) return 'yt-dlp'
+
   const binaryName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp'
   const local = path.join(OPEN_OMNI_DIR, binaryName)
-  const hasLocal = await commandWorks(local, ['--version'])
-  const hasSystem = await commandWorks('yt-dlp', ['--version'])
-
-  if (hasLocal && hasSystem) {
-    const localVer = await getYtDlpVersion(local)
-    const sysVer = await getYtDlpVersion('yt-dlp')
-    if (localVer && sysVer) {
-      return localVer >= sysVer ? local : 'yt-dlp'
-    }
-    return local
-  }
-
-  if (hasSystem) return 'yt-dlp'
-  if (hasLocal) return local
+  if (await commandWorks(local, ['--version'])) return local
 
   const legacy = path.join(LEGACY_YOINKS_DIR, binaryName)
   if (await commandWorks(legacy, ['--version'])) return legacy
@@ -69,6 +58,10 @@ export function isYtDlpUpToDateMessage(output: string): boolean {
 
 export function isYtDlpPackageManaged(output: string): boolean {
   return /pip|homebrew|apt|pacman|package manager|wheel from pypi/i.test(output)
+}
+
+export function isExtractorError(message: string): boolean {
+  return /extractor|signature|unsupported url|sign in to confirm|bot|cloudflare|403|unable to extract/i.test(message)
 }
 
 export function getYtDlpVersion(executablePath: string): Promise<string | undefined> {
@@ -112,11 +105,22 @@ export async function downloadLatestYtDlp(targetDir = OPEN_OMNI_DIR, signal?: Ab
 }
 
 export type UpdateResult = {
-  binaryPath: string
   previousVersion?: string
   currentVersion: string
   updated: boolean
-  source: 'native' | 'download'
+}
+
+async function installStandalone(
+  previousVersion: string | undefined,
+  signal?: AbortSignal,
+): Promise<UpdateResult> {
+  const downloadedPath = await downloadLatestYtDlp(OPEN_OMNI_DIR, signal)
+  const currentVersion = (await getYtDlpVersion(downloadedPath)) ?? 'unknown'
+  return {
+    previousVersion,
+    currentVersion,
+    updated: true,
+  }
 }
 
 export async function updateYtDlp(options?: {
@@ -127,22 +131,13 @@ export async function updateYtDlp(options?: {
   const onStatus = options?.onStatus ?? (() => {})
   const signal = options?.signal
 
-  const binary = await ensureYtDlp(onStatus, signal)
-  const previousVersion = await getYtDlpVersion(binary)
-
   if (options?.force) {
     onStatus('downloading fresh standalone yt-dlp from GitHub releases…')
-    const downloadedPath = await downloadLatestYtDlp(OPEN_OMNI_DIR, signal)
-    const currentVersion = (await getYtDlpVersion(downloadedPath)) ?? 'unknown'
-    return {
-      binaryPath: downloadedPath,
-      previousVersion,
-      currentVersion,
-      updated: true,
-      source: 'download',
-    }
+    return await installStandalone(undefined, signal)
   }
 
+  const binary = await ensureYtDlp(onStatus, signal)
+  const previousVersion = await getYtDlpVersion(binary)
   onStatus(`checking for updates (current: ${previousVersion ?? 'unknown'})…`)
 
   const nativeResult = await new Promise<{code: number | null; output: string}>(resolve => {
@@ -166,15 +161,7 @@ export async function updateYtDlp(options?: {
 
   if (nativeResult.code !== 0 || isYtDlpPackageManaged(nativeResult.output)) {
     onStatus(`system binary cannot self-update; downloading standalone release into ${OPEN_OMNI_DIR}…`)
-    const downloadedPath = await downloadLatestYtDlp(OPEN_OMNI_DIR, signal)
-    const currentVersion = (await getYtDlpVersion(downloadedPath)) ?? 'unknown'
-    return {
-      binaryPath: downloadedPath,
-      previousVersion,
-      currentVersion,
-      updated: currentVersion !== previousVersion,
-      source: 'download',
-    }
+    return await installStandalone(previousVersion, signal)
   }
 
   const currentVersion = (await getYtDlpVersion(binary)) ?? previousVersion ?? 'unknown'
@@ -182,11 +169,9 @@ export async function updateYtDlp(options?: {
   const updated = previousVersion ? currentVersion !== previousVersion : !isUpToDate
 
   return {
-    binaryPath: binary,
     previousVersion,
     currentVersion,
     updated,
-    source: 'native',
   }
 }
 

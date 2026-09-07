@@ -5,6 +5,7 @@ import {
   extractSingleVideoUrl,
   isYtDlpUpToDateMessage,
   isYtDlpPackageManaged,
+  isExtractorError,
   getYtDlpVersion,
   type VideoInfo
 } from './ytdlp.js'
@@ -96,4 +97,12 @@ test('isYtDlpPackageManaged detects package manager refusal messages', () => {
 test('getYtDlpVersion reads version string from real executable', async () => {
   const version = await getYtDlpVersion('yt-dlp')
   assert.match(version ?? '', /^\d{4}\.\d{2}\.\d{2}/)
+})
+
+test('isExtractorError distinguishes extraction/cipher errors from general errors', () => {
+  assert.equal(isExtractorError('ERROR: [youtube] dQw4w9WgXcQ: Unable to extract video data'), true)
+  assert.equal(isExtractorError('Sign in to confirm you are not a bot'), true)
+  assert.equal(isExtractorError('HTTP Error 403: Forbidden'), true)
+  assert.equal(isExtractorError('ENOSPC: no space left on device'), false)
+  assert.equal(isExtractorError('User aborted operation'), false)
 })
