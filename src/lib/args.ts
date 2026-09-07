@@ -1,6 +1,7 @@
 import path from 'node:path'
 import os from 'node:os'
 import {isThemeMode, type ThemeMode} from '../theme.js'
+import type {SubtitleOptions} from './ytdlp.js'
 
 export type FormatMode = 'best' | 'mp3'
 
@@ -16,6 +17,15 @@ export type CliArgs = {
   subtitles?: boolean | string
   embedSubs?: boolean
   error?: string
+}
+
+export function toSubtitleOptions(args: CliArgs): SubtitleOptions | undefined {
+  if (!args.subtitles && !args.embedSubs) return undefined
+  return {
+    enabled: true,
+    languages: typeof args.subtitles === 'string' ? args.subtitles : undefined,
+    embed: Boolean(args.embedSubs),
+  }
 }
 
 export function parseArgs(args: string[]): CliArgs {
@@ -39,7 +49,7 @@ export function parseArgs(args: string[]): CliArgs {
       result.subtitles = value || true
     } else if (arg === '--subs') {
       const next = args[index + 1]
-      if (next && !next.startsWith('-') && !next.includes('://')) {
+      if (next && !next.startsWith('-') && !next.includes('/') && !next.includes('.')) {
         result.subtitles = next
         index++
       } else {

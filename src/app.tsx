@@ -366,7 +366,7 @@ function InnerApp({
                   choice,
                   outDir: playlistDir,
                   outputTemplate: targetPath,
-                  subtitles: tier !== 'mp3' ? subtitles : undefined,
+                  subtitles: subtitles?.enabled ? subtitles : undefined,
                 },
                 {
                   onProgress: progress =>

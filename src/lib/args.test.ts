@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import path from 'node:path'
 import os from 'node:os'
-import {parseArgs, resolveOutputDir} from './args.js'
+import {parseArgs, resolveOutputDir, toSubtitleOptions} from './args.js'
 import {terminalLink} from './format.js'
 import {isThemeMode, nextThemeMode, themeFor} from '../theme.js'
 
@@ -93,6 +93,38 @@ test('parses subtitle flags (--subs, --subs=lang, --embed-subs)', () => {
     version: false,
     embedSubs: true,
     initialUrl: 'https://example.com/video',
+  })
+
+  // Schemeless URL should not be consumed as a language string
+  assert.deepEqual(parseArgs(['--subs', 'youtu.be/dQw4w9WgXcQ']), {
+    help: false,
+    version: false,
+    subtitles: true,
+    initialUrl: 'youtu.be/dQw4w9WgXcQ',
+  })
+})
+
+test('toSubtitleOptions converts CliArgs to SubtitleOptions', () => {
+  assert.equal(toSubtitleOptions({help: false, version: false}), undefined)
+  assert.deepEqual(toSubtitleOptions({help: false, version: false, subtitles: true}), {
+    enabled: true,
+    languages: undefined,
+    embed: false,
+  })
+  assert.deepEqual(toSubtitleOptions({help: false, version: false, subtitles: 'es,ja'}), {
+    enabled: true,
+    languages: 'es,ja',
+    embed: false,
+  })
+  assert.deepEqual(toSubtitleOptions({help: false, version: false, embedSubs: true}), {
+    enabled: true,
+    languages: undefined,
+    embed: true,
+  })
+  assert.deepEqual(toSubtitleOptions({help: false, version: false, subtitles: 'fr', embedSubs: true}), {
+    enabled: true,
+    languages: 'fr',
+    embed: true,
   })
 })
 

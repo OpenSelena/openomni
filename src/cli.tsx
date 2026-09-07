@@ -5,7 +5,7 @@ import {createRequire} from 'node:module'
 import {render} from 'ink'
 import {App, type Outcome} from './app.js'
 import {captureFrames} from './lib/click-map.js'
-import {parseArgs, resolveOutputDir} from './lib/args.js'
+import {parseArgs, resolveOutputDir, toSubtitleOptions} from './lib/args.js'
 import {readClipboard} from './lib/clipboard.js'
 import {isProbablyUrl} from './lib/platforms.js'
 import {buildChoices, download, ensureYtDlp, findFfmpeg, probe, updateYtDlp, type DownloadChoice} from './lib/ytdlp.js'
@@ -93,6 +93,7 @@ if (args.updateYtDlp) {
 const initialUrl = args.initialUrl
 const initialThemeMode = args.themeMode ?? 'auto'
 const outDir = resolveOutputDir(args.outputDir)
+const subtitles = toSubtitleOptions(args)
 const isTTY = Boolean(process.stdout.isTTY)
 
 if (!isTTY && args.format && initialUrl) {
@@ -132,6 +133,7 @@ if (!isTTY && args.format && initialUrl) {
               choice,
               outDir: playlistDir,
               outputTemplate: targetPath,
+              subtitles,
             },
             {
               onProgress: progress => {
@@ -167,13 +169,6 @@ if (!isTTY && args.format && initialUrl) {
 
     console.error(`[open-omni] downloading ${info.title ? `“${info.title}” ` : ''}(${choice.label})…`)
     const ffmpegLocation = await findFfmpeg()
-    const subtitles = args.subtitles
-      ? {
-          enabled: true,
-          languages: typeof args.subtitles === 'string' ? args.subtitles : undefined,
-          embed: args.embedSubs,
-        }
-      : undefined
     const filepath = await download(
       {
         ytdlp,
@@ -230,14 +225,6 @@ if (isTTY) {
     })
   }
 }
-
-const subtitles = args.subtitles
-  ? {
-      enabled: true,
-      languages: typeof args.subtitles === 'string' ? args.subtitles : undefined,
-      embed: args.embedSubs,
-    }
-  : undefined
 
 let outcome: Outcome = {}
 const {waitUntilExit} = render(
