@@ -6,6 +6,7 @@ import path from 'node:path'
 import {Readable} from 'node:stream'
 import {pipeline} from 'node:stream/promises'
 import {formatBytes} from './format.js'
+import {parsePlaylistOutput, type PlaylistMetadata} from './playlist.js'
 
 const OPEN_OMNI_DIR = path.join(os.homedir(), '.open-omni', 'bin')
 const LEGACY_YOINKS_DIR = path.join(os.homedir(), '.yoinks', 'bin')
@@ -102,15 +103,72 @@ type RawFormat = {
   filesize_approx?: number
 }
 
-export type ProbeResult = {
+export function extractSingleVideoUrl(url: string): string | undefined {
+  try {
+    const parsed = new URL(url)
+    const v = parsed.searchParams.get('v')
+    if (v) {
+      return `${parsed.origin}${parsed.pathname}?v=${v}`
+    }
+    if (!parsed.searchParams.has('list')) {
+      return url
+    }
+    return undefined
+  } catch {
+    return undefined
+  }
+}
+
+export type SingleProbeResult = {
+  kind: 'single'
   info: VideoInfo
   /** Raw -J output saved to disk so downloads can skip re-extraction via --load-info-json. */
   infoJsonPath: string
 }
 
+export type PlaylistProbeResult = {
+  kind: 'playlist'
+  playlist: PlaylistMetadata
+  singleVideoUrl?: string
+}
+
+export type ProbeResult = SingleProbeResult | PlaylistProbeResult
+
+export function parseProbeOutput(
+  stdout: string,
+  originalUrl: string,
+  infoJsonPath: string,
+): ProbeResult {
+  let data: Record<string, unknown>
+  try {
+    data = JSON.parse(stdout) as Record<string, unknown>
+  } catch {
+    throw new Error('Could not parse video info from yt-dlp.')
+  }
+
+  if (
+    data._type === 'playlist' ||
+    (Array.isArray(data.entries) && data.entries.length > 0)
+  ) {
+    const playlist = parsePlaylistOutput(stdout)
+    const singleVideoUrl = extractSingleVideoUrl(originalUrl)
+    return {
+      kind: 'playlist',
+      playlist,
+      singleVideoUrl,
+    }
+  }
+
+  return {
+    kind: 'single',
+    info: data as unknown as VideoInfo,
+    infoJsonPath,
+  }
+}
+
 export async function probe(ytdlp: string, url: string, signal?: AbortSignal): Promise<ProbeResult> {
   const stdout = await new Promise<string>((resolve, reject) => {
-    const child = spawn(ytdlp, ['-J', '--no-playlist', '--no-warnings', url], {signal})
+    const child = spawn(ytdlp, ['-J', '--flat-playlist', '--no-warnings', url], {signal})
     let out = ''
     let stderr = ''
     child.stdout.on('data', chunk => (out += chunk))
@@ -125,16 +183,9 @@ export async function probe(ytdlp: string, url: string, signal?: AbortSignal): P
     })
   })
 
-  let info: VideoInfo
-  try {
-    info = JSON.parse(stdout) as VideoInfo
-  } catch {
-    throw new Error('Could not parse video info from yt-dlp.')
-  }
-
   const infoJsonPath = path.join(os.tmpdir(), `open-omni-info-${process.pid}-${Date.now()}.json`)
   await fs.writeFile(infoJsonPath, stdout)
-  return {info, infoJsonPath}
+  return parseProbeOutput(stdout, url, infoJsonPath)
 }
 
 export type DownloadChoice = {
@@ -229,6 +280,7 @@ export function download(
     infoJsonPath?: string
     choice: DownloadChoice
     outDir: string
+    outputTemplate?: string
   },
   handlers: DownloadHandlers,
   signal?: AbortSignal,
@@ -249,7 +301,7 @@ export function download(
     'after_move:filepath',
     '--no-simulate',
     '-o',
-    path.join(opts.outDir, '%(title).60s.%(ext)s'),
+    opts.outputTemplate ?? path.join(opts.outDir, '%(title).60s.%(ext)s'),
   ]
   if (opts.ffmpegLocation) args.push('--ffmpeg-location', opts.ffmpegLocation)
 

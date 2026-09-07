@@ -1,5 +1,6 @@
 import React from 'react'
 import fs from 'node:fs/promises'
+import path from 'node:path'
 import {createRequire} from 'node:module'
 import {render} from 'ink'
 import {App, type Outcome} from './app.js'
@@ -7,7 +8,8 @@ import {captureFrames} from './lib/click-map.js'
 import {parseArgs, resolveOutputDir} from './lib/args.js'
 import {readClipboard} from './lib/clipboard.js'
 import {isProbablyUrl} from './lib/platforms.js'
-import {buildChoices, download, ensureYtDlp, findFfmpeg, probe} from './lib/ytdlp.js'
+import {buildChoices, download, ensureYtDlp, findFfmpeg, probe, type DownloadChoice} from './lib/ytdlp.js'
+import {buildQualityTierArgs, formatTrackFilename, resolvePlaylistDir, type QualityTier} from './lib/playlist.js'
 
 // read at runtime from the shipped package.json so npm version bumps
 // can't drift from a hardcoded constant
@@ -64,7 +66,65 @@ if (!isTTY && args.format && initialUrl) {
     await fs.mkdir(outDir, {recursive: true})
     const ytdlp = await ensureYtDlp(status => console.error(`[open-omni] ${status}`))
     console.error(`[open-omni] fetching video info…`)
-    const {info, infoJsonPath} = await probe(ytdlp, initialUrl)
+    const probeResult = await probe(ytdlp, initialUrl)
+
+    if (probeResult.kind === 'playlist') {
+      const playlist = probeResult.playlist
+      const playlistDir = resolvePlaylistDir(outDir, playlist.title)
+      await fs.mkdir(playlistDir, {recursive: true})
+      console.error(`[open-omni] found playlist “${playlist.title}” (${playlist.validEntries.length} items)`)
+      const ffmpegLocation = await findFfmpeg()
+      const tier = args.format as QualityTier
+      const choice: DownloadChoice = {
+        label: args.format,
+        kind: args.format === 'mp3' ? 'audio' : 'video',
+        args: buildQualityTierArgs(tier),
+      }
+      let succeeded = 0
+      let skipped = 0
+
+      for (const entry of playlist.validEntries) {
+        const ext = args.format === 'mp3' ? 'mp3' : 'mp4'
+        const filename = formatTrackFilename(entry.index, playlist.validEntries.length, entry.title, ext)
+        const targetPath = path.join(playlistDir, filename)
+        console.error(`[open-omni] [${entry.index}/${playlist.validEntries.length}] downloading “${entry.title}”…`)
+
+        try {
+          await download(
+            {
+              ytdlp,
+              ffmpegLocation,
+              url: entry.url,
+              choice,
+              outDir: playlistDir,
+              outputTemplate: targetPath,
+            },
+            {
+              onProgress: progress => {
+                if (progress.totalBytes) {
+                  const pct = Math.round((progress.downloadedBytes / progress.totalBytes) * 100)
+                  process.stderr.write(`\r[open-omni] downloading: ${pct}%`)
+                }
+              },
+              onProcessing: () => {
+                process.stderr.write(`\r[open-omni] processing…\n`)
+              },
+            },
+          )
+          process.stderr.write('\n')
+          succeeded++
+        } catch (err) {
+          process.stderr.write('\n')
+          console.error(`[open-omni] ⚠ skipped “${entry.title}”: ${err instanceof Error ? err.message : String(err)}`)
+          skipped++
+        }
+      }
+
+      console.log(`✓ downloaded ${succeeded} items to ${playlistDir}${skipped > 0 ? ` (${skipped} skipped)` : ''}`)
+      process.exit(0)
+    }
+
+    const {info, infoJsonPath} = probeResult
     const choices = buildChoices(info)
     const choice =
       args.format === 'mp3'

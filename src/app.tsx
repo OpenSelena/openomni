@@ -12,6 +12,10 @@ import {Panel} from './components/panel.js'
 import {ProgressBar} from './components/progress-bar.js'
 import {Shortcuts} from './components/shortcuts.js'
 import {TextInput} from './components/text-input.js'
+import {PlaylistScopePicker, type PlaylistScopeChoice} from './components/playlist-scope-picker.js'
+import {PlaylistItemPicker} from './components/playlist-item-picker.js'
+import {PlaylistQualityPicker} from './components/playlist-quality-picker.js'
+import {PlaylistProgress} from './components/playlist-progress.js'
 import {clickTargetAt, findFrameRow, frameRowSpan, type ClickTarget} from './lib/click-map.js'
 import {formatBytes, formatDuration, formatEta, formatSpeed, shortenPath, truncate, wrapText} from './lib/format.js'
 import {addToHistory, loadHistory} from './lib/history.js'
@@ -28,6 +32,14 @@ import {
   type DownloadProgress,
   type VideoInfo,
 } from './lib/ytdlp.js'
+import {
+  buildQualityTierArgs,
+  formatTrackFilename,
+  resolvePlaylistDir,
+  type PlaylistEntry,
+  type PlaylistMetadata,
+  type QualityTier,
+} from './lib/playlist.js'
 
 const OUT_DIR = path.join(os.homedir(), 'Downloads')
 const DOWNLOAD_BUTTON = 'download'
@@ -54,9 +66,6 @@ function ChoiceItem({isSelected, label}: ItemProps) {
   )
 }
 
-// explicit blank lines — empty <Box height={1}/> spacers can collapse, and
-// ink boxes default to flexShrink=1, so spacers are the first thing yoga
-// crushes when content overflows the terminal
 const Gap = ({lines = 1}: {lines?: number}) => (
   <Box flexDirection="column" flexShrink={0}>
     {Array.from({length: lines}, (_, i) => (
@@ -65,10 +74,7 @@ const Gap = ({lines = 1}: {lines?: number}) => (
   </Box>
 )
 
-// fixed-width slots — the centered line must not change width as values tick,
-// otherwise the whole layout shifts on every progress update
 function partLabel(progress: DownloadProgress): string {
-  // explains the bar resetting between files (video, then audio)
   return progress.totalParts > 1 ? `part ${progress.part + 1}/${progress.totalParts}  ` : ''
 }
 
@@ -97,6 +103,39 @@ type Phase =
       processing: boolean
       refreshing?: boolean
     }
+  | {
+      name: 'playlist-scope'
+      playlist: PlaylistMetadata
+      singleVideoUrl?: string
+    }
+  | {
+      name: 'playlist-items'
+      playlist: PlaylistMetadata
+      singleVideoUrl?: string
+    }
+  | {
+      name: 'playlist-quality'
+      playlist: PlaylistMetadata
+      selectedEntries: PlaylistEntry[]
+      singleVideoUrl?: string
+    }
+  | {
+      name: 'playlist-downloading'
+      playlist: PlaylistMetadata
+      queue: PlaylistEntry[]
+      tier: QualityTier
+      currentIndex: number
+      skippedCount: number
+      progress?: DownloadProgress
+      processing: boolean
+    }
+  | {
+      name: 'playlist-done'
+      playlistTitle: string
+      downloadCount: number
+      skippedCount: number
+      targetDir: string
+    }
   | {name: 'done'; filepath: string}
   | {name: 'error'; message: string}
 
@@ -119,6 +158,31 @@ const HINTS: Record<Phase['name'], Array<[string, string]>> = {
     ['esc', 'cancel'],
     ['^c', 'quit'],
   ],
+  'playlist-scope': [
+    ['↑↓', 'choose'],
+    ['↵', 'select'],
+    ['esc', 'back'],
+    ['^c', 'quit'],
+  ],
+  'playlist-items': [
+    ['↑↓', 'move'],
+    ['space', 'toggle'],
+    ['a', 'all'],
+    ['↵', 'confirm'],
+    ['esc', 'back'],
+    ['^c', 'quit'],
+  ],
+  'playlist-quality': [
+    ['↑↓', 'choose'],
+    ['↵', 'download'],
+    ['esc', 'back'],
+    ['^c', 'quit'],
+  ],
+  'playlist-downloading': [
+    ['esc', 'cancel'],
+    ['^c', 'quit'],
+  ],
+  'playlist-done': [['^c', 'quit']],
   done: [['^c', 'quit']],
   error: [
     ['↵', 'try again'],
@@ -143,12 +207,12 @@ export function App({initialThemeMode = 'auto', ...props}: AppProps) {
 
   return (
     <ThemeProvider mode={themeMode}>
-      <AppContent {...props} cycleTheme={cycleTheme} />
+      <InnerApp {...props} cycleTheme={cycleTheme} />
     </ThemeProvider>
   )
 }
 
-function AppContent({
+function InnerApp({
   initialUrl,
   clipboardUrl,
   autoSelect,
@@ -173,7 +237,7 @@ function AppContent({
   const [info, setInfo] = useState<VideoInfo>()
   const [choices, setChoices] = useState<DownloadChoice[]>([])
   const ytdlpRef = useRef('')
-  const highlightRef = useRef(0) // choice under the cursor, for the ↵ hint click
+  const highlightRef = useRef(0)
   const infoJsonRef = useRef<string | undefined>(undefined)
   const abortRef = useRef<AbortController | undefined>(undefined)
   const [phase, setPhase] = useState<Phase>(initialUrl ? {name: 'probing', status: 'warming up…'} : {name: 'input'})
@@ -201,7 +265,6 @@ function AppContent({
           const base = {ytdlp: ytdlpRef.current, ffmpegLocation, url: targetUrl, choice, outDir: targetDir}
           let filepath: string
           try {
-            // reuse the probe's metadata — starts immediately instead of re-extracting
             filepath = await download(
               {...base, infoJsonPath: cachedInfoJsonPath ?? infoJsonRef.current},
               handlers,
@@ -209,7 +272,6 @@ function AppContent({
             )
           } catch (error) {
             if (controller.signal.aborted) throw error
-            // media urls in the cached info can expire — retry with a fresh extraction
             setPhase(prev =>
               prev.name === 'downloading' ? {...prev, progress: undefined, refreshing: true} : prev,
             )
@@ -218,6 +280,100 @@ function AppContent({
           onOutcome({filepath})
           setHistory(addToHistory(targetUrl))
           setPhase({name: 'done', filepath})
+          if (autoSelect) {
+            exit()
+          }
+        } catch (error) {
+          if (controller.signal.aborted) return
+          setPhase({name: 'error', message: error instanceof Error ? error.message : String(error)})
+          if (autoSelect) {
+            exit(error instanceof Error ? error : new Error(String(error)))
+          }
+        }
+      })()
+    },
+    [outDir, onOutcome, autoSelect, exit],
+  )
+
+  const executeBatchDownload = useCallback(
+    (playlist: PlaylistMetadata, queue: PlaylistEntry[], tier: QualityTier) => {
+      const controller = new AbortController()
+      abortRef.current = controller
+      setPhase({
+        name: 'playlist-downloading',
+        playlist,
+        queue,
+        tier,
+        currentIndex: 0,
+        skippedCount: 0,
+        processing: false,
+      })
+
+      void (async () => {
+        try {
+          const baseDir = outDir ?? OUT_DIR
+          const playlistDir = resolvePlaylistDir(baseDir, playlist.title)
+          await fs.mkdir(playlistDir, {recursive: true})
+          const ffmpegLocation = await findFfmpeg()
+          const choice: DownloadChoice = {
+            label: tier,
+            kind: tier === 'mp3' ? 'audio' : 'video',
+            args: buildQualityTierArgs(tier),
+          }
+          const ext = tier === 'mp3' ? 'mp3' : 'mp4'
+
+          let succeeded = 0
+          let skipped = 0
+
+          for (let i = 0; i < queue.length; i++) {
+            if (controller.signal.aborted) break
+            const entry = queue[i]!
+            const filename = formatTrackFilename(entry.index, queue.length, entry.title, ext)
+            const targetPath = path.join(playlistDir, filename)
+
+            setPhase(prev =>
+              prev.name === 'playlist-downloading'
+                ? {...prev, currentIndex: i, skippedCount: skipped, progress: undefined, processing: false}
+                : prev,
+            )
+
+            try {
+              await download(
+                {
+                  ytdlp: ytdlpRef.current,
+                  ffmpegLocation,
+                  url: entry.url,
+                  choice,
+                  outDir: playlistDir,
+                  outputTemplate: targetPath,
+                },
+                {
+                  onProgress: progress =>
+                    setPhase(prev =>
+                      prev.name === 'playlist-downloading' ? {...prev, progress, processing: false} : prev,
+                    ),
+                  onProcessing: () =>
+                    setPhase(prev =>
+                      prev.name === 'playlist-downloading' ? {...prev, processing: true} : prev,
+                    ),
+                },
+                controller.signal,
+              )
+              succeeded++
+            } catch (err) {
+              if (controller.signal.aborted) throw err
+              skipped++
+            }
+          }
+
+          onOutcome({filepath: playlistDir})
+          setPhase({
+            name: 'playlist-done',
+            playlistTitle: playlist.title,
+            downloadCount: succeeded,
+            skippedCount: skipped,
+            targetDir: playlistDir,
+          })
           if (autoSelect) {
             exit()
           }
@@ -246,9 +402,24 @@ function AppContent({
         ytdlpRef.current = ytdlp
         if (controller.signal.aborted) return
         setPhase({name: 'probing', status: 'fetching video info…'})
-        const {info: videoInfo, infoJsonPath} = await probe(ytdlp, targetUrl, controller.signal)
+        const probeResult = await probe(ytdlp, targetUrl, controller.signal)
         if (controller.signal.aborted) return
-        infoJsonRef.current = infoJsonPath
+
+        if (probeResult.kind === 'playlist') {
+          if (autoSelect) {
+            executeBatchDownload(probeResult.playlist, probeResult.playlist.validEntries, autoSelect)
+          } else {
+            setPhase({
+              name: 'playlist-scope',
+              playlist: probeResult.playlist,
+              singleVideoUrl: probeResult.singleVideoUrl,
+            })
+          }
+          return
+        }
+
+        const videoInfo = probeResult.info
+        infoJsonRef.current = probeResult.infoJsonPath
         setInfo(videoInfo)
         const availableChoices = buildChoices(videoInfo)
         setChoices(availableChoices)
@@ -258,7 +429,7 @@ function AppContent({
             autoSelect === 'mp3'
               ? (availableChoices.find(c => c.kind === 'audio') ?? availableChoices[availableChoices.length - 1]!)
               : (availableChoices.find(c => c.kind === 'video') ?? availableChoices[0]!)
-          executeDownload(picked, targetUrl, infoJsonPath)
+          executeDownload(picked, targetUrl, probeResult.infoJsonPath)
         } else {
           setPhase({name: 'picking'})
         }
@@ -270,7 +441,7 @@ function AppContent({
         }
       }
     },
-    [autoSelect, executeDownload, exit],
+    [autoSelect, executeDownload, executeBatchDownload, exit],
   )
 
   useEffect(() => {
@@ -289,7 +460,7 @@ function AppContent({
   const cancelRun = useCallback(() => {
     abortRef.current?.abort()
     resetToInput()
-    setUrlInput(url) // keep the link around so a cancel isn't destructive
+    setUrlInput(url)
   }, [resetToInput, url])
 
   useInput(
@@ -298,9 +469,12 @@ function AppContent({
         cycleTheme()
         return
       }
-      if (key.escape && (phase.name === 'picking' || phase.name === 'error' || phase.name === 'done')) resetToInput()
-      if (key.escape && (phase.name === 'probing' || phase.name === 'downloading')) cancelRun()
-      if (key.return && (phase.name === 'error' || phase.name === 'done')) resetToInput()
+      if (key.escape && (phase.name === 'picking' || phase.name === 'error' || phase.name === 'done' || phase.name === 'playlist-scope' || phase.name === 'playlist-done')) resetToInput()
+      if (key.escape && phase.name === 'playlist-quality') {
+        setPhase({name: 'playlist-scope', playlist: phase.playlist, singleVideoUrl: phase.singleVideoUrl})
+      }
+      if (key.escape && (phase.name === 'probing' || phase.name === 'downloading' || phase.name === 'playlist-downloading')) cancelRun()
+      if (key.return && (phase.name === 'error' || phase.name === 'done' || phase.name === 'playlist-done')) resetToInput()
     },
     {isActive: Boolean(process.stdin.isTTY)},
   )
@@ -328,23 +502,24 @@ function AppContent({
     hints = [hints[0]!, ['↑', 'history'], ...hints.slice(1)]
   }
 
-  // Anything a mouse user would expect to press is clickable. Targets are
-  // found by their text in the rendered frame (see lib/click-map.ts), so
-  // there is no layout math to keep in sync.
   const hintAction = (key: string): (() => void) | undefined => {
     if (key === '^c') return () => exit()
     if (key === '^t') return cycleTheme
-    if (key === 'esc') return phase.name === 'probing' || phase.name === 'downloading' ? cancelRun : resetToInput
+    if (key === 'esc') {
+      if (phase.name === 'probing' || phase.name === 'downloading' || phase.name === 'playlist-downloading') return cancelRun
+      if (phase.name === 'playlist-quality') return () => setPhase({name: 'playlist-scope', playlist: phase.playlist, singleVideoUrl: phase.singleVideoUrl})
+      return resetToInput
+    }
     if (key === '↵') {
       if (phase.name === 'input') return () => handleUrlSubmit(urlInput)
       if (phase.name === 'picking') return () => handlePick({value: highlightRef.current})
-      if (phase.name === 'error' || phase.name === 'done') return resetToInput
+      if (phase.name === 'error' || phase.name === 'done' || phase.name === 'playlist-done') return resetToInput
     }
-    return undefined // ↑↓ / ↑ stay keyboard-only
+    return undefined
   }
+
   const clickTargets: ClickTarget[] = []
   if (phase.name === 'input') {
-    // the frame button rows above/below the label are part of the button
     clickTargets.push({match: `  ${DOWNLOAD_BUTTON}  `, padY: 1, action: () => handleUrlSubmit(urlInput)})
     if (clipboardOffered && clipboardUrl) {
       clickTargets.push({match: 'Tab to paste it', action: () => setUrlInput(clipboardUrl)})
@@ -359,7 +534,7 @@ function AppContent({
       clickTargets.push({match: choiceLabel(choice), action: () => handlePick({value: index})})
     }
   }
-  if (phase.name === 'done') {
+  if (phase.name === 'done' || phase.name === 'playlist-done') {
     clickTargets.push({match: DONE_LABEL, padX: 4, padY: 1, action: resetToInput})
   }
   for (const [key, label] of hints) {
@@ -369,12 +544,11 @@ function AppContent({
 
   useMouseClick(
     (x, y) => {
-      // the logo takes you home — it's the 3 rows one gap above the tagline
       const taglineRow = findFrameRow(TAGLINE)
       if (taglineRow > 3 && y - 1 >= taglineRow - 4 && y - 1 <= taglineRow - 2) {
         const span = frameRowSpan(y - 1)
         if (span && x >= span[0] - 1 && x <= span[1] + 1) {
-          if (phase.name === 'probing' || phase.name === 'downloading') cancelRun()
+          if (phase.name === 'probing' || phase.name === 'downloading' || phase.name === 'playlist-downloading') cancelRun()
           else if (phase.name !== 'input') resetToInput()
           return
         }
@@ -426,11 +600,121 @@ function AppContent({
         </Box>
       )}
 
+      {phase.name === 'playlist-scope' && (
+        <Box justifyContent="center">
+          <PlaylistScopePicker
+            playlistTitle={phase.playlist.title}
+            totalCount={phase.playlist.validEntries.length}
+            hasSingleVideo={Boolean(phase.singleVideoUrl)}
+            onSelect={(choice: PlaylistScopeChoice) => {
+              if (choice === 'full') {
+                setPhase({
+                  name: 'playlist-quality',
+                  playlist: phase.playlist,
+                  selectedEntries: phase.playlist.validEntries,
+                  singleVideoUrl: phase.singleVideoUrl,
+                })
+              } else if (choice === 'select') {
+                setPhase({
+                  name: 'playlist-items',
+                  playlist: phase.playlist,
+                  singleVideoUrl: phase.singleVideoUrl,
+                })
+              } else if (choice === 'single' && phase.singleVideoUrl) {
+                setUrl(phase.singleVideoUrl)
+                void startProbe(phase.singleVideoUrl)
+              }
+            }}
+            onBack={resetToInput}
+            width={boxWidth}
+          />
+        </Box>
+      )}
+
+      {phase.name === 'playlist-items' && (
+        <Box justifyContent="center">
+          <PlaylistItemPicker
+            entries={phase.playlist.validEntries}
+            onConfirm={selected => {
+              setPhase({
+                name: 'playlist-quality',
+                playlist: phase.playlist,
+                selectedEntries: selected,
+                singleVideoUrl: phase.singleVideoUrl,
+              })
+            }}
+            onBack={() => {
+              setPhase({
+                name: 'playlist-scope',
+                playlist: phase.playlist,
+                singleVideoUrl: phase.singleVideoUrl,
+              })
+            }}
+            width={Math.min(contentWidth, 68)}
+          />
+        </Box>
+      )}
+
+      {phase.name === 'playlist-quality' && (
+        <Box justifyContent="center">
+          <PlaylistQualityPicker
+            itemCount={phase.selectedEntries.length}
+            onSelect={tier => {
+              executeBatchDownload(phase.playlist, phase.selectedEntries, tier)
+            }}
+            onBack={() => {
+              setPhase({
+                name: 'playlist-scope',
+                playlist: phase.playlist,
+                singleVideoUrl: phase.singleVideoUrl,
+              })
+            }}
+            width={boxWidth}
+          />
+        </Box>
+      )}
+
+      {phase.name === 'playlist-downloading' && (
+        <Box justifyContent="center">
+          <PlaylistProgress
+            playlistTitle={phase.playlist.title}
+            currentTitle={phase.queue[phase.currentIndex]?.title ?? 'Downloading...'}
+            currentIndex={phase.currentIndex}
+            totalCount={phase.queue.length}
+            progress={phase.progress}
+            processing={phase.processing}
+            skippedCount={phase.skippedCount}
+            width={Math.min(contentWidth, 68)}
+          />
+        </Box>
+      )}
+
+      {phase.name === 'playlist-done' && (
+        <Box flexDirection="column" alignItems="center">
+          <Text>
+            <Text bold color={theme.primary}>✓ playlist downloaded! </Text>
+            <Text color={theme.primary}>saved to:</Text>
+          </Text>
+          <Text color={theme.gray} dimColor={theme.dimSecondary}>{shortenPath(phase.targetDir, os.homedir(), 60)}</Text>
+          <Text color={theme.gray} dimColor={theme.dimSecondary}>
+            {`${phase.downloadCount} video${phase.downloadCount === 1 ? '' : 's'} downloaded` + (phase.skippedCount > 0 ? ` (${phase.skippedCount} skipped)` : '')}
+          </Text>
+          <Gap />
+          <Box
+            borderStyle="round"
+            borderColor={theme.gray}
+            borderDimColor={theme.dimSecondary}
+            borderBackgroundColor={theme.background}
+            paddingX={3}
+          >
+            <Text bold color={theme.primary}>{DONE_LABEL}</Text>
+          </Box>
+        </Box>
+      )}
+
       {phase.name === 'picking' && platform && (
         <Box width={contentWidth}>
           <Box flexDirection="column" flexGrow={1} flexBasis={0} paddingTop={1} paddingRight={3}>
-            {/* wrapped by hand so continuation lines stay flush left —
-                ink's wrapping keeps the break's space as a 1-cell indent */}
             {wrapText(info?.title ?? '', Math.max(10, contentWidth - 41)).map((line, index) => (
               <Text key={index} bold color={theme.primary}>
                 {line}
@@ -466,7 +750,6 @@ function AppContent({
             {phase.choice.label}
           </Text>
           <Gap />
-          {/* every branch is exactly three rows — bar, gap, meta — so the layout never jumps */}
           {phase.processing ? (
             <>
               <ProgressBar percent={1} />
