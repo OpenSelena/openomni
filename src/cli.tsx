@@ -14,6 +14,7 @@ import {
   formatTrackFilename,
   getQualityTierExt,
   resolvePlaylistDir,
+  sanitizeFilename,
   type QualityTier,
 } from './lib/playlist.js'
 import {
@@ -21,6 +22,7 @@ import {
   resolveRuntimeConfig,
 } from './lib/config.js'
 import {generateCompletion} from './lib/completion.js'
+import {probeUnified, downloadUnifiedItem} from './lib/dispatcher.js'
 
 // read at runtime from the shipped package.json so npm version bumps
 // can't drift from a hardcoded constant
@@ -46,6 +48,8 @@ const HELP = `
     --embed-subs    embed subtitles into video container file
     --thumb         download thumbnail image
     --embed-thumb   embed thumbnail into audio/video container file
+    --photos-only   download only photos from post or carousel
+    --videos-only   download only videos from post or carousel
     -o, --output    output directory (default: ~/Downloads, or $OPEN_OMNI_DIR)
     -U, --update    update bundled yt-dlp to latest version (--update-ytdlp)
     --force         force re-download clean yt-dlp binary (with -U)
@@ -55,7 +59,7 @@ const HELP = `
     -v, --version   show version
 
   Downloads are saved to ~/Downloads (or custom output directory).
-  Powered by yt-dlp — YouTube, X, Instagram, Threads, TikTok & 1800+ sites.
+  Powered by yt-dlp & gallery-dl — YouTube, X, Instagram, Threads, TikTok & 1800+ sites.
 `
 
 const args = parseArgs(process.argv.slice(2))
@@ -118,59 +122,87 @@ const initialThemeMode = runtimeConfig.themeMode
 const outDir = runtimeConfig.outDir
 const subtitles = runtimeConfig.subtitles
 const thumbnail = runtimeConfig.thumbnail
+const mediaFilter = args.photosOnly ? 'photos' : args.videosOnly ? 'videos' : 'all'
 const isTTY = Boolean(process.stdout.isTTY)
 
-if (!isTTY && effectiveFormat && initialUrl) {
+if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initialUrl) {
   try {
     await fs.mkdir(outDir, {recursive: true})
     const ytdlp = await ensureYtDlp(status => console.error(`[open-omni] ${status}`))
-    console.error(`[open-omni] fetching video info…`)
-    const probeResult = await probe(ytdlp, initialUrl)
+    console.error(`[open-omni] fetching media info…`)
+    const probeResult = await probeUnified({
+      url: initialUrl,
+      ytdlp,
+      mediaFilter,
+      onStatus: status => console.error(`[open-omni] ${status}`),
+    })
 
-    if (probeResult.kind === 'playlist') {
+    if (probeResult.kind === 'single_photo') {
+      const item = probeResult.item
+      const filename = `${sanitizeFilename(probeResult.postTitle)}.${item.ext || 'jpg'}`
+      console.error(`[open-omni] downloading photo “${probeResult.postTitle}”…`)
+      const filepath = await downloadUnifiedItem({
+        item: {
+          id: item.id,
+          title: probeResult.postTitle,
+          url: item.url,
+          index: 1,
+          kind: 'photo',
+          ext: item.ext,
+        },
+        destDir: outDir,
+        filename,
+        ytdlp,
+        choice: {
+          label: 'original photo',
+          kind: 'photo',
+          args: [],
+        },
+      })
+      console.log(`✓ downloaded → ${filepath}`)
+      process.exit(0)
+    }
+
+    if (probeResult.kind === 'playlist' || probeResult.kind === 'mixed_post') {
       const playlist = probeResult.playlist
       const playlistDir = resolvePlaylistDir(outDir, playlist.title)
       await fs.mkdir(playlistDir, {recursive: true})
-      console.error(`[open-omni] found playlist “${playlist.title}” (${playlist.validEntries.length} items)`)
+      console.error(
+        `[open-omni] found ${probeResult.kind === 'mixed_post' ? 'post' : 'playlist'} “${playlist.title}” (${playlist.validEntries.length} items)`,
+      )
       const ffmpegLocation = await findFfmpeg()
-      const tier = effectiveFormat as QualityTier
+      const tier = (effectiveFormat ?? 'best') as QualityTier
       const choice: DownloadChoice = {
-        label: effectiveFormat,
-        kind: effectiveFormat === 'mp3' ? 'audio' : 'video',
+        label: tier,
+        kind: tier === 'mp3' ? 'audio' : 'video',
         args: buildQualityTierArgs(tier),
       }
       let succeeded = 0
       let skipped = 0
 
       for (const entry of playlist.validEntries) {
-        const filename = formatTrackFilename(entry.index, playlist.validEntries.length, entry.title, '%(ext)s')
-        const targetPath = path.join(playlistDir, filename)
         console.error(`[open-omni] [${entry.index}/${playlist.validEntries.length}] downloading “${entry.title}”…`)
 
         try {
-          await download(
-            {
-              ytdlp,
-              ffmpegLocation,
-              url: entry.url,
-              choice,
-              outDir: playlistDir,
-              outputTemplate: targetPath,
-              subtitles,
-              thumbnail,
+          await downloadUnifiedItem({
+            item: entry,
+            destDir: playlistDir,
+            totalCount: playlist.validEntries.length,
+            ytdlp,
+            ffmpegLocation,
+            choice,
+            subtitles,
+            thumbnail,
+            onProgress: progress => {
+              if (progress.totalBytes) {
+                const pct = Math.round((progress.downloadedBytes / progress.totalBytes) * 100)
+                process.stderr.write(`\r[open-omni] downloading: ${pct}%`)
+              }
             },
-            {
-              onProgress: progress => {
-                if (progress.totalBytes) {
-                  const pct = Math.round((progress.downloadedBytes / progress.totalBytes) * 100)
-                  process.stderr.write(`\r[open-omni] downloading: ${pct}%`)
-                }
-              },
-              onProcessing: () => {
-                process.stderr.write(`\r[open-omni] processing…\n`)
-              },
+            onProcessing: () => {
+              process.stderr.write(`\r[open-omni] processing…\n`)
             },
-          )
+          })
           process.stderr.write('\n')
           succeeded++
         } catch (err) {
@@ -262,6 +294,7 @@ const {waitUntilExit} = render(
     version={VERSION}
     initialSubtitles={subtitles}
     initialThumbnail={thumbnail}
+    mediaFilter={mediaFilter}
     onOutcome={result => (outcome = result)}
   />,
   // keep a copy of every frame so clicks can be hit-tested against it

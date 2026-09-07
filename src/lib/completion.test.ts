@@ -51,6 +51,8 @@ test('generateCompletion for bash generates valid bash completion script', () =>
   assert.ok(script.includes('--embed-subs'))
   assert.ok(script.includes('--thumb'))
   assert.ok(script.includes('--embed-thumb'))
+  assert.ok(script.includes('--photos-only'))
+  assert.ok(script.includes('--videos-only'))
   assert.ok(script.includes('--update'))
   assert.ok(script.includes('--force'))
 })
@@ -67,6 +69,8 @@ test('generateCompletion for zsh generates valid zsh completion script', () => {
   assert.ok(script.includes('--subs'))
   assert.ok(script.includes('--thumb'))
   assert.ok(script.includes('--embed-thumb'))
+  assert.ok(script.includes('--photos-only'))
+  assert.ok(script.includes('--videos-only'))
 })
 
 test('generateCompletion for fish generates valid fish completion script', () => {
@@ -79,6 +83,8 @@ test('generateCompletion for fish generates valid fish completion script', () =>
   assert.ok(script.includes('-l completion'))
   assert.ok(script.includes('-l subs'))
   assert.ok(script.includes('-l thumb'))
+  assert.ok(script.includes('-l photos-only'))
+  assert.ok(script.includes('-l videos-only'))
 })
 
 test('generateCompletion for powershell generates valid Register-ArgumentCompleter script', () => {
@@ -93,6 +99,8 @@ test('generateCompletion for powershell generates valid Register-ArgumentComplet
   assert.ok(script.includes('--completion'))
   assert.ok(script.includes('--subs'))
   assert.ok(script.includes('--thumb'))
+  assert.ok(script.includes('--photos-only'))
+  assert.ok(script.includes('--videos-only'))
   assert.ok(script.includes('Get-ChildItem -Directory'))
   assert.ok(script.includes('[string]::IsNullOrEmpty($wordToComplete)'))
 })

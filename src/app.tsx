@@ -41,17 +41,23 @@ import {
   formatTrackFilename,
   getQualityTierExt,
   resolvePlaylistDir,
+  sanitizeFilename,
   type PlaylistEntry,
   type PlaylistMetadata,
   type QualityTier,
 } from './lib/playlist.js'
+import {downloadUnifiedItem, probeUnified} from './lib/dispatcher.js'
 
 const OUT_DIR = path.join(os.homedir(), 'Downloads')
 const DOWNLOAD_BUTTON = 'download'
 const DONE_LABEL = '↵ download another'
 const TAGLINE = 'grab any video. paste. download. done.'
 
-const choiceLabel = (choice: DownloadChoice) => `${choice.kind === 'audio' ? '♪ ' : '▶ '}${choice.label}`
+const choiceLabel = (choice: DownloadChoice) => {
+  if (choice.kind === 'audio') return `♪ ${choice.label}`
+  if (choice.kind === 'photo') return `📷 ${choice.label}`
+  return `▶ ${choice.label}`
+}
 
 function ChoiceIndicator({isSelected}: IndicatorProps) {
   const theme = useTheme()
@@ -104,6 +110,7 @@ type Phase =
   | {
       name: 'downloading'
       choice: DownloadChoice
+      title?: string
       progress?: DownloadProgress
       processing: boolean
       refreshing?: boolean
@@ -141,6 +148,7 @@ type Phase =
       downloadCount: number
       skippedCount: number
       targetDir: string
+      hasPhotos?: boolean
     }
   | {name: 'done'; filepath: string}
   | {name: 'error'; message: string}
@@ -209,6 +217,7 @@ type AppProps = {
   version?: string
   initialSubtitles?: SubtitleOptions
   initialThumbnail?: ThumbnailOptions
+  mediaFilter?: 'all' | 'photos' | 'videos'
   onOutcome: (outcome: Outcome) => void
 }
 
@@ -233,6 +242,7 @@ function InnerApp({
   version = '1.0.0',
   initialSubtitles,
   initialThumbnail,
+  mediaFilter = 'all',
   onOutcome,
   cycleTheme,
 }: {
@@ -243,6 +253,7 @@ function InnerApp({
   version?: string
   initialSubtitles?: SubtitleOptions
   initialThumbnail?: ThumbnailOptions
+  mediaFilter?: 'all' | 'photos' | 'videos'
   onOutcome: (outcome: Outcome) => void
   cycleTheme: () => void
 }) {
@@ -258,6 +269,7 @@ function InnerApp({
   const [subtitles, setSubtitles] = useState<SubtitleOptions | undefined>(initialSubtitles)
   const [thumbnail, setThumbnail] = useState<ThumbnailOptions | undefined>(initialThumbnail)
   const ytdlpRef = useRef('')
+  const gallerydlRef = useRef('')
   const highlightRef = useRef(0)
   const infoJsonRef = useRef<string | undefined>(undefined)
   const abortRef = useRef<AbortController | undefined>(undefined)
@@ -365,8 +377,6 @@ function InnerApp({
           for (let i = 0; i < queue.length; i++) {
             if (controller.signal.aborted) break
             const entry = queue[i]!
-            const filename = formatTrackFilename(entry.index, queue.length, entry.title, '%(ext)s')
-            const targetPath = path.join(playlistDir, filename)
 
             setPhase(prev =>
               prev.name === 'playlist-downloading'
@@ -375,29 +385,32 @@ function InnerApp({
             )
 
             try {
-              await download(
-                {
-                  ytdlp: ytdlpRef.current,
-                  ffmpegLocation,
-                  url: entry.url,
-                  choice,
-                  outDir: playlistDir,
-                  outputTemplate: targetPath,
-                  subtitles: subtitles?.enabled ? subtitles : undefined,
-                  thumbnail: thumbnail?.enabled ? thumbnail : undefined,
-                },
-                {
-                  onProgress: progress =>
-                    setPhase(prev =>
-                      prev.name === 'playlist-downloading' ? {...prev, progress, processing: false} : prev,
-                    ),
-                  onProcessing: () =>
-                    setPhase(prev =>
-                      prev.name === 'playlist-downloading' ? {...prev, processing: true} : prev,
-                    ),
-                },
-                controller.signal,
-              )
+              await downloadUnifiedItem({
+                item: entry,
+                destDir: playlistDir,
+                totalCount: queue.length,
+                ytdlp: ytdlpRef.current,
+                gallerydl: gallerydlRef.current,
+                ffmpegLocation,
+                choice,
+                subtitles: subtitles?.enabled ? subtitles : undefined,
+                thumbnail: thumbnail?.enabled ? thumbnail : undefined,
+                signal: controller.signal,
+                onProgress: progress =>
+                  setPhase(prev =>
+                    prev.name === 'playlist-downloading'
+                      ? {
+                          ...prev,
+                          progress,
+                          processing: false,
+                        }
+                      : prev,
+                  ),
+                onProcessing: () =>
+                  setPhase(prev =>
+                    prev.name === 'playlist-downloading' ? {...prev, processing: true} : prev,
+                  ),
+              })
               succeeded++
             } catch (err) {
               if (controller.signal.aborted) throw err
@@ -418,6 +431,7 @@ function InnerApp({
             downloadCount: succeeded,
             skippedCount: skipped,
             targetDir: playlistDir,
+            hasPhotos: queue.some(e => e.kind === 'photo'),
           })
           if (autoSelect) {
             exit()
@@ -446,9 +460,95 @@ function InnerApp({
           (await ensureYtDlp(status => setPhase({name: 'probing', status}), controller.signal))
         ytdlpRef.current = ytdlp
         if (controller.signal.aborted) return
-        setPhase({name: 'probing', status: 'fetching video info…'})
-        const probeResult = await probe(ytdlp, targetUrl, controller.signal)
+
+        const gallerydl = gallerydlRef.current || undefined
+
+        setPhase({name: 'probing', status: 'fetching media info…'})
+        const probeResult = await probeUnified({
+          url: targetUrl,
+          ytdlp,
+          gallerydl,
+          mediaFilter,
+          signal: controller.signal,
+          onStatus: status => setPhase({name: 'probing', status}),
+        })
         if (controller.signal.aborted) return
+
+        if (probeResult.kind === 'single_photo') {
+          const item = probeResult.item
+          const postTitle = probeResult.postTitle
+          const baseDir = outDir ?? OUT_DIR
+          await fs.mkdir(baseDir, {recursive: true})
+          const ext = item.ext || 'jpg'
+          const filename = `${sanitizeFilename(postTitle)}.${ext}`
+          setPhase({
+            name: 'downloading',
+            choice: {
+              label: 'original photo',
+              kind: 'photo',
+              args: [],
+            },
+            title: postTitle,
+            processing: false,
+          })
+          try {
+            const filepath = await downloadUnifiedItem({
+              item: {
+                id: item.id,
+                title: postTitle,
+                url: item.url,
+                index: 1,
+                kind: 'photo',
+                ext,
+              },
+              destDir: baseDir,
+              filename,
+              ytdlp,
+              gallerydl: gallerydlRef.current,
+              choice: {
+                label: 'original photo',
+                kind: 'photo',
+                args: [],
+              },
+              signal: controller.signal,
+              onProgress: progress => {
+                setPhase(prev =>
+                  prev.name === 'downloading'
+                    ? {
+                        ...prev,
+                        progress,
+                        processing: false,
+                      }
+                    : prev,
+                )
+              },
+            })
+            onOutcome({filepath})
+            setPhase({name: 'done', filepath})
+            if (autoSelect) {
+              exit()
+            }
+          } catch (err) {
+            if (controller.signal.aborted) return
+            setPhase({name: 'error', message: err instanceof Error ? err.message : String(err)})
+            if (autoSelect) {
+              exit(err instanceof Error ? err : new Error(String(err)))
+            }
+          }
+          return
+        }
+
+        if (probeResult.kind === 'mixed_post') {
+          if (autoSelect) {
+            executeBatchDownload(probeResult.playlist, probeResult.playlist.validEntries, 'best')
+          } else {
+            setPhase({
+              name: 'playlist-items',
+              playlist: probeResult.playlist,
+            })
+          }
+          return
+        }
 
         if (probeResult.kind === 'playlist') {
           if (autoSelect) {
@@ -486,7 +586,7 @@ function InnerApp({
         }
       }
     },
-    [autoSelect, executeDownload, executeBatchDownload, exit],
+    [autoSelect, executeDownload, executeBatchDownload, exit, mediaFilter, onOutcome, outDir],
   )
 
   useEffect(() => {
@@ -678,14 +778,20 @@ function InnerApp({
             playlistTitle={phase.playlist.title}
             totalCount={phase.playlist.validEntries.length}
             hasSingleVideo={Boolean(phase.singleVideoUrl)}
+            hasPhotos={phase.playlist.validEntries.some(e => e.kind === 'photo')}
             onSelect={(choice: PlaylistScopeChoice) => {
+              const allPhotos = phase.playlist.validEntries.every(e => e.kind === 'photo')
               if (choice === 'full') {
-                setPhase({
-                  name: 'playlist-quality',
-                  playlist: phase.playlist,
-                  selectedEntries: phase.playlist.validEntries,
-                  singleVideoUrl: phase.singleVideoUrl,
-                })
+                if (allPhotos) {
+                  executeBatchDownload(phase.playlist, phase.playlist.validEntries, 'best')
+                } else {
+                  setPhase({
+                    name: 'playlist-quality',
+                    playlist: phase.playlist,
+                    selectedEntries: phase.playlist.validEntries,
+                    singleVideoUrl: phase.singleVideoUrl,
+                  })
+                }
               } else if (choice === 'select') {
                 setPhase({
                   name: 'playlist-items',
@@ -708,19 +814,28 @@ function InnerApp({
           <PlaylistItemPicker
             entries={phase.playlist.validEntries}
             onConfirm={selected => {
-              setPhase({
-                name: 'playlist-quality',
-                playlist: phase.playlist,
-                selectedEntries: selected,
-                singleVideoUrl: phase.singleVideoUrl,
-              })
+              const allPhotos = selected.every(e => e.kind === 'photo')
+              if (allPhotos) {
+                executeBatchDownload(phase.playlist, selected, 'best')
+              } else {
+                setPhase({
+                  name: 'playlist-quality',
+                  playlist: phase.playlist,
+                  selectedEntries: selected,
+                  singleVideoUrl: phase.singleVideoUrl,
+                })
+              }
             }}
             onBack={() => {
-              setPhase({
-                name: 'playlist-scope',
-                playlist: phase.playlist,
-                singleVideoUrl: phase.singleVideoUrl,
-              })
+              if (phase.playlist.validEntries.some(e => e.kind === 'photo')) {
+                resetToInput()
+              } else {
+                setPhase({
+                  name: 'playlist-scope',
+                  playlist: phase.playlist,
+                  singleVideoUrl: phase.singleVideoUrl,
+                })
+              }
             }}
             width={Math.min(contentWidth, 68)}
           />
@@ -731,15 +846,24 @@ function InnerApp({
         <Box justifyContent="center">
           <PlaylistQualityPicker
             itemCount={phase.selectedEntries.length}
+            hasPhotos={phase.selectedEntries.some(e => e.kind === 'photo')}
             onSelect={tier => {
               executeBatchDownload(phase.playlist, phase.selectedEntries, tier)
             }}
             onBack={() => {
-              setPhase({
-                name: 'playlist-scope',
-                playlist: phase.playlist,
-                singleVideoUrl: phase.singleVideoUrl,
-              })
+              if (phase.playlist.validEntries.some(e => e.kind === 'photo')) {
+                setPhase({
+                  name: 'playlist-items',
+                  playlist: phase.playlist,
+                  singleVideoUrl: phase.singleVideoUrl,
+                })
+              } else {
+                setPhase({
+                  name: 'playlist-scope',
+                  playlist: phase.playlist,
+                  singleVideoUrl: phase.singleVideoUrl,
+                })
+              }
             }}
             width={boxWidth}
           />
@@ -765,12 +889,12 @@ function InnerApp({
       {phase.name === 'playlist-done' && (
         <Box flexDirection="column" alignItems="center">
           <Text>
-            <Text bold color={theme.primary}>✓ playlist downloaded! </Text>
+            <Text bold color={theme.primary}>{phase.hasPhotos ? '✓ post downloaded! ' : '✓ playlist downloaded! '}</Text>
             <Text color={theme.primary}>saved to:</Text>
           </Text>
           <Text color={theme.gray} dimColor={theme.dimSecondary}>{shortenPath(phase.targetDir, os.homedir(), 60)}</Text>
           <Text color={theme.gray} dimColor={theme.dimSecondary}>
-            {`${phase.downloadCount} video${phase.downloadCount === 1 ? '' : 's'} downloaded` + (phase.skippedCount > 0 ? ` (${phase.skippedCount} skipped)` : '')}
+            {`${phase.downloadCount} ${phase.hasPhotos ? 'item' : 'video'}${phase.downloadCount === 1 ? '' : 's'} downloaded` + (phase.skippedCount > 0 ? ` (${phase.skippedCount} skipped)` : '')}
           </Text>
           <Gap />
           <Box
@@ -819,8 +943,8 @@ function InnerApp({
       {phase.name === 'downloading' && (
         <Box flexDirection="column" alignItems="center">
           <Text color={theme.gray} dimColor={theme.dimSecondary}>
-            {info?.title ? `${truncate(info.title, 42)} · ` : ''}
-            {phase.choice.label}
+            {(phase.title || info?.title) ? `${truncate(phase.title || info!.title, 42)} · ` : ''}
+            {choiceLabel(phase.choice)}
           </Text>
           <Gap />
           {phase.processing ? (

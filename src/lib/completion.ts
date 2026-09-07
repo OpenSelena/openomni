@@ -28,7 +28,7 @@ _open_omni_completions() {
     cur="\${COMP_WORDS[COMP_CWORD]}"
     prev="\${COMP_WORDS[COMP_CWORD-1]}"
 
-    local options="--help -h --version -v --best --mp3 --output -o --theme --update --update-ytdlp -U --force --subs --embed-subs --thumb --embed-thumb --completion"
+    local options="--help -h --version -v --best --mp3 --output -o --theme --update --update-ytdlp -U --force --subs --embed-subs --thumb --embed-thumb --photos-only --videos-only --completion"
 
     case "$prev" in
         --theme)
@@ -77,6 +77,8 @@ _open_omni() {
         '--embed-subs[Embed subtitles directly into media container via ffmpeg]' \
         '--thumb[Save thumbnail image as adjacent JPEG file]' \
         '--embed-thumb[Embed thumbnail cover art directly into media tags]' \
+        '--photos-only[Download only photos from post or carousel]' \
+        '--videos-only[Download only videos from post or carousel]' \
         '--completion[Generate shell autocompletion script]:shell:(bash zsh fish powershell)'
 }
 
@@ -108,6 +110,8 @@ complete -c open-omni -l subs -d "Download subtitles/captions"
 complete -c open-omni -l embed-subs -d "Embed subtitles into media container"
 complete -c open-omni -l thumb -d "Save thumbnail image as adjacent JPEG"
 complete -c open-omni -l embed-thumb -d "Embed thumbnail cover art into media container"
+complete -c open-omni -l photos-only -d "Download only photos from post or carousel"
+complete -c open-omni -l videos-only -d "Download only videos from post or carousel"
 complete -c open-omni -l completion -x -a "bash zsh fish powershell" -d "Generate shell autocompletion script"
 `
 }
@@ -170,6 +174,8 @@ Register-ArgumentCompleter -Native -CommandName 'open-omni' -ScriptBlock {
         [System.Management.Automation.CompletionResult]::new('--embed-subs', '--embed-subs', 'ParameterName', 'Embed subtitles directly into media container'),
         [System.Management.Automation.CompletionResult]::new('--thumb', '--thumb', 'ParameterName', 'Save thumbnail image as adjacent JPEG file'),
         [System.Management.Automation.CompletionResult]::new('--embed-thumb', '--embed-thumb', 'ParameterName', 'Embed thumbnail cover art directly into media tags'),
+        [System.Management.Automation.CompletionResult]::new('--photos-only', '--photos-only', 'ParameterName', 'Download only photos from post or carousel'),
+        [System.Management.Automation.CompletionResult]::new('--videos-only', '--videos-only', 'ParameterName', 'Download only videos from post or carousel'),
         [System.Management.Automation.CompletionResult]::new('--completion', '--completion', 'ParameterName', 'Generate shell autocompletion script')
     )
 

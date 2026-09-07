@@ -298,7 +298,7 @@ export async function probe(ytdlp: string, url: string, signal?: AbortSignal): P
 
 export type DownloadChoice = {
   label: string
-  kind: 'video' | 'audio'
+  kind: 'video' | 'audio' | 'photo'
   args: string[]
 }
 

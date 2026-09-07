@@ -80,14 +80,20 @@ export function PlaylistItemPicker({
     }
   })
 
+  const hasPhotos = entries.some(e => e.kind === 'photo')
+  const titleText = hasPhotos
+    ? `Select Media (${selected.size}/${entries.length})`
+    : `Select Videos (${selected.size}/${entries.length})`
+
   return (
-    <Panel title={`Select Videos (${selected.size}/${entries.length})`} width={width}>
+    <Panel title={titleText} width={width}>
       <Box flexDirection="column" paddingY={1}>
         {pageEntries.map((entry, idx) => {
           const globalIdx = activePage * PAGE_SIZE + idx
           const isCursor = globalIdx === cursor
           const isChecked = selected.has(entry.id)
-          const title = entry.title.length > 44 ? `${entry.title.slice(0, 41)}...` : entry.title
+          const maxTitleLen = entry.kind ? 36 : 44
+          const title = entry.title.length > maxTitleLen ? `${entry.title.slice(0, maxTitleLen - 3)}...` : entry.title
 
           return (
             <Box key={entry.id}>
@@ -98,6 +104,15 @@ export function PlaylistItemPicker({
               <Text color={theme.gray} dimColor={theme.dimSecondary}>
                 {`${String(entry.index).padStart(2, '0')}. `}
               </Text>
+              {entry.kind === 'photo' ? (
+                <Text color="magenta" bold>
+                  {'[PHOTO] '}
+                </Text>
+              ) : entry.kind === 'video' ? (
+                <Text color="cyan" bold>
+                  {'[VIDEO] '}
+                </Text>
+              ) : null}
               <Text color={isCursor ? theme.primary : theme.primary} bold={isCursor}>
                 {title}
               </Text>

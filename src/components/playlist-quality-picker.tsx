@@ -7,6 +7,7 @@ import type { QualityTier } from '../lib/playlist.js'
 
 export type PlaylistQualityPickerProps = {
   itemCount: number
+  hasPhotos?: boolean
   onSelect: (tier: QualityTier) => void
   onBack: () => void
   width?: number
@@ -14,6 +15,7 @@ export type PlaylistQualityPickerProps = {
 
 export function PlaylistQualityPicker({
   itemCount,
+  hasPhotos = false,
   onSelect,
   onBack,
   width = 54,
@@ -27,8 +29,12 @@ export function PlaylistQualityPicker({
     { label: '♪ Audio only (MP3)', value: 'mp3' as QualityTier },
   ]
 
+  const title = hasPhotos
+    ? `Select Video Quality (${itemCount} items)`
+    : `Select Quality (${itemCount} videos)`
+
   return (
-    <Panel title={`Select Quality (${itemCount} videos)`} width={width}>
+    <Panel title={title} width={width}>
       <Box flexDirection="column" paddingY={1}>
         <SelectInput
           items={items}

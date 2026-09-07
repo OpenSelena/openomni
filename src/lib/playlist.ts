@@ -8,6 +8,8 @@ export type PlaylistEntry = {
   url: string
   duration?: number | null
   index: number
+  kind?: 'video' | 'audio' | 'photo'
+  ext?: string
 }
 
 export type PlaylistMetadata = {

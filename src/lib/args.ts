@@ -19,6 +19,8 @@ export type CliArgs = {
   embedSubs?: boolean
   thumb?: boolean
   embedThumb?: boolean
+  photosOnly?: boolean
+  videosOnly?: boolean
   completion?: CompletionTarget
   error?: string
 }
@@ -95,6 +97,10 @@ export function parseArgs(args: string[]): CliArgs {
       const value = arg.slice('--theme='.length)
       if (!isThemeMode(value)) return {...result, error: `unknown theme “${value}” — use auto, light, or dark`}
       result.themeMode = value
+    } else if (arg === '--photos-only') {
+      result.photosOnly = true
+    } else if (arg === '--videos-only') {
+      result.videosOnly = true
     } else if (arg === '--completion' || arg.startsWith('--completion=')) {
       const value = arg === '--completion' ? args[++index] : arg.slice('--completion='.length)
       if (!value) return {...result, error: '--completion needs a shell: bash, zsh, fish, or powershell'}
@@ -110,6 +116,10 @@ export function parseArgs(args: string[]): CliArgs {
 
   if (positional.length > 1) return {...result, error: 'expected a single url'}
   if (positional.length === 1) result.initialUrl = positional[0]
+
+  if (result.photosOnly && result.videosOnly) {
+    return {...result, error: 'cannot use both --photos-only and --videos-only'}
+  }
 
   if (result.force && !result.updateYtDlp) {
     return {...result, error: '--force can only be used with -U or --update-ytdlp'}

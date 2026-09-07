@@ -10,6 +10,7 @@ export type PlaylistScopePickerProps = {
   playlistTitle: string
   totalCount: number
   hasSingleVideo: boolean
+  hasPhotos?: boolean
   onSelect: (choice: PlaylistScopeChoice) => void
   onBack: () => void
   width?: number
@@ -19,6 +20,7 @@ export function PlaylistScopePicker({
   playlistTitle,
   totalCount,
   hasSingleVideo,
+  hasPhotos = false,
   onSelect,
   onBack,
   width = 54,
@@ -27,7 +29,9 @@ export function PlaylistScopePicker({
 
   const items = [
     {
-      label: `▶ Download full playlist (${totalCount} videos)`,
+      label: hasPhotos
+        ? `▶ Download all (${totalCount} items)`
+        : `▶ Download full playlist (${totalCount} videos)`,
       value: 'full' as PlaylistScopeChoice,
     },
     {
@@ -44,7 +48,7 @@ export function PlaylistScopePicker({
   }
 
   return (
-    <Panel title="Playlist Detected" width={width}>
+    <Panel title={hasPhotos ? 'Post Detected' : 'Playlist Detected'} width={width}>
       <Box flexDirection="column" paddingY={1}>
         <Box marginBottom={1}>
           <Text color={theme.primary} bold>

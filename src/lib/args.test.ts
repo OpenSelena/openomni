@@ -216,6 +216,27 @@ test('parses shell autocompletion flags (--completion <shell>)', () => {
   assert.match(parseArgs(['--completion', 'cmd']).error ?? '', /unknown shell/)
 })
 
+test('parses media filter flags (--photos-only, --videos-only)', () => {
+  assert.deepEqual(parseArgs(['--photos-only', 'https://example.com/post']), {
+    help: false,
+    version: false,
+    photosOnly: true,
+    initialUrl: 'https://example.com/post',
+  })
+
+  assert.deepEqual(parseArgs(['--videos-only', 'https://example.com/post']), {
+    help: false,
+    version: false,
+    videosOnly: true,
+    initialUrl: 'https://example.com/post',
+  })
+
+  assert.match(
+    parseArgs(['--photos-only', '--videos-only', 'https://example.com']).error ?? '',
+    /cannot use both --photos-only and --videos-only/
+  )
+})
+
 test('resolves output directory following priority: CLI > OPEN_OMNI_DIR > ~/Downloads', () => {
   const custom = './my-folder'
   assert.equal(resolveOutputDir(custom), path.resolve(custom))

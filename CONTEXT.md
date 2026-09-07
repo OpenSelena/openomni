@@ -90,3 +90,25 @@ _Avoid_: Tab snippet, auto-suggest, shell macro
 A supported shell environment (`bash`, `zsh`, `fish`, `powershell`) recognized by the `--completion` flag generator.
 _Avoid_: Target console, terminal type, CLI interpreter
 
+### Photo & Mixed-Media Posts
+
+**Media Engine**:
+A specialized backend CLI executable (`yt-dlp` for video/audio, `gallery-dl` for photos/galleries) orchestrating media extraction.
+_Avoid_: Helper script, downloader tool, subprocess driver
+
+**Photo Post**:
+A social media post or gallery hosting one or more static image assets without primary video content.
+_Avoid_: Image tweet, picture card, photo upload
+
+**Mixed Post**:
+A multi-asset social post or carousel containing a combination of both video clips and static photos.
+_Avoid_: Hybrid gallery, combo post, mixed album
+
+**Engine Dispatcher**:
+The routing module in Open Omni that inspects probed URLs and items, assigning video items to `yt-dlp` and photo items to `gallery-dl`.
+_Avoid_: Router, handler switch, format delegator
+
+**Original Quality Asset**:
+The uncompressed, full-resolution source image file directly extracted from a platform's CDN endpoint.
+_Avoid_: Raw image, high-res photo, max pic
+
