@@ -1,11 +1,13 @@
-# Open Omni
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+    <img src="assets/logo-light.svg" alt="Open Omni" width="288">
+  </picture>
+</p>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
-  <img src="assets/logo-light.svg" alt="Open Omni" width="288">
-</picture>
-
-grab any video. paste. download. done.
+<p align="center">
+  grab any video. paste. download. done.
+</p>
 
 Download videos from YouTube, X/Twitter, Instagram, Threads, TikTok and
 1,800+ other sites — right from your terminal. Paste a url, pick a
