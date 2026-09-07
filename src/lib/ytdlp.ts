@@ -9,6 +9,7 @@ import {formatBytes} from './format.js'
 import {parsePlaylistOutput, type PlaylistMetadata} from './playlist.js'
 
 const OPEN_OMNI_DIR = path.join(os.homedir(), '.open-omni', 'bin')
+const LEGACY_YOINKS_DIR = path.join(os.homedir(), '.yoinks', 'bin')
 const RELEASE_BASE = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download'
 
 function ytDlpAssetName(): string {
@@ -43,6 +44,9 @@ export async function ensureYtDlp(onStatus: (message: string) => void, signal?: 
   const binaryName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp'
   const local = path.join(OPEN_OMNI_DIR, binaryName)
   if (await commandWorks(local, ['--version'])) return local
+
+  const legacy = path.join(LEGACY_YOINKS_DIR, binaryName)
+  if (await commandWorks(legacy, ['--version'])) return legacy
 
   onStatus('first run: fetching yt-dlp…')
   return await downloadLatestYtDlp(OPEN_OMNI_DIR, signal)
@@ -106,6 +110,19 @@ export type UpdateResult = {
   updated: boolean
 }
 
+async function installStandalone(
+  previousVersion: string | undefined,
+  signal?: AbortSignal,
+): Promise<UpdateResult> {
+  const downloadedPath = await downloadLatestYtDlp(OPEN_OMNI_DIR, signal)
+  const currentVersion = (await getYtDlpVersion(downloadedPath)) ?? 'unknown'
+  return {
+    previousVersion,
+    currentVersion,
+    updated: true,
+  }
+}
+
 export async function updateYtDlp(options?: {
   force?: boolean
   onStatus?: (msg: string) => void
@@ -116,9 +133,7 @@ export async function updateYtDlp(options?: {
 
   if (options?.force) {
     onStatus('downloading fresh standalone yt-dlp from GitHub releases…')
-    const downloadedPath = await downloadLatestYtDlp(OPEN_OMNI_DIR, signal)
-    const currentVersion = (await getYtDlpVersion(downloadedPath)) ?? 'unknown'
-    return { currentVersion, updated: true }
+    return await installStandalone(undefined, signal)
   }
 
   const binary = await ensureYtDlp(onStatus, signal)
@@ -146,9 +161,7 @@ export async function updateYtDlp(options?: {
 
   if (nativeResult.code !== 0 || isYtDlpPackageManaged(nativeResult.output)) {
     onStatus(`system binary cannot self-update; downloading standalone release into ${OPEN_OMNI_DIR}…`)
-    const downloadedPath = await downloadLatestYtDlp(OPEN_OMNI_DIR, signal)
-    const currentVersion = (await getYtDlpVersion(downloadedPath)) ?? 'unknown'
-    return { previousVersion, currentVersion, updated: true }
+    return await installStandalone(previousVersion, signal)
   }
 
   const currentVersion = (await getYtDlpVersion(binary)) ?? previousVersion ?? 'unknown'
@@ -241,7 +254,10 @@ export function parseProbeOutput(
     throw new Error('Could not parse video info from yt-dlp.')
   }
 
-  if (data._type === 'playlist' || Boolean((data.entries as unknown[])?.length)) {
+  if (
+    data._type === 'playlist' ||
+    (Array.isArray(data.entries) && data.entries.length > 0)
+  ) {
     const playlist = parsePlaylistOutput(stdout)
     const singleVideoUrl = extractSingleVideoUrl(originalUrl)
     return {

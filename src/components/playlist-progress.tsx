@@ -1,11 +1,11 @@
 import React from 'react'
 import { Box, Text } from 'ink'
-import Spinner from './spinner.js'
+import Spinner from 'ink-spinner'
 import { useTheme } from '../theme.js'
 import { Panel } from './panel.js'
 import { ProgressBar } from './progress-bar.js'
 import type { DownloadProgress } from '../lib/ytdlp.js'
-import { formatBytes, formatDuration, formatSpeed } from '../lib/format.js'
+import { formatBytes, formatEta, formatSpeed } from '../lib/format.js'
 
 export type PlaylistProgressProps = {
   playlistTitle: string
@@ -41,7 +41,7 @@ export function PlaylistProgress({
   const cleanTitle = currentTitle.length > 44 ? `${currentTitle.slice(0, 41)}...` : currentTitle
 
   const speedStr = progress?.speed ? formatSpeed(progress.speed) : ''
-  const etaStr = progress?.eta ? `${formatDuration(progress.eta)} left` : ''
+  const etaStr = progress?.eta ? `${formatEta(progress.eta)} left` : ''
   const bytesStr = progress?.downloadedBytes ? formatBytes(progress.downloadedBytes) : ''
 
   return (
