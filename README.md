@@ -5,7 +5,7 @@
   <img src="assets/logo-light.svg" alt="Open Omni" width="288">
 </picture>
 
-download any video. paste. download. done.
+grab any video. paste. download. done.
 
 Download videos from YouTube, X/Twitter, Instagram, Threads, TikTok and
 1,800+ other sites — right from your terminal. Paste a url, pick a

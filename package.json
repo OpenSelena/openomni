@@ -1,7 +1,7 @@
 {
   "name": "open-omni",
   "version": "0.3.1",
-  "description": "Open Omni — download any video from YouTube, X, Instagram, Threads & 1800+ sites — right from your terminal. paste. download. done.",
+  "description": "Open Omni — grab any video from YouTube, X, Instagram, Threads & 1800+ sites — right from your terminal. paste. download. done.",
   "type": "module",
   "bin": {
     "open-omni": "dist/cli.js",

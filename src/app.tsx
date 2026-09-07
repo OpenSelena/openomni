@@ -31,7 +31,7 @@ import {
 const OUT_DIR = path.join(os.homedir(), 'Downloads')
 const DOWNLOAD_BUTTON = 'download'
 const DONE_LABEL = '↵ download another'
-const TAGLINE = 'download any video. paste. download. done.'
+const TAGLINE = 'grab any video. paste. download. done.'
 
 const choiceLabel = (choice: DownloadChoice) => `${choice.kind === 'audio' ? '♪ ' : '▶ '}${choice.label}`
 

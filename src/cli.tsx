@@ -12,7 +12,7 @@ import {isProbablyUrl} from './lib/platforms.js'
 const VERSION: string = createRequire(import.meta.url)('../package.json').version
 
 const HELP = `
-  Open Omni — download any video. paste. download. done.
+  Open Omni — grab any video. paste. download. done.
 
   Usage
     $ open-omni [url]
