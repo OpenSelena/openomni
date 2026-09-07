@@ -71,9 +71,10 @@ export function loadConfig(
 
     const result: UserConfig = {}
 
-    if (parsed.outputDir !== undefined) {
-      if (typeof parsed.outputDir === 'string' && parsed.outputDir.trim()) {
-        result.outputDir = parsed.outputDir.trim()
+    const outDirVal = parsed.outputDir ?? parsed.outDir
+    if (outDirVal !== undefined) {
+      if (typeof outDirVal === 'string' && outDirVal.trim()) {
+        result.outputDir = outDirVal.trim()
       } else {
         onWarning?.(`[open-omni] warning: invalid outputDir in ${configPath} (expected string)`)
       }

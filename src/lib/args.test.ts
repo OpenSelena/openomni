@@ -237,11 +237,14 @@ test('parses media filter flags (--photos-only, --videos-only)', () => {
   )
 })
 
-test('resolves output directory following priority: CLI > OPEN_OMNI_DIR > ~/Downloads', () => {
+test('resolves output directory following priority: CLI > OPEN_OMNI_DIR > Platform Known Folder > ~/Downloads', () => {
   const custom = './my-folder'
   assert.equal(resolveOutputDir(custom), path.resolve(custom))
   assert.equal(resolveOutputDir(undefined, './env-folder'), path.resolve('./env-folder'))
-  assert.equal(resolveOutputDir(undefined, undefined), path.join(os.homedir(), 'Downloads'))
+  assert.equal(
+    resolveOutputDir(undefined, undefined, undefined, () => 'C:\\Custom\\KnownFolder'),
+    'C:\\Custom\\KnownFolder'
+  )
 })
 
 test('recognizes only supported modes and cycles through all of them', () => {

@@ -58,6 +58,24 @@ test('loadConfig parses valid config json', () => {
   fs.rmSync(tempDir, {recursive: true, force: true})
 })
 
+test('loadConfig accepts outDir alias for outputDir', () => {
+  const tempDir = path.join(os.tmpdir(), 'open-omni-test-outdir-' + Date.now())
+  fs.mkdirSync(tempDir, {recursive: true})
+  const configFile = path.join(tempDir, 'config.json')
+  fs.writeFileSync(
+    configFile,
+    JSON.stringify({
+      outDir: '~/AliasVideos',
+    }),
+    'utf8'
+  )
+
+  const config = loadConfig(configFile)
+  assert.equal(config.outputDir, '~/AliasVideos')
+
+  fs.rmSync(tempDir, {recursive: true, force: true})
+})
+
 test('loadConfig handles invalid json with warning callback without throwing', () => {
   const tempDir = path.join(os.tmpdir(), 'open-omni-test-invalid-' + Date.now())
   fs.mkdirSync(tempDir, {recursive: true})
@@ -117,12 +135,12 @@ test('resolveEffectiveThumbnail respects CLI over config and handles boolean/obj
   assert.deepEqual(resolveEffectiveThumbnail(undefined, undefined), undefined)
 })
 
-test('resolveOutputDir priority: CLI > OPEN_OMNI_DIR > config > ~/Downloads', () => {
-  const downloads = path.join(os.homedir(), 'Downloads')
-  assert.equal(resolveOutputDir('/cli', '/env', '/config'), path.resolve('/cli'))
-  assert.equal(resolveOutputDir(undefined, '/env', '/config'), path.resolve('/env'))
-  assert.equal(resolveOutputDir(undefined, '', '/config'), path.resolve('/config'))
-  assert.equal(resolveOutputDir(undefined, '', undefined), downloads)
+test('resolveOutputDir priority: CLI > OPEN_OMNI_DIR > config > Platform Known Folder', () => {
+  const customKnownFolder = '/platform/downloads'
+  assert.equal(resolveOutputDir('/cli', '/env', '/config', () => customKnownFolder), path.resolve('/cli'))
+  assert.equal(resolveOutputDir(undefined, '/env', '/config', () => customKnownFolder), path.resolve('/env'))
+  assert.equal(resolveOutputDir(undefined, '', '/config', () => customKnownFolder), path.resolve('/config'))
+  assert.equal(resolveOutputDir(undefined, '', undefined, () => customKnownFolder), customKnownFolder)
 })
 
 test('loadConfig discards invalid theme and format with warnings', () => {

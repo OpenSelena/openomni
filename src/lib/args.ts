@@ -3,6 +3,7 @@ import os from 'node:os'
 import {isThemeMode, type ThemeMode} from '../theme.js'
 import type {SubtitleOptions, ThumbnailOptions} from './ytdlp.js'
 import {normalizeShell, type CompletionTarget} from './completion.js'
+import {resolvePlatformDownloadsDir} from './known-folders.js'
 
 export type FormatMode = 'best' | 'mp3'
 
@@ -143,9 +144,10 @@ export function resolveOutputDir(
   cliOutputDir?: string,
   envDir = process.env.OPEN_OMNI_DIR,
   configDir?: string,
+  platformResolver: () => string = resolvePlatformDownloadsDir,
 ): string {
   if (cliOutputDir) return path.resolve(expandPath(cliOutputDir))
   if (envDir) return path.resolve(expandPath(envDir))
   if (configDir) return path.resolve(expandPath(configDir))
-  return path.join(os.homedir(), 'Downloads')
+  return platformResolver()
 }

@@ -77,7 +77,7 @@ The persistent user preference file (`config.json`) stored under the user's conf
 _Avoid_: Registry, settings store, profile, ini file
 
 **Precedence Waterfall**:
-The strict hierarchy for resolving operational settings: CLI arguments > Environment variables (`OPEN_OMNI_DIR`) > User configuration > Built-in defaults.
+The strict hierarchy for resolving operational settings: CLI arguments > Environment variables (`OPEN_OMNI_DIR`) > User configuration > Platform Known Folder > Built-in defaults.
 _Avoid_: Fallback chain, override cascade
 
 ### Shell Autocompletion
@@ -111,4 +111,15 @@ _Avoid_: Router, handler switch, format delegator
 **Original Quality Asset**:
 The uncompressed, full-resolution source image file directly extracted from a platform's CDN endpoint.
 _Avoid_: Raw image, high-res photo, max pic
+
+### Platform Directories
+
+**Known Folder**:
+A special operating system directory (e.g. Downloads, Documents, Videos) whose physical storage path is registered in the OS user profile and may be relocated across drives.
+_Avoid_: Special folder, shell path, virtual directory
+
+**Platform Directory Resolver**:
+The zero-dependency discovery module that queries the host OS (via Windows Registry `reg.exe` or Linux `user-dirs.dirs`) to determine the user's active, relocated Known Folder path.
+_Avoid_: Folder finder, path detector, registry scraper
+
 
