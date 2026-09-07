@@ -22,7 +22,7 @@
     "start": "node dist/cli.js",
     "prepublishOnly": "npm test && npm run typecheck && npm run build"
   },
-  "author": "Pablo Stanley",
+  "author": "Igect",
   "keywords": [
     "video",
     "downloader",
