@@ -61,3 +61,7 @@ export function formatEta(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds <= 0) return ''
   return formatDuration(seconds)
 }
+
+export function terminalLink(text: string, url: string): string {
+  return `\u001B]8;;${url}\u0007${text}\u001B]8;;\u0007`
+}

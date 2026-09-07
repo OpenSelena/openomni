@@ -65,3 +65,24 @@ test('Logo renders Open Omni ASCII block art with brand color', async () => {
     else process.env.FORCE_COLOR = previousForceColor
   }
 })
+
+test('App renders version and developer credit with hyperlink on home screen', async () => {
+  const [{default: React}, {renderToString}, {App}] = await Promise.all([
+    import('react'),
+    import('ink'),
+    import('../app.js'),
+  ])
+
+  const rendered = renderToString(
+    React.createElement(App, {
+      version: '1.0.0',
+      onOutcome: () => {},
+    }),
+  )
+
+  assert.ok(rendered.includes('v1.0.0'))
+  assert.ok(rendered.includes('by'))
+  assert.ok(rendered.includes('Igect'))
+  assert.ok(rendered.includes('https://igect.link/'))
+})
+

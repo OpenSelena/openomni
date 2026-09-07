@@ -3,6 +3,7 @@ import test from 'node:test'
 import path from 'node:path'
 import os from 'node:os'
 import {parseArgs, resolveOutputDir} from './args.js'
+import {terminalLink} from './format.js'
 import {isThemeMode, nextThemeMode, themeFor} from '../theme.js'
 
 test('parses a url and a spaced theme option without confusing the value for the url', () => {
@@ -126,4 +127,9 @@ test('auto delegates to terminal colors while forced modes own the full surface'
   assert.equal(themeFor('light').primary, '#18181b')
   assert.equal(themeFor('dark').background, '#18181b')
   assert.equal(themeFor('dark').primary, '#ffffff')
+})
+
+test('terminalLink produces valid OSC 8 hyperlink escape sequence', () => {
+  const link = terminalLink('Igect', 'https://igect.link/')
+  assert.equal(link, '\u001B]8;;https://igect.link/\u0007Igect\u001B]8;;\u0007')
 })

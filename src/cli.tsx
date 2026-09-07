@@ -229,6 +229,7 @@ const {waitUntilExit} = render(
     initialThemeMode={initialThemeMode}
     autoSelect={args.format}
     outDir={outDir}
+    version={VERSION}
     onOutcome={result => (outcome = result)}
   />,
   // keep a copy of every frame so clicks can be hit-tested against it

@@ -1,3 +1,5 @@
+import {spawn} from 'node:child_process'
+
 export type Platform = {
   key: string
   label: string
@@ -38,5 +40,19 @@ export function isProbablyUrl(input: string): boolean {
     return u.protocol === 'http:' || u.protocol === 'https:'
   } catch {
     return false
+  }
+}
+
+export function openBrowser(url: string): void {
+  try {
+    if (process.platform === 'darwin') {
+      spawn('open', [url], {detached: true, stdio: 'ignore'}).unref()
+    } else if (process.platform === 'win32') {
+      spawn('cmd.exe', ['/c', 'start', '', url], {detached: true, stdio: 'ignore'}).unref()
+    } else {
+      spawn('xdg-open', [url], {detached: true, stdio: 'ignore'}).unref()
+    }
+  } catch {
+    // ignore if browser cannot open
   }
 }
