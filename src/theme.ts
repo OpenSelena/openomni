@@ -17,9 +17,9 @@ export type Theme = {
 const themes: Record<ThemeMode, Theme> = {
   auto: {
     mode: 'auto',
-    primary: '#859900',
+    primary: '#C15F3C',
     gray: undefined,
-    dark: '#18181b',
+    dark: '#ffffff',
     background: undefined,
     dimSecondary: true,
     inverseButton: false,

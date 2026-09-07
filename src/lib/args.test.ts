@@ -41,9 +41,9 @@ test('recognizes only supported modes and cycles through all of them', () => {
 test('auto delegates to terminal colors while forced modes own the full surface', () => {
   assert.deepEqual(themeFor('auto'), {
     mode: 'auto',
-    primary: '#859900',
+    primary: '#C15F3C',
     gray: undefined,
-    dark: '#18181b',
+    dark: '#ffffff',
     background: undefined,
     dimSecondary: true,
     inverseButton: false,
