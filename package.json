@@ -1,0 +1,62 @@
+{
+  "name": "open-omni",
+  "version": "0.3.1",
+  "description": "Open Omni — download any video from YouTube, X, Instagram, Threads & 1800+ sites — right from your terminal. paste. download. done.",
+  "type": "module",
+  "bin": {
+    "open-omni": "dist/cli.js",
+    "openomni": "dist/cli.js",
+    "omni": "dist/cli.js",
+    "yoinks": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "tsx --test src/**/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/cli.js",
+    "prepublishOnly": "npm test && npm run typecheck && npm run build"
+  },
+  "author": "Pablo Stanley",
+  "keywords": [
+    "video",
+    "downloader",
+    "yt-dlp",
+    "youtube",
+    "instagram",
+    "twitter",
+    "threads",
+    "cli",
+    "tui",
+    "ink"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "ffmpeg-static": "^5.3.0",
+    "ink": "^7.1.0",
+    "ink-select-input": "^6.2.0",
+    "ink-spinner": "^5.0.0",
+    "react": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OpenSelena/openomni.git"
+  },
+  "homepage": "https://github.com/OpenSelena/openomni#readme",
+  "bugs": {
+    "url": "https://github.com/OpenSelena/openomni/issues"
+  }
+}
