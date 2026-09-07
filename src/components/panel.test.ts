@@ -111,4 +111,20 @@ test('App accepts initialSubtitles prop without regression', async () => {
   assert.ok(rendered.includes('v1.0.0'))
 })
 
+test('App accepts initialThumbnail prop without regression', async () => {
+  const [{default: React}, {renderToString}, {App}] = await Promise.all([
+    import('react'),
+    import('ink'),
+    import('../app.js'),
+  ])
+
+  const rendered = renderToString(
+    React.createElement(App, {
+      initialThumbnail: {enabled: true, embed: true},
+      onOutcome: () => {},
+    }),
+  )
+  assert.ok(rendered.includes('v1.0.0'))
+})
+
 

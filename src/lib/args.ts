@@ -1,7 +1,7 @@
 import path from 'node:path'
 import os from 'node:os'
 import {isThemeMode, type ThemeMode} from '../theme.js'
-import type {SubtitleOptions} from './ytdlp.js'
+import type {SubtitleOptions, ThumbnailOptions} from './ytdlp.js'
 
 export type FormatMode = 'best' | 'mp3'
 
@@ -16,6 +16,8 @@ export type CliArgs = {
   force?: boolean
   subtitles?: boolean | string
   embedSubs?: boolean
+  thumb?: boolean
+  embedThumb?: boolean
   error?: string
 }
 
@@ -25,6 +27,14 @@ export function toSubtitleOptions(args: CliArgs): SubtitleOptions | undefined {
     enabled: true,
     languages: typeof args.subtitles === 'string' ? args.subtitles : undefined,
     embed: Boolean(args.embedSubs),
+  }
+}
+
+export function toThumbnailOptions(args: CliArgs): ThumbnailOptions | undefined {
+  if (!args.thumb && !args.embedThumb) return undefined
+  return {
+    enabled: true,
+    embed: Boolean(args.embedThumb),
   }
 }
 
@@ -44,6 +54,10 @@ export function parseArgs(args: string[]): CliArgs {
       result.force = true
     } else if (arg === '--embed-subs') {
       result.embedSubs = true
+    } else if (arg === '--thumb') {
+      result.thumb = true
+    } else if (arg === '--embed-thumb') {
+      result.embedThumb = true
     } else if (arg.startsWith('--subs=')) {
       const value = arg.slice('--subs='.length)
       result.subtitles = value || true

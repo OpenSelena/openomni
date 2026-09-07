@@ -33,6 +33,7 @@ import {
   type DownloadChoice,
   type DownloadProgress,
   type SubtitleOptions,
+  type ThumbnailOptions,
   type VideoInfo,
 } from './lib/ytdlp.js'
 import {
@@ -203,6 +204,7 @@ type AppProps = {
   outDir?: string
   version?: string
   initialSubtitles?: SubtitleOptions
+  initialThumbnail?: ThumbnailOptions
   onOutcome: (outcome: Outcome) => void
 }
 
@@ -226,6 +228,7 @@ function InnerApp({
   outDir,
   version = '1.0.0',
   initialSubtitles,
+  initialThumbnail,
   onOutcome,
   cycleTheme,
 }: {
@@ -235,6 +238,7 @@ function InnerApp({
   outDir?: string
   version?: string
   initialSubtitles?: SubtitleOptions
+  initialThumbnail?: ThumbnailOptions
   onOutcome: (outcome: Outcome) => void
   cycleTheme: () => void
 }) {
@@ -248,6 +252,7 @@ function InnerApp({
   const [info, setInfo] = useState<VideoInfo>()
   const [choices, setChoices] = useState<DownloadChoice[]>([])
   const [subtitles, setSubtitles] = useState<SubtitleOptions | undefined>(initialSubtitles)
+  const [thumbnail, setThumbnail] = useState<ThumbnailOptions | undefined>(initialThumbnail)
   const ytdlpRef = useRef('')
   const highlightRef = useRef(0)
   const infoJsonRef = useRef<string | undefined>(undefined)
@@ -258,6 +263,13 @@ function InnerApp({
     setSubtitles(prev => ({
       enabled: !prev?.enabled,
       languages: prev?.languages,
+      embed: prev?.embed,
+    }))
+  }, [])
+
+  const toggleThumbnail = useCallback(() => {
+    setThumbnail(prev => ({
+      enabled: !prev?.enabled,
       embed: prev?.embed,
     }))
   }, [])
@@ -282,7 +294,7 @@ function InnerApp({
           const targetDir = outDir ?? OUT_DIR
           await fs.mkdir(targetDir, {recursive: true})
           const ffmpegLocation = await findFfmpeg()
-          const base = {ytdlp: ytdlpRef.current, ffmpegLocation, url: targetUrl, choice, outDir: targetDir, subtitles}
+          const base = {ytdlp: ytdlpRef.current, ffmpegLocation, url: targetUrl, choice, outDir: targetDir, subtitles, thumbnail}
           let filepath: string
           try {
             filepath = await download(
@@ -367,6 +379,7 @@ function InnerApp({
                   outDir: playlistDir,
                   outputTemplate: targetPath,
                   subtitles: subtitles?.enabled ? subtitles : undefined,
+                  thumbnail: thumbnail?.enabled ? thumbnail : undefined,
                 },
                 {
                   onProgress: progress =>
@@ -500,6 +513,10 @@ function InnerApp({
         toggleSubtitles()
         return
       }
+      if ((input === 't' || input === 'T') && !key.ctrl && (phase.name === 'picking' || phase.name === 'playlist-quality')) {
+        toggleThumbnail()
+        return
+      }
       if (key.escape && (phase.name === 'picking' || phase.name === 'error' || phase.name === 'done' || phase.name === 'playlist-scope' || phase.name === 'playlist-done')) resetToInput()
       if (key.escape && phase.name === 'playlist-quality') {
         setPhase({name: 'playlist-scope', playlist: phase.playlist, singleVideoUrl: phase.singleVideoUrl})
@@ -530,7 +547,12 @@ function InnerApp({
 
   let hints: Array<[string, string]> = [...HINTS[phase.name], ['^t', `theme:${theme.mode}`]]
   if (phase.name === 'picking' || phase.name === 'playlist-quality') {
-    hints = [...hints.slice(0, 1), ['s', subtitles?.enabled ? 'subs:on' : 'subs:off'], ...hints.slice(1)]
+    hints = [
+      ...hints.slice(0, 1),
+      ['s', subtitles?.enabled ? 'subs:on' : 'subs:off'],
+      ['t', thumbnail?.enabled ? 'thumb:on' : 'thumb:off'],
+      ...hints.slice(1),
+    ]
   }
   if (phase.name === 'input' && history.length > 0) {
     hints = [hints[0]!, ['↑', 'history'], ...hints.slice(1)]
@@ -540,6 +562,7 @@ function InnerApp({
     if (key === '^c') return () => exit()
     if (key === '^t') return cycleTheme
     if (key === 's') return toggleSubtitles
+    if (key === 't') return toggleThumbnail
     if (key === 'esc') {
       if (phase.name === 'probing' || phase.name === 'downloading' || phase.name === 'playlist-downloading') return cancelRun
       if (phase.name === 'playlist-quality') return () => setPhase({name: 'playlist-scope', playlist: phase.playlist, singleVideoUrl: phase.singleVideoUrl})

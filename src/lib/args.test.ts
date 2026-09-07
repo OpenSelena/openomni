@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import path from 'node:path'
 import os from 'node:os'
-import {parseArgs, resolveOutputDir, toSubtitleOptions} from './args.js'
+import {parseArgs, resolveOutputDir, toSubtitleOptions, toThumbnailOptions} from './args.js'
 import {terminalLink} from './format.js'
 import {isThemeMode, nextThemeMode, themeFor} from '../theme.js'
 
@@ -124,6 +124,38 @@ test('toSubtitleOptions converts CliArgs to SubtitleOptions', () => {
   assert.deepEqual(toSubtitleOptions({help: false, version: false, subtitles: 'fr', embedSubs: true}), {
     enabled: true,
     languages: 'fr',
+    embed: true,
+  })
+})
+
+test('parses thumbnail flags (--thumb, --embed-thumb)', () => {
+  assert.deepEqual(parseArgs(['--thumb', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    thumb: true,
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(parseArgs(['--embed-thumb', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    embedThumb: true,
+    initialUrl: 'https://example.com/video',
+  })
+})
+
+test('toThumbnailOptions converts CliArgs to ThumbnailOptions', () => {
+  assert.equal(toThumbnailOptions({help: false, version: false}), undefined)
+  assert.deepEqual(toThumbnailOptions({help: false, version: false, thumb: true}), {
+    enabled: true,
+    embed: false,
+  })
+  assert.deepEqual(toThumbnailOptions({help: false, version: false, embedThumb: true}), {
+    enabled: true,
+    embed: true,
+  })
+  assert.deepEqual(toThumbnailOptions({help: false, version: false, thumb: true, embedThumb: true}), {
+    enabled: true,
     embed: true,
   })
 })

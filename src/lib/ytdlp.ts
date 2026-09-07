@@ -402,6 +402,23 @@ export function buildSubtitleArgs(opts?: SubtitleOptions): string[] {
   return args
 }
 
+export type ThumbnailOptions = {
+  enabled: boolean
+  embed?: boolean
+}
+
+export function buildThumbnailArgs(opts?: ThumbnailOptions, hasFfmpeg: boolean = true): string[] {
+  if (!opts || !opts.enabled) return []
+  const args = ['--write-thumbnail']
+  if (hasFfmpeg) {
+    args.push('--convert-thumbnails', 'jpg')
+  }
+  if (opts.embed) {
+    args.push('--embed-thumbnail')
+  }
+  return args
+}
+
 export function download(
   opts: {
     ytdlp: string
@@ -413,6 +430,7 @@ export function download(
     outDir: string
     outputTemplate?: string
     subtitles?: SubtitleOptions
+    thumbnail?: ThumbnailOptions
   },
   handlers: DownloadHandlers,
   signal?: AbortSignal,
@@ -421,6 +439,7 @@ export function download(
     ...(opts.infoJsonPath ? ['--load-info-json', opts.infoJsonPath] : [opts.url]),
     ...opts.choice.args,
     ...buildSubtitleArgs(opts.subtitles),
+    ...buildThumbnailArgs(opts.thumbnail, Boolean(opts.ffmpegLocation)),
     '--no-playlist',
     '--no-warnings',
     '--newline',

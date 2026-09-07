@@ -62,3 +62,11 @@ _Avoid_: Closed captions, CC, srt file, transcript
 The process of muxing subtitle streams directly into the target media container via ffmpeg rather than outputting adjacent standalone files.
 _Avoid_: Inlining, burn-in, hardcoding
 
+**Thumbnail**:
+The preview poster or cover artwork associated with a media item or playlist entry.
+_Avoid_: Snapshot, frame grab, cover image, poster art
+
+**Thumbnail Embedding**:
+The process of muxing thumbnail images directly into media container tags (e.g. ID3 APIC for audio or atomic art for MP4) as embedded cover art.
+_Avoid_: Inlining, burn-in, stamp
+

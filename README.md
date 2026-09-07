@@ -53,6 +53,8 @@ $ open-omni https://youtu.be/dQw4w9WgXcQ --best      # skip picker, download hig
 $ open-omni https://youtu.be/dQw4w9WgXcQ --mp3       # skip picker, extract audio only
 $ open-omni https://youtu.be/dQw4w9WgXcQ --subs      # download video with subtitles
 $ open-omni https://youtu.be/dQw4w9WgXcQ --embed-subs # mux subtitles into video container
+$ open-omni https://youtu.be/dQw4w9WgXcQ --thumb      # download video and thumbnail image
+$ open-omni https://youtu.be/dQw4w9WgXcQ --embed-thumb # embed thumbnail into media container
 $ open-omni https://youtu.be/dQw4w9WgXcQ -o ~/Videos # download to custom folder
 $ open-omni                                          # prompts for a url (or Tab pastes from clipboard)
 $ open-omni --theme light                            # force the light palette

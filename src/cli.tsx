@@ -5,7 +5,7 @@ import {createRequire} from 'node:module'
 import {render} from 'ink'
 import {App, type Outcome} from './app.js'
 import {captureFrames} from './lib/click-map.js'
-import {parseArgs, resolveOutputDir, toSubtitleOptions} from './lib/args.js'
+import {parseArgs, resolveOutputDir, toSubtitleOptions, toThumbnailOptions} from './lib/args.js'
 import {readClipboard} from './lib/clipboard.js'
 import {isProbablyUrl} from './lib/platforms.js'
 import {buildChoices, download, ensureYtDlp, findFfmpeg, probe, updateYtDlp, type DownloadChoice} from './lib/ytdlp.js'
@@ -39,6 +39,8 @@ const HELP = `
     --mp3           skip picker and extract audio as mp3
     --subs [langs]  download subtitles (default: English, or e.g. --subs es,en)
     --embed-subs    embed subtitles into video container file
+    --thumb         download thumbnail image
+    --embed-thumb   embed thumbnail into audio/video container file
     -o, --output    output directory (default: ~/Downloads, or $OPEN_OMNI_DIR)
     -U, --update    update bundled yt-dlp to latest version (--update-ytdlp)
     --force         force re-download clean yt-dlp binary (with -U)
@@ -94,6 +96,7 @@ const initialUrl = args.initialUrl
 const initialThemeMode = args.themeMode ?? 'auto'
 const outDir = resolveOutputDir(args.outputDir)
 const subtitles = toSubtitleOptions(args)
+const thumbnail = toThumbnailOptions(args)
 const isTTY = Boolean(process.stdout.isTTY)
 
 if (!isTTY && args.format && initialUrl) {
@@ -134,6 +137,7 @@ if (!isTTY && args.format && initialUrl) {
               outDir: playlistDir,
               outputTemplate: targetPath,
               subtitles,
+              thumbnail,
             },
             {
               onProgress: progress => {
@@ -178,6 +182,7 @@ if (!isTTY && args.format && initialUrl) {
         outDir,
         infoJsonPath,
         subtitles,
+        thumbnail,
       },
       {
         onProgress: progress => {
@@ -236,6 +241,7 @@ const {waitUntilExit} = render(
     outDir={outDir}
     version={VERSION}
     initialSubtitles={subtitles}
+    initialThumbnail={thumbnail}
     onOutcome={result => (outcome = result)}
   />,
   // keep a copy of every frame so clicks can be hit-tested against it

@@ -8,6 +8,7 @@ import {
   isExtractorError,
   getYtDlpVersion,
   buildSubtitleArgs,
+  buildThumbnailArgs,
   type VideoInfo
 } from './ytdlp.js'
 
@@ -135,6 +136,29 @@ test('buildSubtitleArgs generates correct yt-dlp subtitle arguments', () => {
     '--convert-subs',
     'srt',
     '--embed-subs',
+  ])
+})
+
+test('buildThumbnailArgs generates correct yt-dlp thumbnail arguments', () => {
+  assert.deepEqual(buildThumbnailArgs(undefined), [])
+  assert.deepEqual(buildThumbnailArgs({enabled: false}), [])
+  assert.deepEqual(buildThumbnailArgs({enabled: true}, true), [
+    '--write-thumbnail',
+    '--convert-thumbnails',
+    'jpg',
+  ])
+  assert.deepEqual(buildThumbnailArgs({enabled: true}, false), [
+    '--write-thumbnail',
+  ])
+  assert.deepEqual(buildThumbnailArgs({enabled: true, embed: true}, true), [
+    '--write-thumbnail',
+    '--convert-thumbnails',
+    'jpg',
+    '--embed-thumbnail',
+  ])
+  assert.deepEqual(buildThumbnailArgs({enabled: true, embed: true}, false), [
+    '--write-thumbnail',
+    '--embed-thumbnail',
   ])
 })
 
