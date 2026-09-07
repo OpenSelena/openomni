@@ -3,6 +3,8 @@ import React, {createContext, type ReactNode, useContext} from 'react'
 export const THEME_MODES = ['auto', 'light', 'dark'] as const
 export type ThemeMode = (typeof THEME_MODES)[number]
 
+export const BRAND_COLOR = '#C15F3C'
+
 export type Theme = {
   mode: ThemeMode
   /** Undefined means “use the terminal's own foreground/background”. */

@@ -21,7 +21,7 @@ import {formatBytes, formatDuration, formatEta, formatSpeed, shortenPath, termin
 import {addToHistory, loadHistory} from './lib/history.js'
 import {detectPlatform, isProbablyUrl, openBrowser, type Platform} from './lib/platforms.js'
 import {useMouseClick} from './lib/use-mouse-click.js'
-import {nextThemeMode, ThemeProvider, type ThemeMode, useTheme} from './theme.js'
+import {BRAND_COLOR, nextThemeMode, ThemeProvider, type ThemeMode, useTheme} from './theme.js'
 import {
   buildChoices,
   download,
@@ -604,8 +604,9 @@ function InnerApp({
           ) : null}
           <Gap />
           <Text color={theme.gray} dimColor={theme.dimSecondary}>
-            {`v${version} · by `}
-            <Text color={theme.primary} underline>
+            <Text color={BRAND_COLOR}>{`v${version}`}</Text>
+            {' · by '}
+            <Text color={BRAND_COLOR} underline>
               {terminalLink('Igect', 'https://igect.link/')}
             </Text>
           </Text>

@@ -1,6 +1,6 @@
 import React, {useEffect, useMemo, useState} from 'react'
 import {Box, Text} from 'ink'
-import {type Theme, useTheme} from '../theme.js'
+import {BRAND_COLOR, type Theme, useTheme} from '../theme.js'
 
 const ART = [
   '█▀█ █▀█ █▀▀ █▀▄█  █▀█ █▀▄▀█ █▀▄█ ▀█▀',
@@ -27,7 +27,7 @@ const ease = (t: number) => 1 - Math.pow(1 - t, 3)
 
 type Phase = 'intro' | 'idle' | 'sweep'
 
-const LOGO_COLOR = '#C15F3C'
+const LOGO_COLOR = BRAND_COLOR
 
 function cellAt(ch: string, row: number, col: number, phase: Phase, t: number, delay: number, theme: Theme) {
   if (ch === ' ' || phase === 'idle') return {ch, color: LOGO_COLOR, dim: false}
