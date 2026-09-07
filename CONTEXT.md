@@ -80,3 +80,13 @@ _Avoid_: Registry, settings store, profile, ini file
 The strict hierarchy for resolving operational settings: CLI arguments > Environment variables (`OPEN_OMNI_DIR`) > User configuration > Built-in defaults.
 _Avoid_: Fallback chain, override cascade
 
+### Shell Autocompletion
+
+**Shell Autocompletion**:
+The dynamic completion script generator that outputs native tab-completion specifications for supported shells (`bash`, `zsh`, `fish`, `powershell`).
+_Avoid_: Tab snippet, auto-suggest, shell macro
+
+**Completion Target**:
+A supported shell environment (`bash`, `zsh`, `fish`, `powershell`) recognized by the `--completion` flag generator.
+_Avoid_: Target console, terminal type, CLI interpreter
+

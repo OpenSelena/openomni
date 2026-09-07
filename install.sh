@@ -172,4 +172,7 @@ fi
 
 printf ' Then run:\n'
 printf '   %bopen-omni <url>%b\n\n' "$BOLD" "$RESET"
+printf ' Shell autocompletion:\n'
+printf '   %bopen-omni --completion <bash|zsh|fish|powershell>%b\n\n' "$BOLD" "$RESET"
 printf ' %b(To uninstall: rm -rf ~/.open-omni and remove the PATH line from your shell rc)%b\n\n' "$DIM" "$RESET"
+

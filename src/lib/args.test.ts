@@ -192,6 +192,30 @@ test('parses yt-dlp update flags (-U, --update, --update-ytdlp, --force)', () =>
   assert.match(parseArgs(['--force']).error ?? '', /--force can only be used with/)
 })
 
+test('parses shell autocompletion flags (--completion <shell>)', () => {
+  assert.deepEqual(parseArgs(['--completion', 'bash']), {
+    help: false,
+    version: false,
+    completion: 'bash',
+  })
+
+  assert.deepEqual(parseArgs(['--completion=zsh']), {
+    help: false,
+    version: false,
+    completion: 'zsh',
+  })
+
+  assert.deepEqual(parseArgs(['--completion', 'pwsh']), {
+    help: false,
+    version: false,
+    completion: 'pwsh',
+  })
+
+  assert.match(parseArgs(['--completion']).error ?? '', /needs a shell/)
+  assert.match(parseArgs(['--completion=']).error ?? '', /needs a shell/)
+  assert.match(parseArgs(['--completion', 'cmd']).error ?? '', /unknown shell/)
+})
+
 test('resolves output directory following priority: CLI > OPEN_OMNI_DIR > ~/Downloads', () => {
   const custom = './my-folder'
   assert.equal(resolveOutputDir(custom), path.resolve(custom))

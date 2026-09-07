@@ -20,6 +20,7 @@ import {
   loadConfig,
   resolveRuntimeConfig,
 } from './lib/config.js'
+import {generateCompletion} from './lib/completion.js'
 
 // read at runtime from the shipped package.json so npm version bumps
 // can't drift from a hardcoded constant
@@ -48,6 +49,7 @@ const HELP = `
     -o, --output    output directory (default: ~/Downloads, or $OPEN_OMNI_DIR)
     -U, --update    update bundled yt-dlp to latest version (--update-ytdlp)
     --force         force re-download clean yt-dlp binary (with -U)
+    --completion <sh> generate shell autocompletion (bash, zsh, fish, powershell)
     --theme <mode>  use auto, light, or dark for this run
     -h, --help      show this help
     -v, --version   show version
@@ -71,6 +73,18 @@ if (args.help) {
 if (args.version) {
   console.log(VERSION)
   process.exit(0)
+}
+
+if (args.completion) {
+  try {
+    const script = generateCompletion(args.completion)
+    process.stdout.write(script + '\n')
+    process.exit(0)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`open-omni: ${msg}`)
+    process.exit(1)
+  }
 }
 
 if (args.updateYtDlp) {

@@ -99,6 +99,49 @@ Persist your preferences in `~/.config/open-omni/config.json` (or `$XDG_CONFIG_H
 
 Operational settings resolve following strict precedence: CLI arguments > `$OPEN_OMNI_DIR` > `config.json` > built-in defaults.
 
+## Shell Autocompletion
+
+Generate native tab-completion scripts for your shell:
+
+### Bash
+```sh
+# Load in current session
+eval "$(open-omni --completion bash)"
+
+# Or persist for future sessions
+open-omni --completion bash > ~/.local/share/bash-completion/completions/open-omni
+```
+
+### Zsh
+```sh
+# Load in current session
+eval "$(open-omni --completion zsh)"
+
+# Or persist to your fpath directory
+open-omni --completion zsh > "${fpath[1]}/_open-omni"
+```
+
+### Fish
+```sh
+# Load in current session
+open-omni --completion fish | source
+
+# Or persist for future sessions
+open-omni --completion fish > ~/.config/fish/completions/open-omni.fish
+```
+
+### PowerShell
+```powershell
+# Load in current session
+open-omni --completion powershell | Out-String | Invoke-Expression
+
+# Or add to your PowerShell profile ($PROFILE):
+if (Get-Command open-omni -ErrorAction SilentlyContinue) {
+    open-omni --completion powershell | Out-String | Invoke-Expression
+}
+```
+
+
 ## How it works
 
 - Powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp). On first run,

@@ -2,6 +2,7 @@ import path from 'node:path'
 import os from 'node:os'
 import {isThemeMode, type ThemeMode} from '../theme.js'
 import type {SubtitleOptions, ThumbnailOptions} from './ytdlp.js'
+import {isSupportedShell} from './completion.js'
 
 export type FormatMode = 'best' | 'mp3'
 
@@ -18,6 +19,7 @@ export type CliArgs = {
   embedSubs?: boolean
   thumb?: boolean
   embedThumb?: boolean
+  completion?: string
   error?: string
 }
 
@@ -93,6 +95,16 @@ export function parseArgs(args: string[]): CliArgs {
       const value = arg.slice('--theme='.length)
       if (!isThemeMode(value)) return {...result, error: `unknown theme “${value}” — use auto, light, or dark`}
       result.themeMode = value
+    } else if (arg === '--completion') {
+      const value = args[++index]
+      if (!value) return {...result, error: '--completion needs a shell: bash, zsh, fish, or powershell'}
+      if (!isSupportedShell(value)) return {...result, error: `unknown shell “${value}” — use bash, zsh, fish, or powershell`}
+      result.completion = value
+    } else if (arg.startsWith('--completion=')) {
+      const value = arg.slice('--completion='.length)
+      if (!value) return {...result, error: '--completion needs a shell: bash, zsh, fish, or powershell'}
+      if (!isSupportedShell(value)) return {...result, error: `unknown shell “${value}” — use bash, zsh, fish, or powershell`}
+      result.completion = value
     } else if (arg.startsWith('-')) {
       return {...result, error: `unknown option “${arg}”`}
     } else {
@@ -107,7 +119,7 @@ export function parseArgs(args: string[]): CliArgs {
     return {...result, error: '--force can only be used with -U or --update-ytdlp'}
   }
 
-  if (result.format && !result.initialUrl && !result.help && !result.version) {
+  if (result.format && !result.initialUrl && !result.help && !result.version && !result.completion) {
     return {...result, error: `--${result.format} requires a url`}
   }
 
