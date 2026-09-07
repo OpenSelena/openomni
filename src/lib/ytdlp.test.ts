@@ -21,6 +21,11 @@ test('extractSingleVideoUrl extracts video url from playlist url when video id e
     extractSingleVideoUrl('https://www.youtube.com/playlist?list=PLrAXtmErZgOdP_8GztsuKi9nrraNbKKp4'),
     undefined
   )
+
+  assert.equal(
+    extractSingleVideoUrl('https://x.com/user/status/123456789'),
+    undefined
+  )
 })
 
 test('parseProbeOutput distinguishes between single videos and playlists', () => {

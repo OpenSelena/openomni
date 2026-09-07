@@ -5,6 +5,7 @@ import {
   formatTrackFilename,
   resolvePlaylistDir,
   buildQualityTierArgs,
+  getQualityTierExt,
   parsePlaylistOutput,
   type PlaylistMetadata
 } from './playlist.js'
@@ -33,6 +34,13 @@ test('resolvePlaylistDir sanitizes folder name and appends to base directory', (
   assert.equal(resolved, path.join(base, 'My Favorite Best Songs 2026!'))
 })
 
+test('getQualityTierExt returns correct extension for tier', () => {
+  assert.equal(getQualityTierExt('best'), 'mp4')
+  assert.equal(getQualityTierExt('1080p'), 'mp4')
+  assert.equal(getQualityTierExt('720p'), 'mp4')
+  assert.equal(getQualityTierExt('mp3'), 'mp3')
+})
+
 test('buildQualityTierArgs produces correct yt-dlp format arguments', () => {
   assert.deepEqual(buildQualityTierArgs('best'), [
     '-f',
@@ -56,6 +64,8 @@ test('buildQualityTierArgs produces correct yt-dlp format arguments', () => {
   ])
 
   assert.deepEqual(buildQualityTierArgs('mp3'), [
+    '-f',
+    'ba/b',
     '-x',
     '--audio-format',
     'mp3'
@@ -102,4 +112,30 @@ test('parsePlaylistOutput correctly parses yt-dlp flat-playlist json output', ()
   assert.equal(parsed.validEntries[0].index, 1)
   assert.equal(parsed.validEntries[1].title, 'Third Video')
   assert.equal(parsed.validEntries[1].index, 2)
+})
+
+test('parsePlaylistOutput handles multi-video post entries without titles or youtube URLs', () => {
+  const rawSocial = JSON.stringify({
+    _type: 'playlist',
+    id: 'post_12345',
+    title: 'Thread with videos',
+    webpage_url: 'https://x.com/user/status/12345',
+    entries: [
+      {
+        id: 'media_1',
+        url: 'https://video.twimg.com/ext_tw_video/1.mp4',
+        duration: 30,
+      },
+      {
+        id: 'media_2',
+        title: '',
+        url: 'https://video.twimg.com/ext_tw_video/2.mp4',
+      }
+    ]
+  })
+  const parsed = parsePlaylistOutput(rawSocial)
+  assert.equal(parsed.validEntries.length, 2)
+  assert.equal(parsed.validEntries[0].title, 'Item media_1')
+  assert.equal(parsed.validEntries[0].url, 'https://video.twimg.com/ext_tw_video/1.mp4')
+  assert.equal(parsed.validEntries[1].title, 'Item media_2')
 })

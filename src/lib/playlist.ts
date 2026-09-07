@@ -54,6 +54,10 @@ export function resolvePlaylistDir(baseDir: string, playlistTitle: string): stri
   return path.join(baseDir, cleanName)
 }
 
+export function getQualityTierExt(tier: QualityTier): string {
+  return tier === 'mp3' ? 'mp3' : 'mp4'
+}
+
 /**
  * Build yt-dlp format arguments for universal quality tiers.
  */
@@ -76,7 +80,7 @@ export function buildQualityTierArgs(tier: QualityTier): string[] {
         'mp4',
       ]
     case 'mp3':
-      return ['-x', '--audio-format', 'mp3']
+      return ['-f', 'ba/b', '-x', '--audio-format', 'mp3']
   }
 }
 
@@ -93,13 +97,12 @@ export function parsePlaylistOutput(rawJson: string): PlaylistMetadata {
   let currentIndex = 1
 
   for (const entry of rawEntries) {
-    const title = typeof entry.title === 'string' ? entry.title.trim() : ''
-    const id = typeof entry.id === 'string' ? entry.id : ''
+    const rawTitle = typeof entry.title === 'string' ? entry.title.trim() : ''
+    const id = typeof entry.id === 'string' && entry.id ? entry.id : String(currentIndex)
+    const title = rawTitle || (id && id !== String(currentIndex) ? `Item ${id}` : `Item ${currentIndex}`)
 
     // Exclude deleted or private videos
     if (
-      !id ||
-      !title ||
       title.toLowerCase() === '[deleted video]' ||
       title.toLowerCase() === '[private video]'
     ) {
@@ -107,11 +110,17 @@ export function parsePlaylistOutput(rawJson: string): PlaylistMetadata {
     }
 
     const url =
-      typeof entry.url === 'string'
+      typeof entry.url === 'string' && entry.url.startsWith('http')
         ? entry.url
-        : typeof entry.webpage_url === 'string'
+        : typeof entry.webpage_url === 'string' && entry.webpage_url.startsWith('http')
           ? entry.webpage_url
-          : `https://www.youtube.com/watch?v=${id}`
+          : data.extractor && String(data.extractor).toLowerCase().includes('youtube')
+            ? `https://www.youtube.com/watch?v=${id}`
+            : typeof data.webpage_url === 'string'
+              ? data.webpage_url
+              : typeof entry.url === 'string' && entry.url
+                ? entry.url
+                : id
 
     const duration =
       typeof entry.duration === 'number' ? entry.duration : null
@@ -127,7 +136,7 @@ export function parsePlaylistOutput(rawJson: string): PlaylistMetadata {
 
   return {
     id: typeof data.id === 'string' ? data.id : '',
-    title: typeof data.title === 'string' ? data.title : 'Playlist',
+    title: typeof data.title === 'string' && data.title ? data.title : 'Playlist',
     uploader: typeof data.uploader === 'string' ? data.uploader : undefined,
     webpageUrl:
       typeof data.webpage_url === 'string' ? data.webpage_url : undefined,

@@ -9,7 +9,13 @@ import {parseArgs, resolveOutputDir} from './lib/args.js'
 import {readClipboard} from './lib/clipboard.js'
 import {isProbablyUrl} from './lib/platforms.js'
 import {buildChoices, download, ensureYtDlp, findFfmpeg, probe, type DownloadChoice} from './lib/ytdlp.js'
-import {buildQualityTierArgs, formatTrackFilename, resolvePlaylistDir, type QualityTier} from './lib/playlist.js'
+import {
+  buildQualityTierArgs,
+  formatTrackFilename,
+  getQualityTierExt,
+  resolvePlaylistDir,
+  type QualityTier,
+} from './lib/playlist.js'
 
 // read at runtime from the shipped package.json so npm version bumps
 // can't drift from a hardcoded constant
@@ -84,7 +90,7 @@ if (!isTTY && args.format && initialUrl) {
       let skipped = 0
 
       for (const entry of playlist.validEntries) {
-        const ext = args.format === 'mp3' ? 'mp3' : 'mp4'
+        const ext = getQualityTierExt(tier)
         const filename = formatTrackFilename(entry.index, playlist.validEntries.length, entry.title, ext)
         const targetPath = path.join(playlistDir, filename)
         console.error(`[open-omni] [${entry.index}/${playlist.validEntries.length}] downloading “${entry.title}”…`)

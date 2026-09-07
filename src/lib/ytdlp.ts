@@ -110,9 +110,6 @@ export function extractSingleVideoUrl(url: string): string | undefined {
     if (v) {
       return `${parsed.origin}${parsed.pathname}?v=${v}`
     }
-    if (!parsed.searchParams.has('list')) {
-      return url
-    }
     return undefined
   } catch {
     return undefined

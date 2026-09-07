@@ -35,6 +35,7 @@ import {
 import {
   buildQualityTierArgs,
   formatTrackFilename,
+  getQualityTierExt,
   resolvePlaylistDir,
   type PlaylistEntry,
   type PlaylistMetadata,
@@ -126,6 +127,7 @@ type Phase =
       tier: QualityTier
       currentIndex: number
       skippedCount: number
+      lastWarning?: string
       progress?: DownloadProgress
       processing: boolean
     }
@@ -320,7 +322,7 @@ function InnerApp({
             kind: tier === 'mp3' ? 'audio' : 'video',
             args: buildQualityTierArgs(tier),
           }
-          const ext = tier === 'mp3' ? 'mp3' : 'mp4'
+          const ext = getQualityTierExt(tier)
 
           let succeeded = 0
           let skipped = 0
@@ -363,6 +365,12 @@ function InnerApp({
             } catch (err) {
               if (controller.signal.aborted) throw err
               skipped++
+              const errMsg = err instanceof Error ? err.message : String(err)
+              setPhase(prev =>
+                prev.name === 'playlist-downloading'
+                  ? {...prev, skippedCount: skipped, lastWarning: `${entry.title}: ${errMsg}`}
+                  : prev,
+              )
             }
           }
 
@@ -684,6 +692,7 @@ function InnerApp({
             progress={phase.progress}
             processing={phase.processing}
             skippedCount={phase.skippedCount}
+            lastWarning={phase.lastWarning}
             width={Math.min(contentWidth, 68)}
           />
         </Box>
