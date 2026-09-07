@@ -1,19 +1,19 @@
 export const SUPPORTED_SHELLS = ['bash', 'zsh', 'fish', 'powershell'] as const
 
-export type SupportedShell = (typeof SUPPORTED_SHELLS)[number]
+export type CompletionTarget = (typeof SUPPORTED_SHELLS)[number]
+export type SupportedShell = CompletionTarget
 
-export function isSupportedShell(shell: string): shell is SupportedShell | 'pwsh' {
-  const normalized = shell.toLowerCase().trim()
-  return (SUPPORTED_SHELLS as readonly string[]).includes(normalized) || normalized === 'pwsh'
-}
-
-export function normalizeShell(shell: string): SupportedShell | undefined {
+export function normalizeShell(shell: string): CompletionTarget | undefined {
   const normalized = shell.toLowerCase().trim()
   if (normalized === 'pwsh') return 'powershell'
   if ((SUPPORTED_SHELLS as readonly string[]).includes(normalized)) {
-    return normalized as SupportedShell
+    return normalized as CompletionTarget
   }
   return undefined
+}
+
+export function isSupportedShell(shell: string): shell is CompletionTarget | 'pwsh' {
+  return normalizeShell(shell) !== undefined
 }
 
 export function generateBashCompletion(): string {
@@ -24,8 +24,9 @@ export function generateBashCompletion(): string {
 #   open-omni --completion bash > ~/.local/share/bash-completion/completions/open-omni
 
 _open_omni_completions() {
-    local cur prev words cword
-    _init_completion || return
+    local cur prev
+    cur="\${COMP_WORDS[COMP_CWORD]}"
+    prev="\${COMP_WORDS[COMP_CWORD-1]}"
 
     local options="--help -h --version -v --best --mp3 --output -o --theme --update --update-ytdlp -U --force --subs --embed-subs --thumb --embed-thumb --completion"
 
@@ -39,7 +40,7 @@ _open_omni_completions() {
             return 0
             ;;
         -o|--output)
-            _filedir -d
+            COMPREPLY=($(compgen -d -- "$cur"))
             return 0
             ;;
     esac
@@ -76,8 +77,7 @@ _open_omni() {
         '--embed-subs[Embed subtitles directly into media container via ffmpeg]' \
         '--thumb[Save thumbnail image as adjacent JPEG file]' \
         '--embed-thumb[Embed thumbnail cover art directly into media tags]' \
-        '--completion[Generate shell autocompletion script]:shell:(bash zsh fish powershell)' \
-        '*:url:_urls'
+        '--completion[Generate shell autocompletion script]:shell:(bash zsh fish powershell)'
 }
 
 if [[ -n "$ZSH_VERSION" ]]; then
@@ -101,7 +101,8 @@ complete -c open-omni -l best -d "Download highest quality video stream"
 complete -c open-omni -l mp3 -d "Extract audio to MP3"
 complete -c open-omni -s o -l output -r -a "(__fish_complete_directories)" -d "Download destination directory"
 complete -c open-omni -l theme -x -a "auto light dark" -d "Set color theme"
-complete -c open-omni -s U -l update -l update-ytdlp -d "Update bundled yt-dlp binary"
+complete -c open-omni -s U -l update -d "Update bundled yt-dlp binary"
+complete -c open-omni -l update-ytdlp -d "Update bundled yt-dlp binary"
 complete -c open-omni -l force -d "Force overwrite during yt-dlp binary update"
 complete -c open-omni -l subs -d "Download subtitles/captions"
 complete -c open-omni -l embed-subs -d "Embed subtitles into media container"
@@ -124,7 +125,9 @@ Register-ArgumentCompleter -Native -CommandName 'open-omni' -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
 
     $elements = $commandAst.CommandElements
-    $prev = if ($elements.Count -gt 1) { $elements[$elements.Count - 2].Extent.Text } else { '' }
+    $lastWord = if ($elements.Count -gt 0) { $elements[-1].Extent.Text } else { '' }
+    $secondLastWord = if ($elements.Count -gt 1) { $elements[-2].Extent.Text } else { '' }
+    $prev = if ([string]::IsNullOrEmpty($wordToComplete)) { $lastWord } else { $secondLastWord }
 
     if ($prev -eq '--theme') {
         $themes = @('auto', 'light', 'dark')
@@ -138,6 +141,13 @@ Register-ArgumentCompleter -Native -CommandName 'open-omni' -ScriptBlock {
         $shells = @('bash', 'zsh', 'fish', 'powershell')
         $shells | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
             [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', "Shell: $_")
+        }
+        return
+    }
+
+    if ($prev -in @('-o', '--output')) {
+        Get-ChildItem -Directory -Filter "$wordToComplete*" -ErrorAction SilentlyContinue | ForEach-Object {
+            [System.Management.Automation.CompletionResult]::new($_.Name, $_.Name, 'ProviderItem', "Directory: $($_.FullName)")
         }
         return
     }

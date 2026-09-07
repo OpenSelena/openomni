@@ -208,7 +208,7 @@ test('parses shell autocompletion flags (--completion <shell>)', () => {
   assert.deepEqual(parseArgs(['--completion', 'pwsh']), {
     help: false,
     version: false,
-    completion: 'pwsh',
+    completion: 'powershell',
   })
 
   assert.match(parseArgs(['--completion']).error ?? '', /needs a shell/)

@@ -85,7 +85,7 @@ test('generateCompletion for powershell generates valid Register-ArgumentComplet
   const script = generateCompletion('powershell')
   assert.ok(script.includes('Register-ArgumentCompleter'))
   assert.ok(script.includes('-Native'))
-  assert.ok(script.includes('-CommandName open-omni') || script.includes("-CommandName 'open-omni'"))
+  assert.ok(script.includes("-CommandName 'open-omni'"))
   assert.ok(script.includes('--best'))
   assert.ok(script.includes('--mp3'))
   assert.ok(script.includes('--theme'))
@@ -93,4 +93,25 @@ test('generateCompletion for powershell generates valid Register-ArgumentComplet
   assert.ok(script.includes('--completion'))
   assert.ok(script.includes('--subs'))
   assert.ok(script.includes('--thumb'))
+  assert.ok(script.includes('Get-ChildItem -Directory'))
+  assert.ok(script.includes('[string]::IsNullOrEmpty($wordToComplete)'))
 })
+
+test('bash completion has zero external dependencies on bash-completion package', () => {
+  const script = generateCompletion('bash')
+  assert.equal(script.includes('_init_completion'), false)
+  assert.equal(script.includes('_filedir'), false)
+  assert.ok(script.includes('compgen -d'))
+})
+
+test('zsh completion does not contain scope creep url completing', () => {
+  const script = generateCompletion('zsh')
+  assert.equal(script.includes('_urls'), false)
+})
+
+test('fish completion preserves both -s U -l update and -l update-ytdlp', () => {
+  const script = generateCompletion('fish')
+  assert.ok(script.includes('-s U -l update'))
+  assert.ok(script.includes('-l update-ytdlp'))
+})
+
