@@ -1,0 +1,10 @@
+# 0003. POSIX Shell Installer Architecture (curl open-omni.sh | sh)
+
+## Context & Decision
+To enable frictionless installation across macOS, Linux, and WSL environments without requiring users to manually configure npm global directories or permissions, Open Omni provides a dedicated POSIX shell installer (`install.sh`).
+
+## Considered Options & Trade-offs
+1. **Isolated Prefix (~/.open-omni) vs Global npm**: Running `npm install -g` often requires `sudo` or custom npm prefixes on default Linux distributions. Installing into an isolated `~/.open-omni` prefix ensures zero root/sudo requirements, keeps all Open Omni runtime files and bundled binaries (`yt-dlp`) unified in `~/.open-omni/bin`, and allows clean removal via `rm -rf ~/.open-omni`.
+2. **Runtime Verification**: Open Omni requires Node.js >= 18. Rather than attempting invasive background system installations via package managers, `install.sh` detects the installed Node version and provides clear, copy-pasteable install instructions for the user's detected operating system if Node is missing or outdated.
+3. **Shell PATH Integration**: The installer inspects `$SHELL` to locate the user's rc file (`.zshrc`, `.bashrc`, or `config.fish`), checks for existing entries to prevent duplicate paths, and cleanly appends `~/.open-omni/bin` to `PATH`.
+4. **Branded Visual Experience**: Displays a terracotta-accented ASCII header and step-by-step progress tracking to match Open Omni's terminal design language.

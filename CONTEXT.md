@@ -47,3 +47,7 @@ _Avoid_: Packaged tool, embedded helper, daemon
 **Binary Self-Update**:
 The maintenance routine that checks, downloads, and atomically updates the active `yt-dlp` executable via native update or GitHub release fetch.
 _Avoid_: Hotpatch, auto-upgrade, sync
+
+**Installer Script**:
+The standalone POSIX shell script (`install.sh`) that validates prerequisites, installs Open Omni into an isolated user prefix (`~/.open-omni`), and configures shell PATH.
+_Avoid_: Setup wizard, payload, bootstrap script

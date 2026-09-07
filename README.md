@@ -18,6 +18,20 @@ no sketchy redirects.
 
 ## Install
 
+One-line installer (macOS & Linux):
+
+```sh
+curl -fsSL https://open-omni.sh | sh
+```
+
+Or directly via GitHub:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/OpenSelena/openomni/main/install.sh | sh
+```
+
+Or via npm:
+
 ```sh
 npm install -g open-omni
 ```
@@ -90,7 +104,7 @@ To try it as a global command without publishing: `npm link`, then run
 - [x] Clipboard detection: launch bare and auto-suggest the url you copied
 - [x] Self-update for the bundled yt-dlp binary (`yt-dlp -U`)
 - [ ] Publish to npm (`npm i -g open-omni` / `npx open-omni`)
-- [ ] `curl open-omni.sh | sh` installer
+- [x] `curl open-omni.sh | sh` installer
 
 ## A note on fair use
 
