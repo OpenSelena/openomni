@@ -31,8 +31,8 @@ test('forced themes paint native border cells with the theme background', async 
         ),
       )
 
-    assert.match(renderPanel('light'), /\x1b\[48;2;250;249;245m/)
-    assert.match(renderPanel('dark'), /\x1b\[48;2;31;30;29m/)
+    assert.match(renderPanel('light'), /\x1b\[48;2;255;255;255m/)
+    assert.match(renderPanel('dark'), /\x1b\[48;2;24;24;27m/)
     assert.doesNotMatch(renderPanel('auto'), /\x1b\[48;2;/)
   } finally {
     if (previousForceColor === undefined) delete process.env.FORCE_COLOR
@@ -42,18 +42,26 @@ test('forced themes paint native border cells with the theme background', async 
   }
 })
 
-test('Logo renders Open Omni ASCII block art', async () => {
-  const [{default: React}, {renderToString}, {Logo}, {ThemeProvider}] = await Promise.all([
-    import('react'),
-    import('ink'),
-    import('./logo.js'),
-    import('../theme.js'),
-  ])
+test('Logo renders Open Omni ASCII block art with brand color', async () => {
+  const previousForceColor = process.env.FORCE_COLOR
+  process.env.FORCE_COLOR = '3'
+  try {
+    const [{default: React}, {renderToString}, {Logo}, {ThemeProvider}] = await Promise.all([
+      import('react'),
+      import('ink'),
+      import('./logo.js'),
+      import('../theme.js'),
+    ])
 
-  const rendered = renderToString(
-    React.createElement(ThemeProvider, {mode: 'dark', children: React.createElement(Logo)}),
-  )
-  assert.ok(rendered.includes('█▀█'))
-  assert.ok(rendered.includes('█▀▄█'))
-  assert.ok(rendered.includes('▀█▀'))
+    const rendered = renderToString(
+      React.createElement(ThemeProvider, {mode: 'auto', children: React.createElement(Logo)}),
+    )
+    assert.ok(rendered.includes('█▀█'))
+    assert.ok(rendered.includes('█▀▄█'))
+    assert.ok(rendered.includes('▀█▀'))
+    assert.match(rendered, /\x1b\[38;2;193;95;60m/)
+  } finally {
+    if (previousForceColor === undefined) delete process.env.FORCE_COLOR
+    else process.env.FORCE_COLOR = previousForceColor
+  }
 })

@@ -27,14 +27,16 @@ const ease = (t: number) => 1 - Math.pow(1 - t, 3)
 
 type Phase = 'intro' | 'idle' | 'sweep'
 
+const LOGO_COLOR = '#C15F3C'
+
 function cellAt(ch: string, row: number, col: number, phase: Phase, t: number, delay: number, theme: Theme) {
-  if (ch === ' ' || phase === 'idle') return {ch, color: theme.primary, dim: false}
+  if (ch === ' ' || phase === 'idle') return {ch, color: LOGO_COLOR, dim: false}
   if (phase === 'intro') {
     const dt = t - delay
-    if (dt < 0) return {ch: ' ', color: theme.primary, dim: false}
+    if (dt < 0) return {ch: ' ', color: LOGO_COLOR, dim: false}
     if (dt < 110) return {ch: HALF_BLOCKS.has(ch) ? ch : '░', color: theme.gray, dim: theme.dimSecondary}
     if (dt < 220) return {ch: HALF_BLOCKS.has(ch) ? ch : '▒', color: theme.gray, dim: theme.dimSecondary}
-    return {ch, color: theme.primary, dim: false}
+    return {ch, color: LOGO_COLOR, dim: false}
   }
   // sweep — beam position leans right as it climbs, only glyphs are touched
   const cols = GRID[0].length
@@ -44,9 +46,9 @@ function cellAt(ch: string, row: number, col: number, phase: Phase, t: number, d
   const d = Math.abs(col - (ROWS - 1 - row) * TILT - p)
   if (d <= HALF && 1 - d / HALF > 0.35) {
     if (HALF_BLOCKS.has(ch)) return {ch, color: theme.gray, dim: theme.dimSecondary}
-    return {ch: LIGHTER[ch] ?? ch, color: theme.primary, dim: false}
+    return {ch: LIGHTER[ch] ?? ch, color: LOGO_COLOR, dim: false}
   }
-  return {ch, color: theme.primary, dim: false}
+  return {ch, color: LOGO_COLOR, dim: false}
 }
 
 function renderRow(row: number, phase: Phase, t: number, delays: number[], theme: Theme) {

@@ -189,7 +189,7 @@ export function TextInput({
     const selected = selection !== null && index >= selection[0] && index < selection[1]
     const atCursor = selection === null && index === cursor
     return (
-      <Text key={index} color={theme.text ?? theme.primary} inverse={selected || atCursor}>
+      <Text key={index} color={theme.primary} inverse={selected || atCursor}>
         {value[index] ?? ' '}
       </Text>
     )

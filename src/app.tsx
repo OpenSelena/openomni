@@ -47,7 +47,7 @@ function ChoiceIndicator({isSelected}: IndicatorProps) {
 function ChoiceItem({isSelected, label}: ItemProps) {
   const theme = useTheme()
   return (
-    <Text color={isSelected ? theme.primary : theme.text} bold={isSelected}>
+    <Text color={theme.primary} bold={isSelected}>
       {label}
     </Text>
   )
@@ -384,7 +384,7 @@ function AppContent({
             {/* wrapped by hand so continuation lines stay flush left —
                 ink's wrapping keeps the break's space as a 1-cell indent */}
             {wrapText(info?.title ?? '', Math.max(10, contentWidth - 41)).map((line, index) => (
-              <Text key={index} bold color={theme.text ?? theme.primary}>
+              <Text key={index} bold color={theme.primary}>
                 {line}
               </Text>
             ))}
@@ -468,7 +468,7 @@ function AppContent({
         <Box flexDirection="column" alignItems="center">
           <Text>
             <Text bold color={theme.primary}>✓ downloaded! </Text>
-            <Text color={theme.text ?? theme.primary}>find your file in:</Text>
+            <Text color={theme.primary}>find your file in:</Text>
           </Text>
           <Text color={theme.gray} dimColor={theme.dimSecondary}>{shortenPath(phase.filepath, os.homedir(), 60)}</Text>
           <Gap />
