@@ -379,6 +379,29 @@ const PROGRESS_TEMPLATE = `${PROGRESS_PREFIX}%(progress.downloaded_bytes)s|%(pro
 let activeChild: ChildProcess | undefined
 process.on('exit', () => activeChild?.kill('SIGTERM'))
 
+export type SubtitleOptions = {
+  enabled: boolean
+  languages?: string
+  embed?: boolean
+}
+
+export function buildSubtitleArgs(opts?: SubtitleOptions): string[] {
+  if (!opts || !opts.enabled) return []
+  const langs = opts.languages && opts.languages.trim() ? opts.languages.trim() : 'en.*,en'
+  const args = [
+    '--write-subs',
+    '--write-auto-subs',
+    '--sub-langs',
+    langs,
+    '--convert-subs',
+    'srt',
+  ]
+  if (opts.embed) {
+    args.push('--embed-subs')
+  }
+  return args
+}
+
 export function download(
   opts: {
     ytdlp: string
@@ -389,6 +412,7 @@ export function download(
     choice: DownloadChoice
     outDir: string
     outputTemplate?: string
+    subtitles?: SubtitleOptions
   },
   handlers: DownloadHandlers,
   signal?: AbortSignal,
@@ -396,6 +420,7 @@ export function download(
   const args = [
     ...(opts.infoJsonPath ? ['--load-info-json', opts.infoJsonPath] : [opts.url]),
     ...opts.choice.args,
+    ...buildSubtitleArgs(opts.subtitles),
     '--no-playlist',
     '--no-warnings',
     '--newline',

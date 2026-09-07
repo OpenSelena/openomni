@@ -24,6 +24,7 @@ import {useMouseClick} from './lib/use-mouse-click.js'
 import {BRAND_COLOR, nextThemeMode, ThemeProvider, type ThemeMode, useTheme} from './theme.js'
 import {
   buildChoices,
+  buildSubtitleArgs,
   download,
   ensureYtDlp,
   findFfmpeg,
@@ -31,6 +32,7 @@ import {
   probe,
   type DownloadChoice,
   type DownloadProgress,
+  type SubtitleOptions,
   type VideoInfo,
 } from './lib/ytdlp.js'
 import {
@@ -200,6 +202,7 @@ type AppProps = {
   autoSelect?: 'best' | 'mp3'
   outDir?: string
   version?: string
+  initialSubtitles?: SubtitleOptions
   onOutcome: (outcome: Outcome) => void
 }
 
@@ -222,6 +225,7 @@ function InnerApp({
   autoSelect,
   outDir,
   version = '1.0.0',
+  initialSubtitles,
   onOutcome,
   cycleTheme,
 }: {
@@ -230,6 +234,7 @@ function InnerApp({
   autoSelect?: 'best' | 'mp3'
   outDir?: string
   version?: string
+  initialSubtitles?: SubtitleOptions
   onOutcome: (outcome: Outcome) => void
   cycleTheme: () => void
 }) {
@@ -242,11 +247,20 @@ function InnerApp({
   const [platform, setPlatform] = useState<Platform>()
   const [info, setInfo] = useState<VideoInfo>()
   const [choices, setChoices] = useState<DownloadChoice[]>([])
+  const [subtitles, setSubtitles] = useState<SubtitleOptions | undefined>(initialSubtitles)
   const ytdlpRef = useRef('')
   const highlightRef = useRef(0)
   const infoJsonRef = useRef<string | undefined>(undefined)
   const abortRef = useRef<AbortController | undefined>(undefined)
   const [phase, setPhase] = useState<Phase>(initialUrl ? {name: 'probing', status: 'warming up…'} : {name: 'input'})
+
+  const toggleSubtitles = useCallback(() => {
+    setSubtitles(prev => ({
+      enabled: !prev?.enabled,
+      languages: prev?.languages,
+      embed: prev?.embed,
+    }))
+  }, [])
 
   const columns = stdout?.columns && stdout.columns > 0 ? stdout.columns : 80
   const boxWidth = Math.max(14, Math.min(64, columns - 6))
@@ -268,7 +282,7 @@ function InnerApp({
           const targetDir = outDir ?? OUT_DIR
           await fs.mkdir(targetDir, {recursive: true})
           const ffmpegLocation = await findFfmpeg()
-          const base = {ytdlp: ytdlpRef.current, ffmpegLocation, url: targetUrl, choice, outDir: targetDir}
+          const base = {ytdlp: ytdlpRef.current, ffmpegLocation, url: targetUrl, choice, outDir: targetDir, subtitles}
           let filepath: string
           try {
             filepath = await download(
@@ -298,7 +312,7 @@ function InnerApp({
         }
       })()
     },
-    [outDir, onOutcome, autoSelect, exit],
+    [outDir, onOutcome, autoSelect, exit, subtitles],
   )
 
   const executeBatchDownload = useCallback(
@@ -352,6 +366,7 @@ function InnerApp({
                   choice,
                   outDir: playlistDir,
                   outputTemplate: targetPath,
+                  subtitles: tier !== 'mp3' ? subtitles : undefined,
                 },
                 {
                   onProgress: progress =>
@@ -481,6 +496,10 @@ function InnerApp({
         cycleTheme()
         return
       }
+      if ((input === 's' || input === 'S') && !key.ctrl && (phase.name === 'picking' || phase.name === 'playlist-quality')) {
+        toggleSubtitles()
+        return
+      }
       if (key.escape && (phase.name === 'picking' || phase.name === 'error' || phase.name === 'done' || phase.name === 'playlist-scope' || phase.name === 'playlist-done')) resetToInput()
       if (key.escape && phase.name === 'playlist-quality') {
         setPhase({name: 'playlist-scope', playlist: phase.playlist, singleVideoUrl: phase.singleVideoUrl})
@@ -510,6 +529,9 @@ function InnerApp({
   }
 
   let hints: Array<[string, string]> = [...HINTS[phase.name], ['^t', `theme:${theme.mode}`]]
+  if (phase.name === 'picking' || phase.name === 'playlist-quality') {
+    hints = [...hints.slice(0, 1), ['s', subtitles?.enabled ? 'subs:on' : 'subs:off'], ...hints.slice(1)]
+  }
   if (phase.name === 'input' && history.length > 0) {
     hints = [hints[0]!, ['↑', 'history'], ...hints.slice(1)]
   }
@@ -517,6 +539,7 @@ function InnerApp({
   const hintAction = (key: string): (() => void) | undefined => {
     if (key === '^c') return () => exit()
     if (key === '^t') return cycleTheme
+    if (key === 's') return toggleSubtitles
     if (key === 'esc') {
       if (phase.name === 'probing' || phase.name === 'downloading' || phase.name === 'playlist-downloading') return cancelRun
       if (phase.name === 'playlist-quality') return () => setPhase({name: 'playlist-scope', playlist: phase.playlist, singleVideoUrl: phase.singleVideoUrl})

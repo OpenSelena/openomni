@@ -95,3 +95,20 @@ test('App renders version and developer credit with hyperlink on home screen', a
   }
 })
 
+test('App accepts initialSubtitles prop without regression', async () => {
+  const [{default: React}, {renderToString}, {App}] = await Promise.all([
+    import('react'),
+    import('ink'),
+    import('../app.js'),
+  ])
+
+  const rendered = renderToString(
+    React.createElement(App, {
+      initialSubtitles: {enabled: true, languages: 'es,en'},
+      onOutcome: () => {},
+    }),
+  )
+  assert.ok(rendered.includes('v1.0.0'))
+})
+
+

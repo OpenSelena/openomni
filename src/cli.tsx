@@ -37,6 +37,8 @@ const HELP = `
   Options
     --best          skip picker and download highest video resolution
     --mp3           skip picker and extract audio as mp3
+    --subs [langs]  download subtitles (default: English, or e.g. --subs es,en)
+    --embed-subs    embed subtitles into video container file
     -o, --output    output directory (default: ~/Downloads, or $OPEN_OMNI_DIR)
     -U, --update    update bundled yt-dlp to latest version (--update-ytdlp)
     --force         force re-download clean yt-dlp binary (with -U)
@@ -165,6 +167,13 @@ if (!isTTY && args.format && initialUrl) {
 
     console.error(`[open-omni] downloading ${info.title ? `“${info.title}” ` : ''}(${choice.label})…`)
     const ffmpegLocation = await findFfmpeg()
+    const subtitles = args.subtitles
+      ? {
+          enabled: true,
+          languages: typeof args.subtitles === 'string' ? args.subtitles : undefined,
+          embed: args.embedSubs,
+        }
+      : undefined
     const filepath = await download(
       {
         ytdlp,
@@ -173,6 +182,7 @@ if (!isTTY && args.format && initialUrl) {
         choice,
         outDir,
         infoJsonPath,
+        subtitles,
       },
       {
         onProgress: progress => {
@@ -221,6 +231,14 @@ if (isTTY) {
   }
 }
 
+const subtitles = args.subtitles
+  ? {
+      enabled: true,
+      languages: typeof args.subtitles === 'string' ? args.subtitles : undefined,
+      embed: args.embedSubs,
+    }
+  : undefined
+
 let outcome: Outcome = {}
 const {waitUntilExit} = render(
   <App
@@ -230,6 +248,7 @@ const {waitUntilExit} = render(
     autoSelect={args.format}
     outDir={outDir}
     version={VERSION}
+    initialSubtitles={subtitles}
     onOutcome={result => (outcome = result)}
   />,
   // keep a copy of every frame so clicks can be hit-tested against it

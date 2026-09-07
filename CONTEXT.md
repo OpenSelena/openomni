@@ -51,3 +51,14 @@ _Avoid_: Hotpatch, auto-upgrade, sync
 **Installer Script**:
 The standalone POSIX shell script (`install.sh`) that validates prerequisites, installs Open Omni into an isolated user prefix (`~/.open-omni`), and configures shell PATH.
 _Avoid_: Setup wizard, payload, bootstrap script
+
+### Subtitles & Metadata
+
+**Subtitles**:
+The external text track (manual or auto-generated captions) synchronized to a media item's audio stream.
+_Avoid_: Closed captions, CC, srt file, transcript
+
+**Subtitle Embedding**:
+The process of muxing subtitle streams directly into the target media container via ffmpeg rather than outputting adjacent standalone files.
+_Avoid_: Inlining, burn-in, hardcoding
+

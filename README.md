@@ -51,6 +51,7 @@ automatically.
 $ open-omni https://youtu.be/dQw4w9WgXcQ             # straight to the format picker
 $ open-omni https://youtu.be/dQw4w9WgXcQ --best      # skip picker, download highest resolution
 $ open-omni https://youtu.be/dQw4w9WgXcQ --mp3       # skip picker, extract audio only
+$ open-omni https://youtu.be/dQw4w9WgXcQ --subs      # download video with subtitles (.srt)
 $ open-omni https://youtu.be/dQw4w9WgXcQ -o ~/Videos # download to custom folder
 $ open-omni                                          # prompts for a url (or Tab pastes from clipboard)
 $ open-omni --theme light                            # force the light palette

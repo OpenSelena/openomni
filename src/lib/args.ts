@@ -13,6 +13,8 @@ export type CliArgs = {
   outputDir?: string
   updateYtDlp?: boolean
   force?: boolean
+  subtitles?: boolean | string
+  embedSubs?: boolean
   error?: string
 }
 
@@ -30,6 +32,19 @@ export function parseArgs(args: string[]): CliArgs {
       result.updateYtDlp = true
     } else if (arg === '--force') {
       result.force = true
+    } else if (arg === '--embed-subs') {
+      result.embedSubs = true
+    } else if (arg.startsWith('--subs=')) {
+      const value = arg.slice('--subs='.length)
+      result.subtitles = value || true
+    } else if (arg === '--subs') {
+      const next = args[index + 1]
+      if (next && !next.startsWith('-') && !next.includes('://')) {
+        result.subtitles = next
+        index++
+      } else {
+        result.subtitles = true
+      }
     } else if (arg === '--best') {
       if (result.format === 'mp3') return {...result, error: 'cannot use both --best and --mp3'}
       result.format = 'best'

@@ -66,6 +66,36 @@ test('parses scriptable format flags (--best, --mp3) and output directory (-o, -
   })
 })
 
+test('parses subtitle flags (--subs, --subs=lang, --embed-subs)', () => {
+  assert.deepEqual(parseArgs(['--subs', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    subtitles: true,
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(parseArgs(['--subs=es,en', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    subtitles: 'es,en',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(parseArgs(['--subs', 'es,en', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    subtitles: 'es,en',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(parseArgs(['--embed-subs', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    embedSubs: true,
+    initialUrl: 'https://example.com/video',
+  })
+})
+
 test('parses yt-dlp update flags (-U, --update, --update-ytdlp, --force)', () => {
   assert.deepEqual(parseArgs(['-U']), {
     help: false,

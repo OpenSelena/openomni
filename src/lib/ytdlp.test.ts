@@ -7,6 +7,7 @@ import {
   isYtDlpPackageManaged,
   isExtractorError,
   getYtDlpVersion,
+  buildSubtitleArgs,
   type VideoInfo
 } from './ytdlp.js'
 
@@ -106,3 +107,34 @@ test('isExtractorError distinguishes extraction/cipher errors from general error
   assert.equal(isExtractorError('ENOSPC: no space left on device'), false)
   assert.equal(isExtractorError('User aborted operation'), false)
 })
+
+test('buildSubtitleArgs generates correct yt-dlp subtitle arguments', () => {
+  assert.deepEqual(buildSubtitleArgs(undefined), [])
+  assert.deepEqual(buildSubtitleArgs({enabled: false}), [])
+  assert.deepEqual(buildSubtitleArgs({enabled: true}), [
+    '--write-subs',
+    '--write-auto-subs',
+    '--sub-langs',
+    'en.*,en',
+    '--convert-subs',
+    'srt',
+  ])
+  assert.deepEqual(buildSubtitleArgs({enabled: true, languages: 'es,ja'}), [
+    '--write-subs',
+    '--write-auto-subs',
+    '--sub-langs',
+    'es,ja',
+    '--convert-subs',
+    'srt',
+  ])
+  assert.deepEqual(buildSubtitleArgs({enabled: true, embed: true}), [
+    '--write-subs',
+    '--write-auto-subs',
+    '--sub-langs',
+    'en.*,en',
+    '--convert-subs',
+    'srt',
+    '--embed-subs',
+  ])
+})
+
