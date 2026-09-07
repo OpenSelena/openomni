@@ -6,8 +6,7 @@
   "bin": {
     "open-omni": "dist/cli.js",
     "openomni": "dist/cli.js",
-    "omni": "dist/cli.js",
-    "yoinks": "dist/cli.js"
+    "omni": "dist/cli.js"
   },
   "files": [
     "dist"
