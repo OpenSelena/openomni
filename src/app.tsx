@@ -346,6 +346,13 @@ function AppContent({
   if (phase.name === 'input') {
     // the frame button rows above/below the label are part of the button
     clickTargets.push({match: `  ${DOWNLOAD_BUTTON}  `, padY: 1, action: () => handleUrlSubmit(urlInput)})
+    if (clipboardOffered && clipboardUrl) {
+      clickTargets.push({match: 'Tab to paste it', action: () => setUrlInput(clipboardUrl)})
+      clickTargets.push({match: 'link in your clipboard', action: () => setUrlInput(clipboardUrl)})
+    }
+    if (clipboardAccepted) {
+      clickTargets.push({match: 'to download it', action: () => handleUrlSubmit(urlInput)})
+    }
   }
   if (phase.name === 'picking') {
     for (const [index, choice] of choices.entries()) {
@@ -404,7 +411,7 @@ function AppContent({
           {phase.warning ? (
             <Text color={theme.gray} dimColor={theme.dimSecondary}>✗ {phase.warning}</Text>
           ) : clipboardOffered ? (
-            <Text color={theme.gray} dimColor={theme.dimSecondary}>link in your clipboard — ⇥ to paste it</Text>
+            <Text color={theme.gray} dimColor={theme.dimSecondary}>link in your clipboard — Tab to paste it</Text>
           ) : clipboardAccepted ? (
             <Text color={theme.gray} dimColor={theme.dimSecondary}>from your clipboard — ↵ to download it</Text>
           ) : null}

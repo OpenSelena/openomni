@@ -103,7 +103,7 @@ if (!isTTY && args.format && initialUrl) {
   }
 }
 
-// no url given — offer the clipboard url (⇥ to paste) when it already holds one
+// no url given — offer the clipboard url (Tab to paste) when it already holds one
 let clipboardUrl: string | undefined
 if (!initialUrl && isTTY) {
   const clipped = readClipboard().trim()
