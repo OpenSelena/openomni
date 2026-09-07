@@ -92,16 +92,6 @@ mkdir -p "$INSTALL_DIR" "$BIN_DIR"
 # Step 3: Install Package
 printf ' %b[3/4]%b Installing open-omni package...\n' "$BOLD" "$RESET"
 
-# Initialize a package.json if not present
-if [ ! -f "$INSTALL_DIR/package.json" ]; then
-  cat << 'EOF' > "$INSTALL_DIR/package.json"
-{
-  "name": "open-omni-runtime",
-  "private": true
-}
-EOF
-fi
-
 # Install latest open-omni locally in prefix
 if ! npm install --prefix "$INSTALL_DIR" open-omni@latest --no-fund --no-audit --silent >/dev/null 2>&1; then
   printf ' %b✗ Failed to install open-omni via npm.%b\n' "$RED" "$RESET"

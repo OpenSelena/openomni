@@ -56,8 +56,3 @@ export function formatSpeed(bytesPerSecond: number): string {
   if (!Number.isFinite(bytesPerSecond) || bytesPerSecond <= 0) return ''
   return `${formatBytes(bytesPerSecond)}/s`
 }
-
-export function formatEta(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds <= 0) return ''
-  return formatDuration(seconds)
-}

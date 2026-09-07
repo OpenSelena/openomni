@@ -3,8 +3,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import {Box, Text, useApp, useInput, useStdout} from 'ink'
-import SelectInput, {type IndicatorProps, type ItemProps} from 'ink-select-input'
-import Spinner from 'ink-spinner'
+import Spinner from './components/spinner.js'
 import {FramedInput} from './components/framed-input.js'
 import {FullScreen} from './components/fullscreen.js'
 import {Logo} from './components/logo.js'
@@ -17,7 +16,7 @@ import {PlaylistItemPicker} from './components/playlist-item-picker.js'
 import {PlaylistQualityPicker} from './components/playlist-quality-picker.js'
 import {PlaylistProgress} from './components/playlist-progress.js'
 import {clickTargetAt, findFrameRow, frameRowSpan, type ClickTarget} from './lib/click-map.js'
-import {formatBytes, formatDuration, formatEta, formatSpeed, shortenPath, truncate, wrapText} from './lib/format.js'
+import {formatBytes, formatDuration, formatSpeed, shortenPath, truncate, wrapText} from './lib/format.js'
 import {addToHistory, loadHistory} from './lib/history.js'
 import {detectPlatform, isProbablyUrl, type Platform} from './lib/platforms.js'
 import {useMouseClick} from './lib/use-mouse-click.js'
@@ -50,24 +49,6 @@ const TAGLINE = 'grab any video. paste. download. done.'
 
 const choiceLabel = (choice: DownloadChoice) => `${choice.kind === 'audio' ? '♪ ' : '▶ '}${choice.label}`
 
-function ChoiceIndicator({isSelected}: IndicatorProps) {
-  const theme = useTheme()
-  return (
-    <Box marginRight={1}>
-      <Text color={theme.primary}>{isSelected ? '❯' : ' '}</Text>
-    </Box>
-  )
-}
-
-function ChoiceItem({isSelected, label}: ItemProps) {
-  const theme = useTheme()
-  return (
-    <Text color={theme.primary} bold={isSelected}>
-      {label}
-    </Text>
-  )
-}
-
 const Gap = ({lines = 1}: {lines?: number}) => (
   <Box flexDirection="column" flexShrink={0}>
     {Array.from({length: lines}, (_, i) => (
@@ -82,7 +63,7 @@ function partLabel(progress: DownloadProgress): string {
 
 function downloadMeta(progress: DownloadProgress): string {
   const speed = progress.speed ? formatSpeed(progress.speed) : ''
-  const eta = progress.eta ? `${formatEta(progress.eta)} left` : ''
+  const eta = progress.eta ? `${formatDuration(progress.eta)} left` : ''
   return `${partLabel(progress)}${speed.padStart(10)}  ${eta.padEnd(12)}`
 }
 
@@ -240,7 +221,7 @@ function InnerApp({
   const [info, setInfo] = useState<VideoInfo>()
   const [choices, setChoices] = useState<DownloadChoice[]>([])
   const ytdlpRef = useRef('')
-  const highlightRef = useRef(0)
+  const [highlightIndex, setHighlightIndex] = useState(0)
   const infoJsonRef = useRef<string | undefined>(undefined)
   const abortRef = useRef<AbortController | undefined>(undefined)
   const [phase, setPhase] = useState<Phase>(initialUrl ? {name: 'probing', status: 'warming up…'} : {name: 'input'})
@@ -432,7 +413,7 @@ function InnerApp({
         setInfo(videoInfo)
         const availableChoices = buildChoices(videoInfo)
         setChoices(availableChoices)
-        highlightRef.current = 0
+        setHighlightIndex(0)
         if (autoSelect) {
           const picked =
             autoSelect === 'mp3'
@@ -478,6 +459,28 @@ function InnerApp({
         cycleTheme()
         return
       }
+      if (phase.name === 'picking') {
+        if (key.upArrow || input === 'k') {
+          setHighlightIndex(prev => Math.max(0, prev - 1))
+          return
+        }
+        if (key.downArrow || input === 'j') {
+          setHighlightIndex(prev => Math.min(choices.length - 1, prev + 1))
+          return
+        }
+        if (key.return) {
+          const choice = choices[highlightIndex]
+          if (choice) executeDownload(choice, url, infoJsonRef.current)
+          return
+        }
+        if (/^[1-9]$/.test(input)) {
+          const idx = parseInt(input, 10) - 1
+          if (choices[idx]) {
+            executeDownload(choices[idx]!, url, infoJsonRef.current)
+            return
+          }
+        }
+      }
       if (key.escape && (phase.name === 'picking' || phase.name === 'error' || phase.name === 'done' || phase.name === 'playlist-scope' || phase.name === 'playlist-done')) resetToInput()
       if (key.escape && phase.name === 'playlist-quality') {
         setPhase({name: 'playlist-scope', playlist: phase.playlist, singleVideoUrl: phase.singleVideoUrl})
@@ -521,7 +524,7 @@ function InnerApp({
     }
     if (key === '↵') {
       if (phase.name === 'input') return () => handleUrlSubmit(urlInput)
-      if (phase.name === 'picking') return () => handlePick({value: highlightRef.current})
+      if (phase.name === 'picking') return () => handlePick({value: highlightIndex})
       if (phase.name === 'error' || phase.name === 'done' || phase.name === 'playlist-done') return resetToInput
     }
     return undefined
@@ -738,17 +741,21 @@ function InnerApp({
             </Text>
           </Box>
           <Panel title="Download" width={38}>
-            <SelectInput
-              indicatorComponent={ChoiceIndicator}
-              itemComponent={ChoiceItem}
-              items={choices.map((choice, index) => ({
-                key: String(index),
-                label: choiceLabel(choice),
-                value: index,
-              }))}
-              onSelect={handlePick}
-              onHighlight={item => (highlightRef.current = item.value)}
-            />
+            <Box flexDirection="column">
+              {choices.map((choice, index) => {
+                const isSelected = index === highlightIndex
+                return (
+                  <Box key={index}>
+                    <Box marginRight={1}>
+                      <Text color={theme.primary}>{isSelected ? '❯' : ' '}</Text>
+                    </Box>
+                    <Text color={theme.primary} bold={isSelected}>
+                      {choiceLabel(choice)}
+                    </Text>
+                  </Box>
+                )
+              })}
+            </Box>
           </Panel>
         </Box>
       )}

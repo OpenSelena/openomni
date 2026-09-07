@@ -3,19 +3,16 @@ import os from 'node:os'
 import path from 'node:path'
 
 const HISTORY_FILE = path.join(os.homedir(), '.config', 'open-omni', 'history.json')
-const LEGACY_HISTORY_FILE = path.join(os.homedir(), '.config', 'yoinks', 'history.json')
 const LIMIT = 50
 
 export function loadHistory(): string[] {
-  for (const file of [HISTORY_FILE, LEGACY_HISTORY_FILE]) {
-    try {
-      const parsed: unknown = JSON.parse(fs.readFileSync(file, 'utf8'))
-      if (Array.isArray(parsed)) {
-        return parsed.filter((entry): entry is string => typeof entry === 'string')
-      }
-    } catch {
-      // try next
+  try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'))
+    if (Array.isArray(parsed)) {
+      return parsed.filter((entry): entry is string => typeof entry === 'string')
     }
+  } catch {
+    // missing or corrupted
   }
   return []
 }
