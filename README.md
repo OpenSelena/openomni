@@ -76,6 +76,29 @@ click the theme control in the footer to cycle through `auto`, `light`, and
 
 <img src="assets/download-options.png" alt="Open Omni format picker — resolutions with estimated file sizes, plus audio-only mp3" width="100%">
 
+## Configuration
+
+Persist your preferences in `~/.config/open-omni/config.json` (or `$XDG_CONFIG_HOME/open-omni/config.json`):
+
+```json
+{
+  "outputDir": "~/Videos",
+  "theme": "dark",
+  "format": "best",
+  "subtitles": {
+    "enabled": true,
+    "languages": "en,ja",
+    "embed": false
+  },
+  "thumbnail": {
+    "enabled": true,
+    "embed": true
+  }
+}
+```
+
+Operational settings resolve following strict precedence: CLI arguments > `$OPEN_OMNI_DIR` > `config.json` > built-in defaults.
+
 ## How it works
 
 - Powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp). On first run,

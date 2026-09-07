@@ -114,8 +114,20 @@ export function parseArgs(args: string[]): CliArgs {
   return result
 }
 
-export function resolveOutputDir(cliOutputDir?: string, envDir = process.env.OPEN_OMNI_DIR): string {
-  if (cliOutputDir) return path.resolve(cliOutputDir)
-  if (envDir) return path.resolve(envDir)
+function expandPath(dir: string): string {
+  if (dir.startsWith('~/') || dir.startsWith('~\\') || dir === '~') {
+    return path.join(os.homedir(), dir.slice(1))
+  }
+  return dir
+}
+
+export function resolveOutputDir(
+  cliOutputDir?: string,
+  configDir?: string,
+  envDir = process.env.OPEN_OMNI_DIR,
+): string {
+  if (cliOutputDir) return path.resolve(expandPath(cliOutputDir))
+  if (envDir) return path.resolve(expandPath(envDir))
+  if (configDir) return path.resolve(expandPath(configDir))
   return path.join(os.homedir(), 'Downloads')
 }

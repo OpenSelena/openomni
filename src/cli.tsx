@@ -16,6 +16,13 @@ import {
   resolvePlaylistDir,
   type QualityTier,
 } from './lib/playlist.js'
+import {
+  loadConfig,
+  resolveEffectiveFormat,
+  resolveEffectiveSubtitles,
+  resolveEffectiveTheme,
+  resolveEffectiveThumbnail,
+} from './lib/config.js'
 
 // read at runtime from the shipped package.json so npm version bumps
 // can't drift from a hardcoded constant
@@ -92,14 +99,18 @@ if (args.updateYtDlp) {
   }
 }
 
+const userConfig = loadConfig(undefined, msg => console.error(msg))
 const initialUrl = args.initialUrl
-const initialThemeMode = args.themeMode ?? 'auto'
-const outDir = resolveOutputDir(args.outputDir)
-const subtitles = toSubtitleOptions(args)
-const thumbnail = toThumbnailOptions(args)
+const effectiveFormat = resolveEffectiveFormat(args.format, userConfig.format)
+const initialThemeMode = resolveEffectiveTheme(args.themeMode, userConfig.theme)
+const outDir = resolveOutputDir(args.outputDir, userConfig.outputDir)
+const cliSubtitles = toSubtitleOptions(args)
+const subtitles = resolveEffectiveSubtitles(cliSubtitles, userConfig.subtitles)
+const cliThumbnail = toThumbnailOptions(args)
+const thumbnail = resolveEffectiveThumbnail(cliThumbnail, userConfig.thumbnail)
 const isTTY = Boolean(process.stdout.isTTY)
 
-if (!isTTY && args.format && initialUrl) {
+if (!isTTY && effectiveFormat && initialUrl) {
   try {
     await fs.mkdir(outDir, {recursive: true})
     const ytdlp = await ensureYtDlp(status => console.error(`[open-omni] ${status}`))
@@ -112,10 +123,10 @@ if (!isTTY && args.format && initialUrl) {
       await fs.mkdir(playlistDir, {recursive: true})
       console.error(`[open-omni] found playlist “${playlist.title}” (${playlist.validEntries.length} items)`)
       const ffmpegLocation = await findFfmpeg()
-      const tier = args.format as QualityTier
+      const tier = effectiveFormat as QualityTier
       const choice: DownloadChoice = {
-        label: args.format,
-        kind: args.format === 'mp3' ? 'audio' : 'video',
+        label: effectiveFormat,
+        kind: effectiveFormat === 'mp3' ? 'audio' : 'video',
         args: buildQualityTierArgs(tier),
       }
       let succeeded = 0
@@ -166,7 +177,7 @@ if (!isTTY && args.format && initialUrl) {
     const {info, infoJsonPath} = probeResult
     const choices = buildChoices(info)
     const choice =
-      args.format === 'mp3'
+      effectiveFormat === 'mp3'
         ? (choices.find(c => c.kind === 'audio') ?? choices[choices.length - 1]!)
         : (choices.find(c => c.kind === 'video') ?? choices[0]!)
 
@@ -236,7 +247,7 @@ const {waitUntilExit} = render(
     initialUrl={initialUrl}
     clipboardUrl={clipboardUrl}
     initialThemeMode={initialThemeMode}
-    autoSelect={args.format}
+    autoSelect={effectiveFormat}
     outDir={outDir}
     version={VERSION}
     initialSubtitles={subtitles}

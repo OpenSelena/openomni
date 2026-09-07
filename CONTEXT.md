@@ -70,3 +70,13 @@ _Avoid_: Snapshot, frame grab, cover image, poster art
 The process of muxing thumbnail images directly into media container tags (e.g. ID3 APIC for audio or atomic art for MP4) as embedded cover art.
 _Avoid_: Inlining, burn-in, stamp
 
+### User Configuration
+
+**User Configuration**:
+The persistent user preference file (`config.json`) stored under the user's config directory (`$XDG_CONFIG_HOME/open-omni/config.json` or `~/.config/open-omni/config.json`).
+_Avoid_: Registry, settings store, profile, ini file
+
+**Precedence Waterfall**:
+The strict hierarchy for resolving operational settings: CLI arguments > Environment variables (`OPEN_OMNI_DIR`) > User configuration > Built-in defaults.
+_Avoid_: Fallback chain, override cascade
+
