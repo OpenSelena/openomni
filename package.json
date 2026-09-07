@@ -22,7 +22,10 @@
     "start": "node dist/cli.js",
     "prepublishOnly": "npm test && npm run typecheck && npm run build"
   },
-  "author": "Igect",
+  "author": {
+    "name": "Igect",
+    "url": "https://igect.link/"
+  },
   "keywords": [
     "video",
     "downloader",
