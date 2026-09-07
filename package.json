@@ -1,6 +1,6 @@
 {
   "name": "open-omni",
-  "version": "0.3.1",
+  "version": "1.0.0",
   "description": "Open Omni — grab any video from YouTube, X, Instagram, Threads & 1800+ sites — right from your terminal. paste. download. done.",
   "type": "module",
   "bin": {
