@@ -5,10 +5,15 @@ export type ThemeMode = (typeof THEME_MODES)[number]
 
 export type Theme = {
   mode: ThemeMode
-  /** Undefined means “use the terminal's own foreground/background”. */
+  /** Primary Claude terracotta accent. */
   primary?: string
+  /** Main foreground text (undefined in auto delegates to terminal ANSI). */
+  text?: string
+  /** Warm secondary gray for subtitles, borders, and hints. */
   gray?: string
+  /** High-contrast text on primary buttons. */
   dark?: string
+  /** Surface background. */
   background?: string
   dimSecondary: boolean
   inverseButton: boolean
@@ -18,6 +23,7 @@ const themes: Record<ThemeMode, Theme> = {
   auto: {
     mode: 'auto',
     primary: '#C15F3C',
+    text: undefined,
     gray: undefined,
     dark: '#ffffff',
     background: undefined,
@@ -26,19 +32,21 @@ const themes: Record<ThemeMode, Theme> = {
   },
   light: {
     mode: 'light',
-    primary: '#18181b',
-    gray: '#52525b',
+    primary: '#C15F3C',
+    text: '#1F1E1D',
+    gray: '#73726C',
     dark: '#ffffff',
-    background: '#ffffff',
+    background: '#FAF9F5',
     dimSecondary: false,
     inverseButton: false,
   },
   dark: {
     mode: 'dark',
-    primary: '#ffffff',
-    gray: '#a1a1aa',
-    dark: '#18181b',
-    background: '#18181b',
+    primary: '#C15F3C',
+    text: '#FAF9F5',
+    gray: '#8C8A85',
+    dark: '#ffffff',
+    background: '#1F1E1D',
     dimSecondary: false,
     inverseButton: false,
   },

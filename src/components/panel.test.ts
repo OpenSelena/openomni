@@ -31,8 +31,8 @@ test('forced themes paint native border cells with the theme background', async 
         ),
       )
 
-    assert.match(renderPanel('light'), /\x1b\[48;2;255;255;255m/)
-    assert.match(renderPanel('dark'), /\x1b\[48;2;24;24;27m/)
+    assert.match(renderPanel('light'), /\x1b\[48;2;250;249;245m/)
+    assert.match(renderPanel('dark'), /\x1b\[48;2;31;30;29m/)
     assert.doesNotMatch(renderPanel('auto'), /\x1b\[48;2;/)
   } finally {
     if (previousForceColor === undefined) delete process.env.FORCE_COLOR

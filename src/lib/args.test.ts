@@ -42,6 +42,7 @@ test('auto delegates to terminal colors while forced modes own the full surface'
   assert.deepEqual(themeFor('auto'), {
     mode: 'auto',
     primary: '#C15F3C',
+    text: undefined,
     gray: undefined,
     dark: '#ffffff',
     background: undefined,
@@ -49,8 +50,10 @@ test('auto delegates to terminal colors while forced modes own the full surface'
     inverseButton: false,
   })
 
-  assert.equal(themeFor('light').background, '#ffffff')
-  assert.equal(themeFor('light').primary, '#18181b')
-  assert.equal(themeFor('dark').background, '#18181b')
-  assert.equal(themeFor('dark').primary, '#ffffff')
+  assert.equal(themeFor('light').background, '#FAF9F5')
+  assert.equal(themeFor('light').primary, '#C15F3C')
+  assert.equal(themeFor('light').text, '#1F1E1D')
+  assert.equal(themeFor('dark').background, '#1F1E1D')
+  assert.equal(themeFor('dark').primary, '#C15F3C')
+  assert.equal(themeFor('dark').text, '#FAF9F5')
 })
