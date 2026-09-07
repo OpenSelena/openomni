@@ -196,6 +196,10 @@ const HINTS: Record<Phase['name'], Array<[string, string]>> = {
   ],
 }
 
+function isPickerPhase(phaseName: Phase['name']): boolean {
+  return phaseName === 'picking' || phaseName === 'playlist-quality'
+}
+
 type AppProps = {
   initialUrl?: string
   clipboardUrl?: string
@@ -270,6 +274,7 @@ function InnerApp({
   const toggleThumbnail = useCallback(() => {
     setThumbnail(prev => ({
       enabled: !prev?.enabled,
+      write: true,
       embed: prev?.embed,
     }))
   }, [])
@@ -324,7 +329,7 @@ function InnerApp({
         }
       })()
     },
-    [outDir, onOutcome, autoSelect, exit, subtitles],
+    [outDir, onOutcome, autoSelect, exit, subtitles, thumbnail],
   )
 
   const executeBatchDownload = useCallback(
@@ -360,7 +365,7 @@ function InnerApp({
           for (let i = 0; i < queue.length; i++) {
             if (controller.signal.aborted) break
             const entry = queue[i]!
-            const filename = formatTrackFilename(entry.index, queue.length, entry.title, ext)
+            const filename = formatTrackFilename(entry.index, queue.length, entry.title, '%(ext)s')
             const targetPath = path.join(playlistDir, filename)
 
             setPhase(prev =>
@@ -426,7 +431,7 @@ function InnerApp({
         }
       })()
     },
-    [outDir, onOutcome, autoSelect, exit],
+    [outDir, onOutcome, autoSelect, exit, subtitles, thumbnail],
   )
 
   const startProbe = useCallback(
@@ -509,11 +514,11 @@ function InnerApp({
         cycleTheme()
         return
       }
-      if ((input === 's' || input === 'S') && !key.ctrl && (phase.name === 'picking' || phase.name === 'playlist-quality')) {
+      if ((input === 's' || input === 'S') && !key.ctrl && isPickerPhase(phase.name)) {
         toggleSubtitles()
         return
       }
-      if ((input === 't' || input === 'T') && !key.ctrl && (phase.name === 'picking' || phase.name === 'playlist-quality')) {
+      if ((input === 't' || input === 'T') && !key.ctrl && isPickerPhase(phase.name)) {
         toggleThumbnail()
         return
       }
@@ -546,7 +551,7 @@ function InnerApp({
   }
 
   let hints: Array<[string, string]> = [...HINTS[phase.name], ['^t', `theme:${theme.mode}`]]
-  if (phase.name === 'picking' || phase.name === 'playlist-quality') {
+  if (isPickerPhase(phase.name)) {
     hints = [
       ...hints.slice(0, 1),
       ['s', subtitles?.enabled ? 'subs:on' : 'subs:off'],

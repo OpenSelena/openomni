@@ -404,14 +404,18 @@ export function buildSubtitleArgs(opts?: SubtitleOptions): string[] {
 
 export type ThumbnailOptions = {
   enabled: boolean
+  write?: boolean
   embed?: boolean
 }
 
 export function buildThumbnailArgs(opts?: ThumbnailOptions, hasFfmpeg: boolean = true): string[] {
   if (!opts || !opts.enabled) return []
-  const args = ['--write-thumbnail']
-  if (hasFfmpeg) {
-    args.push('--convert-thumbnails', 'jpg')
+  const args: string[] = []
+  if (opts.write !== false) {
+    args.push('--write-thumbnail')
+    if (hasFfmpeg) {
+      args.push('--convert-thumbnails', 'jpg')
+    }
   }
   if (opts.embed) {
     args.push('--embed-thumbnail')

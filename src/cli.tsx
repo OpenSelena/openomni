@@ -122,8 +122,7 @@ if (!isTTY && args.format && initialUrl) {
       let skipped = 0
 
       for (const entry of playlist.validEntries) {
-        const ext = getQualityTierExt(tier)
-        const filename = formatTrackFilename(entry.index, playlist.validEntries.length, entry.title, ext)
+        const filename = formatTrackFilename(entry.index, playlist.validEntries.length, entry.title, '%(ext)s')
         const targetPath = path.join(playlistDir, filename)
         console.error(`[open-omni] [${entry.index}/${playlist.validEntries.length}] downloading “${entry.title}”…`)
 

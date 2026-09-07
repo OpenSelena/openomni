@@ -160,5 +160,8 @@ test('buildThumbnailArgs generates correct yt-dlp thumbnail arguments', () => {
     '--write-thumbnail',
     '--embed-thumbnail',
   ])
+  assert.deepEqual(buildThumbnailArgs({enabled: true, write: false, embed: true}, true), [
+    '--embed-thumbnail',
+  ])
 })
 

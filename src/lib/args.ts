@@ -34,6 +34,7 @@ export function toThumbnailOptions(args: CliArgs): ThumbnailOptions | undefined 
   if (!args.thumb && !args.embedThumb) return undefined
   return {
     enabled: true,
+    write: Boolean(args.thumb),
     embed: Boolean(args.embedThumb),
   }
 }

@@ -148,14 +148,17 @@ test('toThumbnailOptions converts CliArgs to ThumbnailOptions', () => {
   assert.equal(toThumbnailOptions({help: false, version: false}), undefined)
   assert.deepEqual(toThumbnailOptions({help: false, version: false, thumb: true}), {
     enabled: true,
+    write: true,
     embed: false,
   })
   assert.deepEqual(toThumbnailOptions({help: false, version: false, embedThumb: true}), {
     enabled: true,
+    write: false,
     embed: true,
   })
   assert.deepEqual(toThumbnailOptions({help: false, version: false, thumb: true, embedThumb: true}), {
     enabled: true,
+    write: true,
     embed: true,
   })
 })
