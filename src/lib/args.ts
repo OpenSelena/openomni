@@ -123,8 +123,8 @@ function expandPath(dir: string): string {
 
 export function resolveOutputDir(
   cliOutputDir?: string,
-  configDir?: string,
   envDir = process.env.OPEN_OMNI_DIR,
+  configDir?: string,
 ): string {
   if (cliOutputDir) return path.resolve(expandPath(cliOutputDir))
   if (envDir) return path.resolve(expandPath(envDir))

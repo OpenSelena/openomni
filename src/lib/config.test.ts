@@ -10,6 +10,7 @@ import {
   resolveEffectiveFormat,
   resolveEffectiveSubtitles,
   resolveEffectiveThumbnail,
+  resolveRuntimeConfig,
   type UserConfig,
 } from './config.js'
 import {resolveOutputDir} from './args.js'
@@ -118,8 +119,79 @@ test('resolveEffectiveThumbnail respects CLI over config and handles boolean/obj
 
 test('resolveOutputDir priority: CLI > OPEN_OMNI_DIR > config > ~/Downloads', () => {
   const downloads = path.join(os.homedir(), 'Downloads')
-  assert.equal(resolveOutputDir('/cli', '/config', '/env'), path.resolve('/cli'))
-  assert.equal(resolveOutputDir(undefined, '/config', '/env'), path.resolve('/env'))
-  assert.equal(resolveOutputDir(undefined, '/config', ''), path.resolve('/config'))
-  assert.equal(resolveOutputDir(undefined, undefined, ''), downloads)
+  assert.equal(resolveOutputDir('/cli', '/env', '/config'), path.resolve('/cli'))
+  assert.equal(resolveOutputDir(undefined, '/env', '/config'), path.resolve('/env'))
+  assert.equal(resolveOutputDir(undefined, '', '/config'), path.resolve('/config'))
+  assert.equal(resolveOutputDir(undefined, '', undefined), downloads)
 })
+
+test('loadConfig discards invalid theme and format with warnings', () => {
+  const tempDir = path.join(os.tmpdir(), 'open-omni-test-schema-' + Date.now())
+  fs.mkdirSync(tempDir, {recursive: true})
+  const configFile = path.join(tempDir, 'config.json')
+  fs.writeFileSync(
+    configFile,
+    JSON.stringify({
+      theme: 'neon',
+      format: 'wav',
+      outputDir: 12345,
+      subtitles: 'invalid',
+      thumbnail: 'invalid',
+    }),
+    'utf8'
+  )
+
+  const warnings: string[] = []
+  const config = loadConfig(configFile, msg => {
+    warnings.push(msg)
+  })
+
+  assert.deepEqual(config, {})
+  assert.equal(warnings.length, 5)
+  assert.ok(warnings.some(w => w.includes('invalid theme')))
+  assert.ok(warnings.some(w => w.includes('invalid format')))
+  assert.ok(warnings.some(w => w.includes('invalid outputDir')))
+
+  fs.rmSync(tempDir, {recursive: true, force: true})
+})
+
+test('resolveEffectiveSubtitles merges CLI embed with config languages', () => {
+  const cliSubs = {enabled: true, embed: true}
+  const configSubs = {enabled: true, languages: 'es,en'}
+  const merged = resolveEffectiveSubtitles(cliSubs, configSubs)
+  assert.deepEqual(merged, {
+    enabled: true,
+    languages: 'es,en',
+    embed: true,
+  })
+})
+
+test('resolveRuntimeConfig combines CLI, env, and config correctly', () => {
+  const runtime = resolveRuntimeConfig(
+    {
+      help: false,
+      version: false,
+      outputDir: undefined,
+      themeMode: undefined,
+      format: undefined,
+      subtitles: true,
+      embedSubs: false,
+    },
+    {
+      outputDir: '~/CustomVideos',
+      theme: 'dark',
+      format: 'best',
+      subtitles: {languages: 'ja'},
+    }
+  )
+
+  assert.equal(runtime.themeMode, 'dark')
+  assert.equal(runtime.format, 'best')
+  assert.equal(runtime.autoSelect, undefined) // Persistent format does not trigger autoSelect exit
+  assert.deepEqual(runtime.subtitles, {
+    enabled: true,
+    languages: 'ja',
+    embed: false,
+  })
+})
+

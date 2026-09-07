@@ -18,10 +18,7 @@ import {
 } from './lib/playlist.js'
 import {
   loadConfig,
-  resolveEffectiveFormat,
-  resolveEffectiveSubtitles,
-  resolveEffectiveTheme,
-  resolveEffectiveThumbnail,
+  resolveRuntimeConfig,
 } from './lib/config.js'
 
 // read at runtime from the shipped package.json so npm version bumps
@@ -100,14 +97,13 @@ if (args.updateYtDlp) {
 }
 
 const userConfig = loadConfig(undefined, msg => console.error(msg))
+const runtimeConfig = resolveRuntimeConfig(args, userConfig)
 const initialUrl = args.initialUrl
-const effectiveFormat = resolveEffectiveFormat(args.format, userConfig.format)
-const initialThemeMode = resolveEffectiveTheme(args.themeMode, userConfig.theme)
-const outDir = resolveOutputDir(args.outputDir, userConfig.outputDir)
-const cliSubtitles = toSubtitleOptions(args)
-const subtitles = resolveEffectiveSubtitles(cliSubtitles, userConfig.subtitles)
-const cliThumbnail = toThumbnailOptions(args)
-const thumbnail = resolveEffectiveThumbnail(cliThumbnail, userConfig.thumbnail)
+const effectiveFormat = runtimeConfig.format
+const initialThemeMode = runtimeConfig.themeMode
+const outDir = runtimeConfig.outDir
+const subtitles = runtimeConfig.subtitles
+const thumbnail = runtimeConfig.thumbnail
 const isTTY = Boolean(process.stdout.isTTY)
 
 if (!isTTY && effectiveFormat && initialUrl) {
@@ -247,7 +243,7 @@ const {waitUntilExit} = render(
     initialUrl={initialUrl}
     clipboardUrl={clipboardUrl}
     initialThemeMode={initialThemeMode}
-    autoSelect={effectiveFormat}
+    autoSelect={runtimeConfig.autoSelect}
     outDir={outDir}
     version={VERSION}
     initialSubtitles={subtitles}
