@@ -17,7 +17,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "tsx --test \"src/**/*.test.ts\"",
+    "test": "tsx scripts/run-tests.ts",
     "typecheck": "tsc --noEmit",
     "clean:temp": "node scripts/clean-temp.js",
     "start": "node dist/cli.js",
