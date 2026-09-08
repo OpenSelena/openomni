@@ -54,6 +54,7 @@ test('generateCompletion for bash generates valid bash completion script', () =>
   assert.ok(script.includes('--photos-only'))
   assert.ok(script.includes('--videos-only'))
   assert.ok(script.includes('--update'))
+  assert.ok(script.includes('--update-gallerydl'))
   assert.ok(script.includes('--force'))
 })
 
@@ -71,6 +72,7 @@ test('generateCompletion for zsh generates valid zsh completion script', () => {
   assert.ok(script.includes('--embed-thumb'))
   assert.ok(script.includes('--photos-only'))
   assert.ok(script.includes('--videos-only'))
+  assert.ok(script.includes('--update-gallerydl'))
 })
 
 test('generateCompletion for fish generates valid fish completion script', () => {
@@ -85,6 +87,7 @@ test('generateCompletion for fish generates valid fish completion script', () =>
   assert.ok(script.includes('-l thumb'))
   assert.ok(script.includes('-l photos-only'))
   assert.ok(script.includes('-l videos-only'))
+  assert.ok(script.includes('-l update-gallerydl'))
 })
 
 test('generateCompletion for powershell generates valid Register-ArgumentCompleter script', () => {
@@ -101,6 +104,7 @@ test('generateCompletion for powershell generates valid Register-ArgumentComplet
   assert.ok(script.includes('--thumb'))
   assert.ok(script.includes('--photos-only'))
   assert.ok(script.includes('--videos-only'))
+  assert.ok(script.includes('--update-gallerydl'))
   assert.ok(script.includes('Get-ChildItem -Directory'))
   assert.ok(script.includes('[string]::IsNullOrEmpty($wordToComplete)'))
 })
@@ -123,3 +127,9 @@ test('fish completion preserves both -s U -l update and -l update-ytdlp', () => 
   assert.ok(script.includes('-l update-ytdlp'))
 })
 
+test('completion scripts include update-gallerydl flag across all shells', () => {
+  for (const shell of SUPPORTED_SHELLS) {
+    const script = generateCompletion(shell)
+    assert.ok(script.includes('update-gallerydl'), `Missing update-gallerydl in ${shell} completion`)
+  }
+})

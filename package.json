@@ -19,6 +19,7 @@
     "dev": "tsup --watch",
     "test": "tsx --test src/**/*.test.ts",
     "typecheck": "tsc --noEmit",
+    "clean:temp": "node scripts/clean-temp.js",
     "start": "node dist/cli.js",
     "prepublishOnly": "npm test && npm run typecheck && npm run build"
   },

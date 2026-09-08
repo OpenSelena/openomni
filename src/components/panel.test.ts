@@ -87,6 +87,7 @@ test('App renders version and developer credit with hyperlink on home screen', a
     assert.ok(rendered.includes('by'))
     assert.ok(rendered.includes('Igect'))
     assert.ok(rendered.includes('https://igect.link/'))
+    assert.ok(rendered.includes('https://github.com/OpenSelena/openomni/releases/tag/v1.0.0'))
     assert.match(rendered, /\x1b\[38;2;193;95;60m.*v1\.0\.0/)
     assert.match(rendered, /\x1b\[38;2;193;95;60m.*Igect/)
   } finally {

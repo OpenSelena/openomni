@@ -353,7 +353,7 @@ test('downloadUnifiedItem delegates photos to photo downloader and videos to ytd
 })
 
 test('downloadUnifiedItem auto-formats track filename when filename is omitted', async () => {
-  let capturedFilename = ''
+  let capturedFilename: string | undefined = ''
 
   const photoEntry: PlaylistEntry = {
     id: '3',

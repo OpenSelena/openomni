@@ -681,8 +681,10 @@ function InnerApp({
     return undefined
   }
 
+  const releaseUrl = `https://github.com/OpenSelena/openomni/releases/tag/v${version}`
   const clickTargets: ClickTarget[] = []
   if (phase.name === 'input') {
+    clickTargets.push({match: `v${version}`, padX: 1, action: () => openBrowser(releaseUrl)})
     clickTargets.push({match: `  ${DOWNLOAD_BUTTON}  `, padY: 1, action: () => handleUrlSubmit(urlInput)})
     if (clipboardOffered && clipboardUrl) {
       clickTargets.push({match: 'Tab to paste it', action: () => setUrlInput(clipboardUrl)})
@@ -755,7 +757,9 @@ function InnerApp({
           ) : null}
           <Gap />
           <Text color={theme.gray} dimColor={theme.dimSecondary}>
-            <Text color={BRAND_COLOR}>{`v${version}`}</Text>
+            <Text color={BRAND_COLOR} underline>
+              {terminalLink(`v${version}`, releaseUrl)}
+            </Text>
             {' · by '}
             <Text color={BRAND_COLOR} underline>
               {terminalLink('Igect', 'https://igect.link/')}

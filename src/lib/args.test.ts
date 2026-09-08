@@ -163,17 +163,19 @@ test('toThumbnailOptions converts CliArgs to ThumbnailOptions', () => {
   })
 })
 
-test('parses yt-dlp update flags (-U, --update, --update-ytdlp, --force)', () => {
+test('parses download engine update flags (-U, --update, --update-ytdlp, --update-gallerydl, --force)', () => {
   assert.deepEqual(parseArgs(['-U']), {
     help: false,
     version: false,
     updateYtDlp: true,
+    updateGalleryDl: true,
   })
 
   assert.deepEqual(parseArgs(['--update']), {
     help: false,
     version: false,
     updateYtDlp: true,
+    updateGalleryDl: true,
   })
 
   assert.deepEqual(parseArgs(['--update-ytdlp']), {
@@ -182,10 +184,24 @@ test('parses yt-dlp update flags (-U, --update, --update-ytdlp, --force)', () =>
     updateYtDlp: true,
   })
 
+  assert.deepEqual(parseArgs(['--update-gallerydl']), {
+    help: false,
+    version: false,
+    updateGalleryDl: true,
+  })
+
   assert.deepEqual(parseArgs(['-U', '--force']), {
     help: false,
     version: false,
     updateYtDlp: true,
+    updateGalleryDl: true,
+    force: true,
+  })
+
+  assert.deepEqual(parseArgs(['--update-gallerydl', '--force']), {
+    help: false,
+    version: false,
+    updateGalleryDl: true,
     force: true,
   })
 

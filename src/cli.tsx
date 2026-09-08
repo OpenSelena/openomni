@@ -9,6 +9,7 @@ import {parseArgs, resolveOutputDir, toSubtitleOptions, toThumbnailOptions} from
 import {readClipboard} from './lib/clipboard.js'
 import {isProbablyUrl} from './lib/platforms.js'
 import {buildChoices, download, ensureYtDlp, findFfmpeg, probe, updateYtDlp, type DownloadChoice} from './lib/ytdlp.js'
+import {updateGalleryDl} from './lib/gallerydl.js'
 import {
   buildQualityTierArgs,
   formatTrackFilename,
@@ -38,7 +39,7 @@ const HELP = `
     $ open-omni https://youtu.be/dQw4w9WgXcQ
     $ open-omni https://youtu.be/dQw4w9WgXcQ --best
     $ open-omni https://youtu.be/dQw4w9WgXcQ --mp3 -o ~/Music
-    $ open-omni -U              (updates bundled yt-dlp)
+    $ open-omni -U              (updates bundled download engines)
     $ open-omni                 (prompts for a url)
 
   Options
@@ -51,8 +52,10 @@ const HELP = `
     --photos-only   download only photos from post or carousel
     --videos-only   download only videos from post or carousel
     -o, --output    output directory (default: ~/Downloads, or $OPEN_OMNI_DIR)
-    -U, --update    update bundled yt-dlp to latest version (--update-ytdlp)
-    --force         force re-download clean yt-dlp binary (with -U)
+    -U, --update    update bundled engines (yt-dlp and gallery-dl) to latest version
+    --update-ytdlp  update only bundled yt-dlp binary
+    --update-gallerydl update only bundled gallery-dl binary
+    --force         force re-download clean binaries (with update flags)
     --completion <sh> generate shell autocompletion (bash, zsh, fish, powershell)
     --theme <mode>  use auto, light, or dark for this run
     -h, --help      show this help
@@ -91,27 +94,54 @@ if (args.completion) {
   }
 }
 
-if (args.updateYtDlp) {
-  try {
-    const result = await updateYtDlp({
-      force: args.force,
-      onStatus: status => console.error(`[open-omni] ${status}`),
-    })
-    if (result.updated) {
-      if (result.previousVersion && result.previousVersion !== result.currentVersion) {
-        console.log(`✓ yt-dlp updated: ${result.previousVersion} → ${result.currentVersion}`)
+if (args.updateYtDlp || args.updateGalleryDl) {
+  let hasFailure = false
+
+  if (args.updateYtDlp) {
+    try {
+      const result = await updateYtDlp({
+        force: args.force,
+        onStatus: status => console.error(`[open-omni] ${status}`),
+      })
+      if (result.updated) {
+        if (result.previousVersion && result.previousVersion !== result.currentVersion) {
+          console.log(`✓ yt-dlp updated: ${result.previousVersion} → ${result.currentVersion}`)
+        } else {
+          console.log(`✓ yt-dlp updated to version ${result.currentVersion}`)
+        }
       } else {
-        console.log(`✓ yt-dlp updated to version ${result.currentVersion}`)
+        console.log(`✓ yt-dlp is already up to date (version ${result.currentVersion})`)
       }
-    } else {
-      console.log(`✓ yt-dlp is already up to date (version ${result.currentVersion})`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`open-omni: yt-dlp update failed: ${msg}`)
+      hasFailure = true
     }
-    process.exit(0)
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error(`open-omni: update failed: ${msg}`)
-    process.exit(1)
   }
+
+  if (args.updateGalleryDl) {
+    try {
+      const result = await updateGalleryDl({
+        force: args.force,
+        onStatus: status => console.error(`[open-omni] ${status}`),
+      })
+      if (result.updated) {
+        if (result.previousVersion && result.previousVersion !== result.currentVersion) {
+          console.log(`✓ gallery-dl updated: ${result.previousVersion} → ${result.currentVersion}`)
+        } else {
+          console.log(`✓ gallery-dl updated to version ${result.currentVersion}`)
+        }
+      } else {
+        console.log(`✓ gallery-dl is already up to date (version ${result.currentVersion})`)
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`open-omni: gallery-dl update failed: ${msg}`)
+      hasFailure = true
+    }
+  }
+
+  process.exit(hasFailure ? 1 : 0)
 }
 
 const userConfig = loadConfig(undefined, msg => console.error(msg))

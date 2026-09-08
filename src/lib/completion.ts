@@ -28,7 +28,7 @@ _open_omni_completions() {
     cur="\${COMP_WORDS[COMP_CWORD]}"
     prev="\${COMP_WORDS[COMP_CWORD-1]}"
 
-    local options="--help -h --version -v --best --mp3 --output -o --theme --update --update-ytdlp -U --force --subs --embed-subs --thumb --embed-thumb --photos-only --videos-only --completion"
+    local options="--help -h --version -v --best --mp3 --output -o --theme --update --update-ytdlp --update-gallerydl -U --force --subs --embed-subs --thumb --embed-thumb --photos-only --videos-only --completion"
 
     case "$prev" in
         --theme)
@@ -64,21 +64,23 @@ export function generateZshCompletion(): string {
 #   open-omni --completion zsh > "\${fpath[1]}/_open-omni"
 
 _open_omni() {
-    _arguments -s -S \
-        '(-h --help)'{-h,--help}'[Show help message and exit]' \
-        '(-v --version)'{-v,--version}'[Show version information and exit]' \
-        '--best[Download highest quality video stream with audio]' \
-        '--mp3[Extract and transcode audio to MP3]' \
-        '(-o --output)'{-o,--output}'[Specify download destination directory]:output directory:_files -/' \
-        '--theme[Set color theme]:theme:(auto light dark)' \
-        '(-U --update --update-ytdlp)'{-U,--update,--update-ytdlp}'[Update bundled yt-dlp binary to latest release]' \
-        '--force[Force overwrite during yt-dlp binary update]' \
-        '--subs[Download subtitles/captions, optionally specifying language tags]:languages:' \
-        '--embed-subs[Embed subtitles directly into media container via ffmpeg]' \
-        '--thumb[Save thumbnail image as adjacent JPEG file]' \
-        '--embed-thumb[Embed thumbnail cover art directly into media tags]' \
-        '--photos-only[Download only photos from post or carousel]' \
-        '--videos-only[Download only videos from post or carousel]' \
+    _arguments -s -S \\
+        '(-h --help)'{-h,--help}'[Show help message and exit]' \\
+        '(-v --version)'{-v,--version}'[Show version information and exit]' \\
+        '--best[Download highest quality video stream with audio]' \\
+        '--mp3[Extract and transcode audio to MP3]' \\
+        '(-o --output)'{-o,--output}'[Specify download destination directory]:output directory:_files -/' \\
+        '--theme[Set color theme]:theme:(auto light dark)' \\
+        '(-U --update)'{-U,--update}'[Update bundled download engines (yt-dlp and gallery-dl)]' \\
+        '--update-ytdlp[Update bundled yt-dlp binary to latest release]' \\
+        '--update-gallerydl[Update bundled gallery-dl binary to latest release]' \\
+        '--force[Force overwrite during binary update]' \\
+        '--subs[Download subtitles/captions, optionally specifying language tags]:languages:' \\
+        '--embed-subs[Embed subtitles directly into media container via ffmpeg]' \\
+        '--thumb[Save thumbnail image as adjacent JPEG file]' \\
+        '--embed-thumb[Embed thumbnail cover art directly into media tags]' \\
+        '--photos-only[Download only photos from post or carousel]' \\
+        '--videos-only[Download only videos from post or carousel]' \\
         '--completion[Generate shell autocompletion script]:shell:(bash zsh fish powershell)'
 }
 
@@ -103,9 +105,10 @@ complete -c open-omni -l best -d "Download highest quality video stream"
 complete -c open-omni -l mp3 -d "Extract audio to MP3"
 complete -c open-omni -s o -l output -r -a "(__fish_complete_directories)" -d "Download destination directory"
 complete -c open-omni -l theme -x -a "auto light dark" -d "Set color theme"
-complete -c open-omni -s U -l update -d "Update bundled yt-dlp binary"
+complete -c open-omni -s U -l update -d "Update bundled download engines"
 complete -c open-omni -l update-ytdlp -d "Update bundled yt-dlp binary"
-complete -c open-omni -l force -d "Force overwrite during yt-dlp binary update"
+complete -c open-omni -l update-gallerydl -d "Update bundled gallery-dl binary"
+complete -c open-omni -l force -d "Force overwrite during binary update"
 complete -c open-omni -l subs -d "Download subtitles/captions"
 complete -c open-omni -l embed-subs -d "Embed subtitles into media container"
 complete -c open-omni -l thumb -d "Save thumbnail image as adjacent JPEG"
@@ -166,10 +169,11 @@ Register-ArgumentCompleter -Native -CommandName 'open-omni' -ScriptBlock {
         [System.Management.Automation.CompletionResult]::new('--output', '--output', 'ParameterName', 'Specify download destination directory'),
         [System.Management.Automation.CompletionResult]::new('-o', '-o', 'ParameterName', 'Specify download destination directory'),
         [System.Management.Automation.CompletionResult]::new('--theme', '--theme', 'ParameterName', 'Set color theme (auto, light, dark)'),
-        [System.Management.Automation.CompletionResult]::new('--update', '--update', 'ParameterName', 'Update bundled yt-dlp binary to latest release'),
+        [System.Management.Automation.CompletionResult]::new('--update', '--update', 'ParameterName', 'Update bundled download engines to latest release'),
+        [System.Management.Automation.CompletionResult]::new('-U', '-U', 'ParameterName', 'Update bundled download engines to latest release'),
         [System.Management.Automation.CompletionResult]::new('--update-ytdlp', '--update-ytdlp', 'ParameterName', 'Update bundled yt-dlp binary to latest release'),
-        [System.Management.Automation.CompletionResult]::new('-U', '-U', 'ParameterName', 'Update bundled yt-dlp binary to latest release'),
-        [System.Management.Automation.CompletionResult]::new('--force', '--force', 'ParameterName', 'Force overwrite during yt-dlp binary update'),
+        [System.Management.Automation.CompletionResult]::new('--update-gallerydl', '--update-gallerydl', 'ParameterName', 'Update bundled gallery-dl binary to latest release'),
+        [System.Management.Automation.CompletionResult]::new('--force', '--force', 'ParameterName', 'Force overwrite during binary update'),
         [System.Management.Automation.CompletionResult]::new('--subs', '--subs', 'ParameterName', 'Download subtitles/captions'),
         [System.Management.Automation.CompletionResult]::new('--embed-subs', '--embed-subs', 'ParameterName', 'Embed subtitles directly into media container'),
         [System.Management.Automation.CompletionResult]::new('--thumb', '--thumb', 'ParameterName', 'Save thumbnail image as adjacent JPEG file'),
