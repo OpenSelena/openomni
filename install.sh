@@ -2,7 +2,7 @@
 set -eu
 
 # Open Omni Installer
-# Usage: curl -fsSL https://sarada.mvp.bd | sh
+# Usage: curl -fsSL https://mint.dev.cv | sh
 #        or: sh install.sh
 
 # Colors & Formatting (only when stdout is a terminal)
@@ -22,156 +22,103 @@ else
   RED=""
 fi
 
-# Print OS-specific Node.js installation instructions
-print_node_install_help() {
-  OS="$(uname -s 2>/dev/null || echo "Unknown")"
-  if [ "$OS" = "Darwin" ]; then
-    printf ' On macOS, install or update Node.js via Homebrew:\n'
-    printf '   %bbrew install node%b\n\n' "$BOLD" "$RESET"
+printf "\n"
+printf "${ORANGE}${BOLD}  ___                   ___             _ ${RESET}\n"
+printf "${ORANGE}${BOLD} / _ \ _ __   ___ _ __ / _ \ _ __ ___  ua (_)${RESET}\n"
+printf "${ORANGE}${BOLD}| | | | '_ \ / _ \ '_ \| | | | '_ \` _ \| '_ \| |${RESET}\n"
+printf "${ORANGE}${BOLD}| |_| | |_) |  __/ | | | |_| | | | | | | | | | |${RESET}\n"
+printf "${ORANGE}${BOLD} \___/| .__/ \___|_| |_|\___/|_| |_| |_|_| |_|_|${RESET}\n"
+printf "${ORANGE}${BOLD}      |_|                                      ${RESET}\n"
+printf "\n"
+printf "${DIM}  Open Omni installer — grab any video from your terminal.${RESET}\n\n"
+
+# Step 1: Check for Node.js
+printf "  Checking Node.js... "
+if command -v node >/dev/null 2>&1; then
+  NODE_VER=$(node -v | sed 's/^v//')
+  NODE_MAJOR=$(echo "$NODE_VER" | cut -d. -f1)
+  if [ "$NODE_MAJOR" -ge 18 ]; then
+    printf "${GREEN}ok${RESET} ${DIM}(v%s)${RESET}\n" "$NODE_VER"
   else
-    printf ' On Linux, install or update Node.js via fnm or NodeSource:\n'
-    printf '   %bcurl -fsSL https://fnm.vercel.app/install | bash%b\n' "$BOLD" "$RESET"
-    printf '   %bfnm install --lts%b\n\n' "$BOLD" "$RESET"
-  fi
-}
-
-# Brand ASCII Logo
-printf '%b' "${ORANGE}${BOLD}"
-cat << 'EOF'
-  ██████╗ ██████╗ ███████╗████╗   ██╗     ██████╗ ████╗   ████╗████╗   ██╗██╗
- ██╔════╝ ██╔══██╗██╔════╝█████╗  ██║    ██╔═══██╗█████╗ ████║█████╗  ██║██║
- ██║   ██╗██████╔╝█████╗  ██╔██╗ ██║    ██║   ██║██╔████╔██║██╔██╗ ██║██║
- ██║   ██║██╔═══╝ ██╔══╝  ██║╚██╗██║    ██║   ██║██║╚██╔╝██║██║╚██╗██║██║
- ╚██████╔╝██║     ███████╗██║ ╚████║    ╚██████╔╝██║ ╚═╝ ██║██║ ╚████║██║
-  ╚═════╝ ╚═╝     ╚══════╝╚═╝  ╚═══╝     ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═══╝╚═╝
-EOF
-printf '%b\n' "$RESET"
-printf '  %bgrab any video. paste. download. done.%b\n\n' "$DIM" "$RESET"
-
-# Step 1: Check Node.js
-printf ' %b[1/4]%b Checking Node.js runtime...\n' "$BOLD" "$RESET"
-if ! command -v node >/dev/null 2>&1; then
-  printf ' %b✗ Node.js is not installed.%b\n' "$RED" "$RESET"
-  printf ' Open Omni requires Node.js (version 18 or newer).\n\n'
-  print_node_install_help
-  exit 1
-fi
-
-NODE_VER="$(node -v 2>/dev/null | tr -d 'v' | head -n 1 || echo "")"
-NODE_MAJOR="$(echo "$NODE_VER" | cut -d. -f1)"
-
-case "$NODE_MAJOR" in
-  ''|*[!0-9]*)
-    printf ' %b✗ Unable to verify Node.js version.%b\n' "$RED" "$RESET"
-    print_node_install_help
+    printf "${RED}failed${RESET}\n"
+    printf "\n${RED}Error: Node.js 18 or higher is required (found v%s).${RESET}\n" "$NODE_VER"
+    printf "Please update Node.js and try again: ${BOLD}https://nodejs.org${RESET}\n\n"
     exit 1
-    ;;
-  *)
-    if [ "$NODE_MAJOR" -lt 18 ]; then
-      printf ' %b✗ Node.js v%s is too old.%b\n' "$RED" "$NODE_VER" "$RESET"
-      printf ' Open Omni requires Node.js >= 18.\n\n'
-      print_node_install_help
-      exit 1
-    fi
-    ;;
-esac
-
-printf '       %b✓%b Found Node.js v%s\n' "$GREEN" "$RESET" "$NODE_VER"
-
-if ! command -v npm >/dev/null 2>&1; then
-  printf ' %b✗ npm is required to install Open Omni.%b\n' "$RED" "$RESET"
-  exit 1
-fi
-
-# Step 2: Prepare Isolated Directory
-INSTALL_DIR="$HOME/.open-omni"
-BIN_DIR="$INSTALL_DIR/bin"
-printf ' %b[2/4]%b Preparing %s...\n' "$BOLD" "$RESET" "$INSTALL_DIR"
-mkdir -p "$INSTALL_DIR" "$BIN_DIR"
-
-# Step 3: Install Package
-printf ' %b[3/4]%b Installing open-omni package...\n' "$BOLD" "$RESET"
-
-# Initialize a package.json if not present
-if [ ! -f "$INSTALL_DIR/package.json" ]; then
-  cat << 'EOF' > "$INSTALL_DIR/package.json"
-{
-  "name": "open-omni-runtime",
-  "private": true
-}
-EOF
-fi
-
-# Install latest open-omni locally in prefix
-if ! npm install --prefix "$INSTALL_DIR" open-omni@latest --no-fund --no-audit --silent >/dev/null 2>&1; then
-  printf ' %b✗ Failed to install open-omni via npm.%b\n' "$RED" "$RESET"
-  printf ' Please verify your network connection or try: npm install -g open-omni\n'
-  exit 1
-fi
-
-# Create the bin launcher script
-LAUNCHER="$BIN_DIR/open-omni"
-cat << 'EOF' > "$LAUNCHER"
-#!/usr/bin/env sh
-exec node "$HOME/.open-omni/node_modules/open-omni/dist/cli.js" "$@"
-EOF
-
-chmod +x "$LAUNCHER"
-printf '       %b✓%b Launcher created at %s\n' "$GREEN" "$RESET" "$LAUNCHER"
-
-# Step 4: Shell PATH Setup
-printf ' %b[4/4]%b Configuring shell PATH...\n' "$BOLD" "$RESET"
-
-UPDATED_RC=""
-case "${SHELL:-}" in
-  */zsh)
-    RC_FILE="$HOME/.zshrc"
-    PATH_LINE="export PATH=\"\$HOME/.open-omni/bin:\$PATH\""
-    ;;
-  */bash)
-    if [ -f "$HOME/.bashrc" ]; then
-      RC_FILE="$HOME/.bashrc"
-    elif [ -f "$HOME/.bash_profile" ]; then
-      RC_FILE="$HOME/.bash_profile"
-    else
-      RC_FILE="$HOME/.profile"
-    fi
-    PATH_LINE="export PATH=\"\$HOME/.open-omni/bin:\$PATH\""
-    ;;
-  */fish)
-    RC_FILE="$HOME/.config/fish/config.fish"
-    PATH_LINE="fish_add_path \"\$HOME/.open-omni/bin\""
-    ;;
-  *)
-    RC_FILE="$HOME/.profile"
-    PATH_LINE="export PATH=\"\$HOME/.open-omni/bin:\$PATH\""
-    ;;
-esac
-
-if [ -n "${RC_FILE:-}" ]; then
-  mkdir -p "$(dirname "$RC_FILE")" 2>/dev/null || true
-  touch "$RC_FILE" 2>/dev/null || true
-
-  if grep -Eq '(\.open-omni/bin)' "$RC_FILE" 2>/dev/null; then
-    printf '       %b✓%b PATH already configured in %s\n' "$GREEN" "$RESET" "$RC_FILE"
-  else
-    printf '\n# Open Omni\n%s\n' "$PATH_LINE" >> "$RC_FILE"
-    UPDATED_RC="$RC_FILE"
-    printf '       %b✓%b Added %s to %s\n' "$GREEN" "$RESET" "$BIN_DIR" "$RC_FILE"
   fi
 else
-  printf '       %bNote: Add %s to your PATH to run open-omni from anywhere.%b\n' "$DIM" "$BIN_DIR" "$RESET"
+  printf "${RED}not found${RESET}\n"
+  printf "\n${RED}Error: Node.js is not installed.${RESET}\n"
+  printf "Please install Node.js 18+ and try again: ${BOLD}https://nodejs.org${RESET}\n\n"
+  exit 1
 fi
 
-printf '\n %b%b✓ Open Omni installed successfully!%b\n\n' "$GREEN" "$BOLD" "$RESET"
-
-if [ -n "$UPDATED_RC" ]; then
-  printf ' To start using Open Omni, reload your shell:\n'
-  printf '   %bsource %s%b\n\n' "$BOLD" "$UPDATED_RC" "$RESET"
+# Step 2: Check for npm
+printf "  Checking npm... "
+if command -v npm >/dev/null 2>&1; then
+  NPM_VER=$(npm -v)
+  printf "${GREEN}ok${RESET} ${DIM}(v%s)${RESET}\n" "$NPM_VER"
+else
+  printf "${RED}not found${RESET}\n"
+  printf "\n${RED}Error: npm is not installed.${RESET}\n"
+  printf "npm is required to install Open Omni globally.\n\n"
+  exit 1
 fi
 
-printf ' Then run:\n'
-printf '   %bopen-omni <url>%b\n\n' "$BOLD" "$RESET"
-printf ' Shell autocompletion:\n'
-printf '   %bopen-omni --completion <bash|zsh|fish|powershell>%b\n\n' "$BOLD" "$RESET"
-printf ' %b(To uninstall: rm -rf ~/.open-omni and remove the PATH line from your shell rc)%b\n\n' "$DIM" "$RESET"
+# Step 3: Install Open Omni globally
+printf "  Installing open-omni globally via npm... "
+if npm install -g open-omni >/dev/null 2>&1; then
+  printf "${GREEN}done${RESET}\n"
+else
+  # If global install without sudo fails, try with sudo if available
+  printf "${RED}failed${RESET}\n"
+  if command -v sudo >/dev/null 2>&1; then
+    printf "  Retrying with sudo... "
+    if sudo npm install -g open-omni >/dev/null 2>&1; then
+      printf "${GREEN}done${RESET}\n"
+    else
+      printf "${RED}failed${RESET}\n"
+      printf "\n${RED}Error: Failed to install open-omni globally.${RESET}\n"
+      printf "Try running manually: ${BOLD}npm install -g open-omni${RESET}\n\n"
+      exit 1
+    fi
+  else
+    printf "\n${RED}Error: Failed to install open-omni globally.${RESET}\n"
+    printf "Try running manually: ${BOLD}npm install -g open-omni${RESET}\n\n"
+    exit 1
+  fi
+fi
+
+# Step 4: Verify installation
+printf "  Verifying binary... "
+if command -v open-omni >/dev/null 2>&1; then
+  printf "${GREEN}ok${RESET}\n"
+else
+  printf "${RED}warning${RESET}\n"
+  printf "${DIM}  Installed, but 'open-omni' was not found on your current PATH.${RESET}\n"
+  printf "${DIM}  Make sure your npm global bin directory is in PATH.${RESET}\n"
+  printf "${DIM}  Usually: export PATH=\"\$(npm prefix -g)/bin:\$PATH\"${RESET}\n"
+fi
+
+# Step 5: Optional yt-dlp check (non-fatal, open-omni auto-downloads it)
+printf "  Checking yt-dlp... "
+if command -v yt-dlp >/dev/null 2>&1; then
+  YTDLP_VER=$(yt-dlp --version 2>/dev/null || echo "detected")
+  printf "${GREEN}found${RESET} ${DIM}(%s)${RESET}\n" "$YTDLP_VER"
+else
+  printf "${DIM}will auto-fetch on first run${RESET}\n"
+fi
+
+# Step 6: Optional ffmpeg check (non-fatal, ffmpeg-static bundled)
+printf "  Checking ffmpeg... "
+if command -v ffmpeg >/dev/null 2>&1; then
+  printf "${GREEN}found${RESET}\n"
+else
+  printf "${DIM}bundled fallback included${RESET}\n"
+fi
+
+printf "\n"
+printf "${GREEN}${BOLD}  Open Omni installed successfully!${RESET}\n\n"
+printf "  Run it now:\n"
+printf "    ${BOLD}open-omni <url>${RESET}    ${DIM}# straight to the format picker${RESET}\n"
+printf "    ${BOLD}open-omni${RESET}          ${DIM}# interactive home screen${RESET}\n"
+printf "\n"

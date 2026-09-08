@@ -21,7 +21,7 @@ no sketchy redirects.
 One-line installer (macOS & Linux):
 
 ```sh
-curl -fsSL https://sarada.mvp.bd | sh
+curl -fsSL https://mint.dev.cv | sh
 ```
 
 Or directly via GitHub:
@@ -174,7 +174,7 @@ To try it as a global command without publishing: `npm link`, then run
 - [x] Clipboard detection: launch bare and auto-suggest the url you copied
 - [x] Self-update for the bundled yt-dlp binary (`yt-dlp -U`)
 - [x] Publish to npm (`npm i -g open-omni` / `npx open-omni`)
-- [x] One-line curl installer (`curl -fsSL https://sarada.mvp.bd | sh`)
+- [x] One-line curl installer (`curl -fsSL https://mint.dev.cv | sh`)
 
 ## A note on fair use
 
