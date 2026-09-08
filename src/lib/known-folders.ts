@@ -77,7 +77,7 @@ export function isPathDriveAccessible(
       return true
     }
 
-    if (platform === 'win32' || /^[a-zA-Z]:[\\/]/.test(filePath)) {
+    if (platform === 'win32') {
       const match = filePath.match(/^([a-zA-Z]:[\\/])/i)
       const driveRoot = match ? match[1] : path.win32.parse(path.win32.resolve(filePath)).root
       return fsExists(driveRoot)
@@ -144,7 +144,7 @@ export function resolveWindowsDownloadsDir(options: ResolveKnownFolderOptions = 
   if (raw) {
     const expanded = expandWindowsEnv(raw, env, homeDir)
     if (checkAccessible(expanded)) {
-      return path.resolve(expanded)
+      return path.win32.resolve(expanded)
     }
   }
 
@@ -182,7 +182,7 @@ export function resolveLinuxDownloadsDir(options: ResolveKnownFolderOptions = {}
     .replace(/\$\{HOME\}/g, homeDir)
 
   if (checkAccessible(expanded)) {
-    return path.resolve(expanded)
+    return path.posix.resolve(expanded)
   }
 
   return undefined

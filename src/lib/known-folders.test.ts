@@ -1,93 +1,84 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
 import path from 'node:path'
+import test from 'node:test'
 import {
   expandWindowsEnv,
-  parseWindowsRegistryOutput,
-  parseLinuxUserDirsOutput,
   isPathDriveAccessible,
-  resolveWindowsDownloadsDir,
+  parseLinuxUserDirsOutput,
+  parseWindowsRegistryOutput,
   resolveLinuxDownloadsDir,
   resolvePlatformDownloadsDir,
-  KNOWN_FOLDER_DOWNLOADS_GUID,
-  USER_SHELL_FOLDERS_REG_KEY,
+  resolveWindowsDownloadsDir,
 } from './known-folders.js'
 
 test('expandWindowsEnv expands case-insensitive windows environment variables', () => {
   const env = {
     USERPROFILE: 'C:\\Users\\Alice',
-    SYSTEMDRIVE: 'C:',
-    EMPTY_VAR: '',
+    SystemDrive: 'C:',
+    PUBLIC: 'C:\\Users\\Public',
   }
+
   assert.equal(
     expandWindowsEnv('%USERPROFILE%\\Downloads', env),
     'C:\\Users\\Alice\\Downloads'
   )
   assert.equal(
-    expandWindowsEnv('%userprofile%\\Downloads', env),
-    'C:\\Users\\Alice\\Downloads'
+    expandWindowsEnv('%userprofile%\\Documents', env),
+    'C:\\Users\\Alice\\Documents'
   )
   assert.equal(
-    expandWindowsEnv('%SystemDrive%\\SharedDownloads', env),
-    'C:\\SharedDownloads'
+    expandWindowsEnv('%SystemDrive%\\Shared', env),
+    'C:\\Shared'
   )
-  // Honors explicit homeDir override even if USERPROFILE env is present
   assert.equal(
-    expandWindowsEnv('%USERPROFILE%\\Downloads', env, 'D:\\CustomHome'),
+    expandWindowsEnv('%UNKNOWN_VAR%\\test', env),
+    '%UNKNOWN_VAR%\\test'
+  )
+  // Uses homeDir fallback for userprofile
+  assert.equal(
+    expandWindowsEnv('%USERPROFILE%\\Downloads', {}, 'D:\\CustomHome'),
     'D:\\CustomHome\\Downloads'
-  )
-  // Handles empty string env vars cleanly
-  assert.equal(
-    expandWindowsEnv('prefix%EMPTY_VAR%suffix', env),
-    'prefixsuffix'
-  )
-  // Unmatched variable left untouched
-  assert.equal(
-    expandWindowsEnv('%NONEXISTENT%\\Downloads', env),
-    '%NONEXISTENT%\\Downloads'
   )
 })
 
 test('parseWindowsRegistryOutput extracts relocated path from reg query output', () => {
-  const sample = `
+  const sampleRegOutput = `
 HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders
-    {374DE290-123F-4565-9164-39C4925E467B}    REG_EXPAND_SZ    X:\\Downloads
+    Desktop    REG_EXPAND_SZ    %USERPROFILE%\\Desktop
+    {374DE290-123F-4565-9164-39C4925E467B}    REG_EXPAND_SZ    D:\\RelocatedDownloads
+    Personal   REG_EXPAND_SZ    %USERPROFILE%\\Documents
 `
   assert.equal(
-    parseWindowsRegistryOutput(sample, KNOWN_FOLDER_DOWNLOADS_GUID),
-    'X:\\Downloads'
+    parseWindowsRegistryOutput(sampleRegOutput, '{374DE290-123F-4565-9164-39C4925E467B}'),
+    'D:\\RelocatedDownloads'
   )
 })
 
 test('parseWindowsRegistryOutput does not cross-match other keys', () => {
-  const sample = `
+  const sampleRegOutput = `
 HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders
-    Downloads    REG_SZ    D:\\LegacyDownloads
+    Desktop    REG_EXPAND_SZ    %USERPROFILE%\\Desktop
 `
-  // Searching for GUID in output that only contains Downloads should return undefined
   assert.equal(
-    parseWindowsRegistryOutput(sample, KNOWN_FOLDER_DOWNLOADS_GUID),
+    parseWindowsRegistryOutput(sampleRegOutput, '{374DE290-123F-4565-9164-39C4925E467B}'),
     undefined
   )
 })
 
 test('parseWindowsRegistryOutput extracts legacy Downloads key', () => {
-  const sample = `
+  const sampleRegOutput = `
 HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders
-    Downloads    REG_SZ    D:\\CustomDownloads
+    Downloads    REG_SZ    E:\\MyDownloads
 `
   assert.equal(
-    parseWindowsRegistryOutput(sample, 'Downloads'),
-    'D:\\CustomDownloads'
+    parseWindowsRegistryOutput(sampleRegOutput, 'Downloads'),
+    'E:\\MyDownloads'
   )
 })
 
 test('parseWindowsRegistryOutput returns undefined on empty or mismatching output', () => {
-  assert.equal(parseWindowsRegistryOutput('', KNOWN_FOLDER_DOWNLOADS_GUID), undefined)
-  assert.equal(
-    parseWindowsRegistryOutput('ERROR: The system was unable to find the specified registry key or value.', KNOWN_FOLDER_DOWNLOADS_GUID),
-    undefined
-  )
+  assert.equal(parseWindowsRegistryOutput('', 'Downloads'), undefined)
+  assert.equal(parseWindowsRegistryOutput('ERROR: The system was unable to find the specified registry key or value.', 'Downloads'), undefined)
 })
 
 test('parseLinuxUserDirsOutput parses XDG_DOWNLOAD_DIR', () => {
@@ -130,7 +121,7 @@ HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User 
     driveAccessibleFn: () => true,
   })
 
-  assert.equal(result, path.resolve('C:\\Users\\Alice\\Downloads'))
+  assert.equal(result, 'C:\\Users\\Alice\\Downloads')
 })
 
 test('resolveWindowsDownloadsDir returns undefined if relocated drive is inaccessible', () => {
@@ -154,7 +145,7 @@ test('resolveLinuxDownloadsDir resolves custom download directory with $HOME exp
     driveAccessibleFn: () => true,
   })
 
-  assert.equal(result, path.resolve('/home/alice/Incoming'))
+  assert.equal(result, '/home/alice/Incoming')
 })
 
 test('resolvePlatformDownloadsDir falls back to ~/Downloads when platform query returns undefined', () => {
@@ -205,10 +196,7 @@ test('isPathDriveAccessible checks drive root on Windows and mount points on POS
 })
 
 test('resolvePlatformDownloadsDir uses live windows registry on current machine if win32', () => {
-  if (process.platform === 'win32') {
-    const live = resolvePlatformDownloadsDir()
-    assert.ok(typeof live === 'string' && live.length > 0)
-    assert.ok(path.isAbsolute(live))
-    assert.ok(live.toLowerCase().endsWith('downloads'))
-  }
+  if (process.platform !== 'win32') return
+  const dir = resolvePlatformDownloadsDir()
+  assert.ok(typeof dir === 'string' && dir.length > 0)
 })

@@ -233,7 +233,7 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
 
   if (isMixedOrPhotoPlatform(url)) {
     try {
-      const gdl = gallerydl || (await ensureGalleryDl(onStatus, signal))
+      const gdl = gallerydl || (options.probeGalleryDlFn ? 'gallery-dl' : await ensureGalleryDl(onStatus, signal))
       onStatus?.('Probing post items with gallery-dl…')
       const rawItems = await runProbeGalleryDl(gdl, url, signal)
 
@@ -327,7 +327,7 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
     // If url was not already probed by gallery-dl, try gallery-dl fallback
     if (!isMixedOrPhotoPlatform(url)) {
       try {
-        const gdl = gallerydl || (await ensureGalleryDl(onStatus, signal))
+        const gdl = gallerydl || (options.probeGalleryDlFn ? 'gallery-dl' : await ensureGalleryDl(onStatus, signal))
         onStatus?.('Probing post items with gallery-dl…')
         const rawItems = await runProbeGalleryDl(gdl, url, signal)
 
@@ -414,7 +414,7 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
     filename || formatTrackFilename(item.index, totalCount ?? Math.max(item.index, 1), item.title, ext)
 
   if (item.kind === 'photo') {
-    const gdl = gallerydl || (await ensureGalleryDl(undefined, signal))
+    const gdl = gallerydl || (options.downloadPhotoFn ? 'gallery-dl' : await ensureGalleryDl(undefined, signal))
     return runDownloadPhoto({
       url: item.url,
       destDir,
