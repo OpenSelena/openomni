@@ -2,7 +2,7 @@
 set -eu
 
 # Open Omni Installer
-# Usage: curl -fsSL https://open-omni.sh | sh
+# Usage: curl -fsSL https://sarada.mvp.bd | sh
 #        or: sh install.sh
 
 # Colors & Formatting (only when stdout is a terminal)
@@ -38,9 +38,9 @@ print_node_install_help() {
 # Brand ASCII Logo
 printf '%b' "${ORANGE}${BOLD}"
 cat << 'EOF'
-  ██████╗ ██████╗ ███████╗███╗   ██╗     ██████╗ ███╗   ███╗███╗   ██╗██╗
- ██╔═══██╗██╔══██╗██╔════╝████╗  ██║    ██╔═══██╗████╗ ████║████╗  ██║██║
- ██║   ██║██████╔╝█████╗  ██╔██╗ ██║    ██║   ██║██╔████╔██║██╔██╗ ██║██║
+  ██████╗ ██████╗ ███████╗████╗   ██╗     ██████╗ ████╗   ████╗████╗   ██╗██╗
+ ██╔════╝ ██╔══██╗██╔════╝█████╗  ██║    ██╔═══██╗█████╗ ████║█████╗  ██║██║
+ ██║   ██╗██████╔╝█████╗  ██╔██╗ ██║    ██║   ██║██╔████╔██║██╔██╗ ██║██║
  ██║   ██║██╔═══╝ ██╔══╝  ██║╚██╗██║    ██║   ██║██║╚██╔╝██║██║╚██╗██║██║
  ╚██████╔╝██║     ███████╗██║ ╚████║    ╚██████╔╝██║ ╚═╝ ██║██║ ╚████║██║
   ╚═════╝ ╚═╝     ╚══════╝╚═╝  ╚═══╝     ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═══╝╚═╝
@@ -175,4 +175,3 @@ printf '   %bopen-omni <url>%b\n\n' "$BOLD" "$RESET"
 printf ' Shell autocompletion:\n'
 printf '   %bopen-omni --completion <bash|zsh|fish|powershell>%b\n\n' "$BOLD" "$RESET"
 printf ' %b(To uninstall: rm -rf ~/.open-omni and remove the PATH line from your shell rc)%b\n\n' "$DIM" "$RESET"
-
