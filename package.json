@@ -1,12 +1,11 @@
 {
   "name": "open-omni",
   "version": "1.0.0",
-  "description": "Open Omni — grab any video from YouTube, X, Instagram, Threads & 1800+ sites — right from your terminal. paste. download. done.",
+  "description": "Smart, lightweight, and modern CLI video, audio, and photo downloader powered by yt-dlp & gallery-dl",
+  "main": "dist/cli.js",
   "type": "module",
   "bin": {
-    "open-omni": "dist/cli.js",
-    "openomni": "dist/cli.js",
-    "omni": "dist/cli.js"
+    "openomni": "dist/cli.js"
   },
   "files": [
     "dist"
@@ -17,7 +16,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "tsx --test src/**/*.test.ts",
+    "test": "tsx --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
     "clean:temp": "node scripts/clean-temp.js",
     "start": "node dist/cli.js",
@@ -28,38 +27,34 @@
     "url": "https://igect.link/"
   },
   "keywords": [
-    "video",
-    "downloader",
-    "yt-dlp",
-    "youtube",
-    "instagram",
-    "twitter",
-    "threads",
     "cli",
-    "tui",
-    "ink"
+    "ytdlp",
+    "downloader",
+    "video",
+    "audio",
+    "music",
+    "youtube",
+    "ink",
+    "terminal"
   ],
   "license": "MIT",
   "dependencies": {
-    "ffmpeg-static": "^5.3.0",
-    "ink": "^7.1.0",
-    "ink-select-input": "^6.2.0",
-    "ink-spinner": "^5.0.0",
-    "react": "^19.2.7"
+    "chalk": "^5.3.0",
+    "cli-progress": "^3.12.0",
+    "dotenv": "^17.3.1",
+    "ink": "^5.0.1",
+    "ink-select-input": "^6.0.0",
+    "ink-text-input": "^6.0.0",
+    "meow": "^13.2.0",
+    "react": "^18.3.1",
+    "terminal-link": "^3.0.0"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
-    "@types/react": "^19.2.17",
+    "@types/cli-progress": "^3.11.5",
+    "@types/node": "^20.11.24",
+    "@types/react": "^18.3.3",
     "tsup": "^8.5.1",
-    "tsx": "^4.23.1",
-    "typescript": "^7.0.2"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/OpenSelena/openomni.git"
-  },
-  "homepage": "https://github.com/OpenSelena/openomni#readme",
-  "bugs": {
-    "url": "https://github.com/OpenSelena/openomni/issues"
+    "tsx": "^4.19.3",
+    "typescript": "^5.3.3"
   }
 }
