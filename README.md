@@ -51,19 +51,19 @@ Under the hood, Open Omni automatically provisions and manages [`yt-dlp`](https:
 
 ## How It Compares
 
-| Feature | ⚡ **Open Omni** | `yt-dlp` CLI | Web Downloaders |
+| Feature | Open Omni | `yt-dlp` CLI | Web Downloaders |
 | :--- | :--- | :--- | :--- |
-| **Interactive Terminal UI** | ✅ **Full TUI** (keyboard & mouse navigation) | ❌ None (CLI flags only) | ⚠️ Browser UI with ads |
-| **Zero-Config Setup** | ✅ **Auto-provisions** `yt-dlp`, `gallery-dl` & `ffmpeg` | ⚠️ Manual install & Python setup | 🌐 Hosted on remote servers |
-| **Photo & Carousel Support** | ✅ **Unified engine** (Instagram, X, Threads) | ❌ Video / audio only | ⚠️ Inconsistent / compressed |
-| **Batch & Playlist Selection** | ✅ **Interactive picker** (`Space` toggle, `A` all) | ⚠️ Complex index ranges (`--playlist-items`) | ❌ Single URL at a time |
-| **Visual Progress Meters** | ✅ **Dual live bars** (batch queue + stream speed) | ⚠️ Text stream stdout dump | ❌ Indeterminate spinner |
-| **Clipboard 1-Key Paste** | ✅ **Instant `Tab` paste** from clipboard | ❌ Manual terminal paste | ⚠️ Clickjacking / popup risks |
-| **Subtitles & Thumbnail Muxing** | ✅ **1-flag muxing** (`--embed-subs`, `--embed-thumb`) | ⚠️ Multi-argument ffmpeg recipes | ❌ Rarely available |
-| **Smart OS Storage** | ✅ **Native Known Folders** (Windows Registry / XDG) | ⚠️ Current working directory | ⚠️ Browser downloads folder |
-| **Self-Updating Engines** | ✅ **Built-in updater** (`open-omni -U`) | ⚠️ Package manager or pip | ❌ No user control |
-| **Privacy & Security** | ✅ **100% local & zero telemetry** | ✅ 100% local & open-source | ❌ Ad trackers & malware risks |
-| **Scriptable Headless CLI** | ✅ **Yes** (direct non-interactive flags) | ✅ **Yes** (extensive flag suite) | ❌ No CLI or automation |
+| **Interactive Terminal UI** | Full keyboard and mouse TUI | None (CLI flags only) | Browser UI with ads |
+| **Engine Setup** | Auto-provisions `yt-dlp`, `gallery-dl`, `ffmpeg` | Manual binary or Python package install | Remote server dependency |
+| **Photo & Carousel Support** | Native via unified `gallery-dl` engine | Video/audio extraction only | Unreliable or low-resolution |
+| **Batch & Playlist Selection** | Interactive picker (`Space` / `A` keys) | Manual index flags (`--playlist-items`) | Single URL only |
+| **Progress Display** | Dual progress meters (queue + speed/ETA) | Text-based stdout stream | Indeterminate spinner |
+| **Clipboard Paste** | 1-key `Tab` paste | Manual terminal paste | Browser paste / clickjacking risks |
+| **Subtitles & Thumbnails** | Native muxing (`--embed-subs`, `--embed-thumb`) | Manual multi-flag ffmpeg pipelines | Rarely supported |
+| **Download Destination** | Native OS Known Folders (Registry / XDG) | Current working directory | Browser default folder |
+| **Engine Updates** | Integrated command (`open-omni -U`) | Manual package manager / pip invocations | Closed / uncontrolled |
+| **Telemetry & Privacy** | Local-first, zero telemetry, zero ads | Local-first, open-source | Heavy ad trackers and logging |
+| **Headless Scripting** | Dedicated non-interactive CLI flags | Full CLI suite | No CLI support |
 
 ---
 
