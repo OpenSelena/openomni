@@ -51,14 +51,19 @@ Under the hood, Open Omni automatically provisions and manages [`yt-dlp`](https:
 
 ## How It Compares
 
-| Feature | Open Omni | Raw `yt-dlp` | Web Downloaders |
-| :--- | :---: | :---: | :---: |
-| **Interactive TUI** | Yes (keyboard-driven) | No | Web UI only |
-| **Single-binary auto-setup** | Yes (auto-provisions engines) | Manual install | Hosted |
-| **Social photo & carousel galleries** | Yes (`gallery-dl` unified) | Video only | Unreliable |
-| **Ad-free & Tracker-free** | 100% clean | 100% clean | Heavy ads / malware risks |
-| **Direct scriptable CLI** | Yes | Yes | No |
-| **Cross-platform** | macOS, Linux, Windows | macOS, Linux, Windows | Web |
+| Feature | ⚡ **Open Omni** | `yt-dlp` CLI | Web Downloaders |
+| :--- | :--- | :--- | :--- |
+| **Interactive Terminal UI** | ✅ **Full TUI** (keyboard & mouse navigation) | ❌ None (CLI flags only) | ⚠️ Browser UI with ads |
+| **Zero-Config Setup** | ✅ **Auto-provisions** `yt-dlp`, `gallery-dl` & `ffmpeg` | ⚠️ Manual install & Python setup | 🌐 Hosted on remote servers |
+| **Photo & Carousel Support** | ✅ **Unified engine** (Instagram, X, Threads) | ❌ Video / audio only | ⚠️ Inconsistent / compressed |
+| **Batch & Playlist Selection** | ✅ **Interactive picker** (`Space` toggle, `A` all) | ⚠️ Complex index ranges (`--playlist-items`) | ❌ Single URL at a time |
+| **Visual Progress Meters** | ✅ **Dual live bars** (batch queue + stream speed) | ⚠️ Text stream stdout dump | ❌ Indeterminate spinner |
+| **Clipboard 1-Key Paste** | ✅ **Instant `Tab` paste** from clipboard | ❌ Manual terminal paste | ⚠️ Clickjacking / popup risks |
+| **Subtitles & Thumbnail Muxing** | ✅ **1-flag muxing** (`--embed-subs`, `--embed-thumb`) | ⚠️ Multi-argument ffmpeg recipes | ❌ Rarely available |
+| **Smart OS Storage** | ✅ **Native Known Folders** (Windows Registry / XDG) | ⚠️ Current working directory | ⚠️ Browser downloads folder |
+| **Self-Updating Engines** | ✅ **Built-in updater** (`open-omni -U`) | ⚠️ Package manager or pip | ❌ No user control |
+| **Privacy & Security** | ✅ **100% local & zero telemetry** | ✅ 100% local & open-source | ❌ Ad trackers & malware risks |
+| **Scriptable Headless CLI** | ✅ **Yes** (direct non-interactive flags) | ✅ **Yes** (extensive flag suite) | ❌ No CLI or automation |
 
 ---
 
