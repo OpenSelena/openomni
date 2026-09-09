@@ -84,4 +84,17 @@ test('README documentation parity with CLI options', () => {
     /Clickjacking/i,
     'Comparison table should not contain filler scare copy'
   )
+
+  // Fair Use Notice and License contact requirements
+  assert.match(readme, /igect@vk\.com/, 'README should provide contact email igect@vk.com')
+  assert.match(readme, /Fair Use Notice/i, 'README should have Fair Use Notice section')
+  assert.match(readme, /does not grant/i, 'Fair Use Notice must clarify tool does not grant copyright ownership or permission')
+  assert.match(readme, /responsible/i, 'Fair Use Notice must clarify users are responsible for compliance')
+
+  // LICENSE file contact/inquiry section
+  const licensePath = path.resolve('LICENSE')
+  assert.ok(fs.existsSync(licensePath), 'LICENSE exists')
+  const license = fs.readFileSync(licensePath, 'utf8')
+  assert.match(license, /Permission is hereby granted, free of charge/i, 'LICENSE preserves standard MIT license terms')
+  assert.match(license, /igect@vk\.com/, 'LICENSE includes contact email igect@vk.com')
 })

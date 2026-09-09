@@ -35,7 +35,7 @@
 - [Shell Autocompletion](#shell-autocompletion)
 - [Privacy & Local First](#privacy--local-first)
 - [Fair Use Notice](#fair-use-notice)
-- [License](#license)
+- [License & Inquiries](#license--inquiries)
 
 ---
 
@@ -221,12 +221,31 @@ Open Omni runs entirely on your local machine:
 
 ## Fair Use Notice
 
-Open Omni is an open-source educational utility intended for personal archiving, local backup, research, and fair use analysis under applicable copyright laws (including Section 107 of the U.S. Copyright Act). 
+Open Omni is an open-source educational utility intended for personal archiving, local offline study, and fair-use research.
 
-Open Omni does not bypass DRM encryption, defeat digital paywalls, or distribute protected media. Users are responsible for ensuring that their downloads comply with local copyright regulations and the terms of service of the respective platforms.
+### Copyright and Tool Purpose
+The software functions as an automated terminal interface to established media extraction backends (`yt-dlp` and `gallery-dl`). Analogous to a standard web browser or media player, Open Omni retrieves publicly available media streams strictly at the direct instruction of the user. Open Omni does not operate remote media servers, store or index content, bypass digital rights management (DRM) encryption, or circumvent technical access controls or digital paywalls.
+
+### Fair Use Principles
+Applicable copyright laws (such as Section 107 of the U.S. Copyright Act and comparable fair-dealing statutes internationally) permit the use of copyrighted works without express authorization under specific circumstances, including:
+- Non-commercial personal archiving and format shifting for offline viewing
+- Criticism, commentary, parody, and transformative research
+- News reporting, classroom teaching, scholarship, and academic analysis
+
+Whether a specific download or utilization qualifies as fair use depends on jurisdictional statutory factors, including the purpose and character of the use, the nature of the copyrighted work, the amount and substantiality of the portion used, and the effect upon the potential market or value of the work.
+
+### User Responsibility & Disclaimers
+- **No Grant of Ownership or Rights**: Open Omni is an open-source tool and does not grant users copyright ownership, licenses, or authorization to reproduce, distribute, publicly display, or monetize protected content unlawfully.
+- **User Responsibility**: Users are solely responsible for ensuring that their capture and subsequent use of any media complies with applicable local copyright laws, intellectual property rights, and third-party terms of service.
+- **Not Legal Advice**: This notice is provided for informational and educational purposes only and does not constitute formal legal counsel.
 
 ---
 
-## License
+## License & Inquiries
 
-[MIT](LICENSE)
+Open Omni is released under the [MIT License](LICENSE).
+
+### Contact & Inquiries
+For copyright concerns, legal inquiries, bug reports, security reports, or general questions regarding this project, please reach out directly:
+
+- **Email**: [igect@vk.com](mailto:igect@vk.com)
