@@ -1,17 +1,3 @@
-# Domain Docs
-
-How the engineering skills should consume this repo's domain documentation when exploring the codebase.
-
-## Before exploring, read these
-
-- **`CONTEXT.md`** at the repo root, or
-- **`CONTEXT-MAP.md`** at the repo root if it exists: it points at one `CONTEXT.md` per context. Read each one relevant to the topic.
-- **`docs/adr/`**: read ADRs that touch the area you're about to work in. In multi-context repos, also check `src/<context>/docs/adr/` for context-scoped decisions.
-
-If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The `/domain-modeling` skill (reached via `/grill-with-docs` and `/improve-codebase-architecture`) creates them lazily when terms or decisions actually get resolved.
-
-## File structure
-
 Single-context repo (most repos):
 
 ```
@@ -27,7 +13,8 @@ Single-context repo (most repos):
 │   ├── 0007-shell-autocompletion.md
 │   ├── 0008-photo-and-mixed-post-downloading.md
 │   ├── 0009-platform-known-folders.md
-│   └── 0010-dual-engine-self-update.md
+│   ├── 0010-dual-engine-self-update.md
+│   └── 0011-session-cookie-authentication.md
 └── src/
 ```
 
@@ -39,6 +26,6 @@ If the concept you need isn't in the glossary yet, that's a signal: either you'r
 
 ## Flag ADR conflicts
 
-If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
+ADRs are immutable historical records. Don't edit an existing ADR to match new thinking: if a decision is superseded, record a *new* ADR that explicitly supersedes the old one, and mark the old one superseded.
 
-> _Contradicts ADR-XXXX, but worth reopening because…_
+When an issue asks for something that directly contradicts an existing ADR without mentioning it, raise that before writing code: the author may have forgotten the trade-off that led there.

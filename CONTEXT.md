@@ -105,7 +105,7 @@ A multi-asset social post or carousel containing a combination of both video cli
 _Avoid_: Hybrid gallery, combo post, mixed album
 
 **Engine Dispatcher**:
-The routing module in Open Omni that inspects probed URLs and items, assigning video items to `yt-dlp` and photo items to `gallery-dl`.
+The routing module in Open Omni that inspects probed URLs and items, assigning video items to `yt-dlp` and photo items to `gallery-dl``.
 _Avoid_: Router, handler switch, format delegator
 
 **Original Quality Asset**:
@@ -118,8 +118,16 @@ _Avoid_: Raw image, high-res photo, max pic
 A special operating system directory (e.g. Downloads, Documents, Videos) whose physical storage path is registered in the OS user profile and may be relocated across drives.
 _Avoid_: Special folder, shell path, virtual directory
 
-**Platform Directory Resolver**:
-The zero-dependency discovery module that queries the host OS (via Windows Registry `reg.exe` or Linux `user-dirs.dirs`) to determine the user's active, relocated Known Folder path.
-_Avoid_: Folder finder, path detector, registry scraper
+### Authentication & Access Control
 
+**Cookie Jar**:
+A standard Netscape-formatted plain-text file containing exported HTTP session cookies used to authenticate API and media extraction requests.
+_Avoid_: Token file, credential store, key file
 
+**Browser Session Extraction**:
+The automated extraction of session cookies directly from an installed local browser profile without requiring manual export.
+_Avoid_: Browser scraper, live hijack, chrome reader
+
+**Ephemeral Cookie Jar**:
+A short-lived, temporary cookie file written to disk with restricted permissions (`0o600`) during execution and purged on process termination.
+_Avoid_: Temp token, cached cookies, scratch file
