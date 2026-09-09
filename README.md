@@ -5,8 +5,6 @@
   </picture>
 </p>
 
-<h1 align="center">Open Omni</h1>
-
 <p align="center">
   <b>Fast terminal media downloader and TUI for 1,800+ sites.</b><br/>
   Download videos, music, and photo galleries from YouTube, Instagram, X, TikTok, and more.
@@ -17,7 +15,7 @@
   <a href="https://github.com/OpenSelena/openomni/actions/workflows/ci.yml"><img src="https://github.com/OpenSelena/openomni/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D20-brightgreen" alt="Node version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-  <a href="https://github.com/OpenSelena/openomni/stargazers"><img src="https://img.shields.io/github/stars/OpenSelena/openomni" alt="GitHub stars"></a>
+  <a href="https://github.com/OpenSelena/openomni/stargazers"><img src="https://github.com/OpenSelena/openomni" alt="GitHub stars"></a>
 </p>
 
 <p align="center">
