@@ -51,19 +51,14 @@ Under the hood, Open Omni automatically provisions and manages [`yt-dlp`](https:
 
 ## How It Compares
 
-| Feature | Open Omni | `yt-dlp` CLI | Web Downloaders |
+| | Open Omni | yt-dlp | Web converters |
 | :--- | :--- | :--- | :--- |
-| **Interactive Terminal UI** | Full keyboard and mouse TUI | None (CLI flags only) | Browser UI with ads |
-| **Engine Setup** | Auto-provisions `yt-dlp`, `gallery-dl`, `ffmpeg` | Manual binary or Python package install | Remote server dependency |
-| **Photo & Carousel Support** | Native via unified `gallery-dl` engine | Video/audio extraction only | Unreliable or low-resolution |
-| **Batch & Playlist Selection** | Interactive picker (`Space` / `A` keys) | Manual index flags (`--playlist-items`) | Single URL only |
-| **Progress Display** | Dual progress meters (queue + speed/ETA) | Text-based stdout stream | Indeterminate spinner |
-| **Clipboard Paste** | 1-key `Tab` paste | Manual terminal paste | Browser paste / clickjacking risks |
-| **Subtitles & Thumbnails** | Native muxing (`--embed-subs`, `--embed-thumb`) | Manual multi-flag ffmpeg pipelines | Rarely supported |
-| **Download Destination** | Native OS Known Folders (Registry / XDG) | Current working directory | Browser default folder |
-| **Engine Updates** | Integrated command (`open-omni -U`) | Manual package manager / pip invocations | Closed / uncontrolled |
-| **Telemetry & Privacy** | Local-first, zero telemetry, zero ads | Local-first, open-source | Heavy ad trackers and logging |
-| **Headless Scripting** | Dedicated non-interactive CLI flags | Full CLI suite | No CLI support |
+| **Interface** | Keyboard-driven terminal TUI | Command-line flags | Browser UI with ads |
+| **Engines** | Auto-provisions `yt-dlp`, `gallery-dl`, `ffmpeg` | Manual binary or Python setup | Hosted / unknown backends |
+| **Media** | Video, audio, photos & carousels | Video & audio | Inconsistent / compressed |
+| **Selection** | Interactive checklist (`Space` / `A` keys) | Index ranges (`--playlist-items`) | Single URL at a time |
+| **Workflow** | `Tab` clipboard paste → pick format → Enter | Build flags manually | Paste → wait → download |
+| **Local-first** | 100% local, zero telemetry | 100% local, open-source | Remote servers & ad trackers |
 
 ---
 

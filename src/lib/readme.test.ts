@@ -65,4 +65,23 @@ test('README documentation parity with CLI options', () => {
 
   // Ensure README includes one-line installer domain mint.dev.cv
   assert.match(readme, /mint\.dev\.cv/, 'README should link to mint.dev.cv installer')
+
+  // Ensure How It Compares is concise developer matrix without marketing slop
+  assert.match(readme, /\|\s*\*\*Interface\*\*\s*\|/i, 'Comparison table should include Interface row')
+  assert.match(readme, /\|\s*\*\*Engines\*\*\s*\|/i, 'Comparison table should include Engines row')
+  assert.match(readme, /\|\s*\*\*Media\*\*\s*\|/i, 'Comparison table should include Media row')
+  assert.match(readme, /\|\s*\*\*Selection\*\*\s*\|/i, 'Comparison table should include Selection row')
+  assert.match(readme, /\|\s*\*\*Workflow\*\*\s*\|/i, 'Comparison table should include Workflow row')
+  assert.match(readme, /\|\s*\*\*Local-first\*\*\s*\|/i, 'Comparison table should include Local-first row')
+
+  assert.doesNotMatch(
+    readme,
+    /Telemetry & Privacy/i,
+    'Comparison table should not contain corporate buzzwords'
+  )
+  assert.doesNotMatch(
+    readme,
+    /Clickjacking/i,
+    'Comparison table should not contain filler scare copy'
+  )
 })
