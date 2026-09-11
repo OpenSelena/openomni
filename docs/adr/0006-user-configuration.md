@@ -1,10 +1,12 @@
-# 6. User Configuration and Precedence Waterfall
+# ADR 0006: User Configuration and Precedence Waterfall
 
-Date: 2026-09-07
+| Metadata | Specification |
+| :--- | :--- |
+| **Status** | Approved |
+| **Date** | 2026-09-07 |
+| **Domain** | Runtime Configuration |
 
-## Status
-
-Accepted
+---
 
 ## Context
 
@@ -41,11 +43,12 @@ Users frequently have personal preferences for their media downloads — such as
      1. Explicit CLI arguments (`-o`, `--theme`, `--best`/`--mp3`, `--subs`, `--thumb`)
      2. Environment variables (`OPEN_OMNI_DIR`)
      3. User configuration file (`config.json`)
-     4. Built-in defaults (`~/Downloads`, `auto` theme, subtitles off, thumbnail off)
+     4. Platform Known Folder (Windows Registry / Linux XDG user-dirs)
+     5. Built-in defaults (`~/Downloads`, `auto` theme, subtitles off, thumbnail off)
 4. **Resilience**:
    - If `config.json` cannot be read or parsed due to invalid JSON syntax, output a non-blocking warning to `stderr` and proceed with default configuration.
 
-## Consequences
+## Consequences & Trade-offs
 
 - Users can customize persistent settings once without modifying shell profiles.
 - One-off CLI arguments always override persistent config options.

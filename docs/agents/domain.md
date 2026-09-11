@@ -14,7 +14,10 @@ Single-context repo (most repos):
 │   ├── 0008-photo-and-mixed-post-downloading.md
 │   ├── 0009-platform-known-folders.md
 │   ├── 0010-dual-engine-self-update.md
-│   └── 0011-session-cookie-authentication.md
+│   ├── 0011-session-cookie-authentication.md
+│   ├── 0012-organization-domain-and-identity.md
+│   ├── 0013-package-distribution-homebrew-and-winget.md
+│   └── 0014-native-instagram-embed-resolution.md
 └── src/
 ```
 

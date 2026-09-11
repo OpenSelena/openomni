@@ -1,16 +1,18 @@
-# 8. Photo and Mixed-Media Post Downloading
+# ADR 0008: Photo and Mixed-Media Post Downloading
 
-Date: 2026-09-07
+| Metadata | Specification |
+| :--- | :--- |
+| **Status** | Approved |
+| **Date** | 2026-09-07 |
+| **Domain** | Dual-Engine Architecture |
 
-## Status
-
-Accepted
+---
 
 ## Context
 
 Open Omni was originally built strictly for audio and video media powered by `yt-dlp`. However, users frequently encounter social media posts (on Twitter/X, Instagram, Reddit, Facebook, etc.) that contain static images, multi-photo carousels, or mixed-media posts combining both video clips and static photos. `yt-dlp` rejects photo-only posts with errors like "No video formats found" and drops photo slides from mixed carousels.
 
-To provide seamless media downloading without compromising video quality or image fidelity, Open Omni needs a dedicated photo engine that pairs with `yt-dlp`.
+To support image posts and mixed carousels while preserving video extraction capabilities, Open Omni integrates a dedicated photo engine alongside `yt-dlp`.
 
 ## Decision
 
@@ -19,7 +21,7 @@ To provide seamless media downloading without compromising video quality or imag
    - Integrate `gallery-dl` as the specialized photo and gallery engine for static images, multi-photo albums, and social carousels.
 2. **Binary Management**:
    - Manage `gallery-dl` in `~/.open-omni/bin/gallery-dl` (or `gallery-dl.exe` on Windows).
-   - Resolve system PATH first; if not present, download the standalone standalone binary from official GitHub releases (zero Python dependency required for end users).
+   - Resolve system PATH first; if not present, download the standalone binary from official GitHub releases (zero Python dependency required for end users).
 3. **Unified Engine Dispatcher**:
    - Open Omni probes URLs through an Engine Dispatcher.
    - For platforms with mixed or photo content, inspect the post elements:
@@ -34,7 +36,7 @@ To provide seamless media downloading without compromising video quality or imag
 6. **Scriptable CLI Flags**:
    - Provide `--photos-only` and `--videos-only` flags to filter mixed posts in headless runs.
 
-## Consequences
+## Consequences & Trade-offs
 
 - Users can paste any social media post link — whether it contains videos, photos, or both — and receive full-resolution downloads in a single unified directory.
 - Video quality remains uncompromised via `yt-dlp`, and photos are fetched at original uncompressed CDN resolution via `gallery-dl`.

@@ -1,10 +1,12 @@
-# 5. Thumbnail Archival and Cover Art Embedding
+# ADR 0005: Thumbnail Archival and Cover Art Embedding
 
-Date: 2026-09-07
+| Metadata | Specification |
+| :--- | :--- |
+| **Status** | Approved |
+| **Date** | 2026-09-07 |
+| **Domain** | Media Streams & Metadata |
 
-## Status
-
-Accepted
+---
 
 ## Context
 
@@ -22,7 +24,7 @@ Users archiving videos or extracting music tracks often require the original cov
 4. **Batch & Playlist Placement**:
    - For batch downloads, output thumbnails directly into the playlist directory matching the media filename scheme (`01 - Title.jpg` alongside `01 - Title.mp4`).
 
-## Consequences
+## Consequences & Trade-offs
 
 - Standalone thumbnails are cleanly written with matched basenames (`video.jpg` for `video.mp4`).
 - Cover art can be embedded without manual post-processing.

@@ -1,14 +1,16 @@
-# 7. Shell Autocompletion
+# ADR 0007: Shell Autocompletion
 
-Date: 2026-09-07
+| Metadata | Specification |
+| :--- | :--- |
+| **Status** | Approved |
+| **Date** | 2026-09-07 |
+| **Domain** | CLI & Interactive Shell |
 
-## Status
-
-Accepted
+---
 
 ## Context
 
-`open-omni` provides a rich set of command-line options and flags (`--best`, `--mp3`, `-o`/`--output`, `--theme`, `--subs`, `--embed-subs`, `--thumb`, `--embed-thumb`, `-U`/`--update`, `--force`, `--help`, `--version`). Manually typing these options or recalling argument values (such as theme names `auto`, `light`, `dark` or completion targets) slows down power users and introduces typographical errors. Native shell completion provides instantaneous discovery and parameter completion.
+`open-omni` provides command-line flags for quality selection, output directory, themes, subtitles, thumbnails, and updates. Manually typing these options or argument values introduces typographical errors. Native shell completion provides command discovery and parameter completion.
 
 ## Decision
 
@@ -36,7 +38,7 @@ Accepted
 4. **Zero Runtime Dependencies**:
    - Generate pure shell scripts without external CLI completion dependencies or runtime IPC.
 
-## Consequences
+## Consequences & Trade-offs
 
 - Users across Linux, macOS, and Windows PowerShell get immediate tab-completion for all CLI arguments and accepted values.
 - Setup is simple, transparent, and can be integrated into shell profile configurations or the Open Omni installer script.

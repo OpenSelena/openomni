@@ -1,10 +1,12 @@
-# 4. Subtitle Downloading and Embedding
+# ADR 0004: Subtitle Downloading and Embedding
 
-Date: 2026-09-07
+| Metadata | Specification |
+| :--- | :--- |
+| **Status** | Approved |
+| **Date** | 2026-09-07 |
+| **Domain** | Media Streams & Metadata |
 
-## Status
-
-Accepted
+---
 
 ## Context
 
@@ -24,7 +26,7 @@ Furthermore, user preferences differ regarding file organization: many video pla
 4. **Interactive TUI Integration**:
    - During interactive picker phases (single video format picker and playlist quality picker), provide a keyboard shortcut (`s`) and a clickable footer hint (`s subs:off` / `s subs:on`) allowing users to toggle subtitle downloading without leaving the picker.
 
-## Consequences
+## Consequences & Trade-offs
 
 - Subtitles are downloaded cleanly adjacent to the video (e.g. `video.mp4` and `video.en.srt`) or embedded on demand.
 - Audio-only downloads (`--mp3`) omit video subtitles unless explicitly requested.

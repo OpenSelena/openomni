@@ -1,4 +1,12 @@
-# 0012. Organization Domain Strategy & Web Identity
+# ADR 0012: Organization Domain Strategy & Web Identity
+
+| Metadata | Specification |
+| :--- | :--- |
+| **Status** | Approved |
+| **Date** | 2026-09-10 |
+| **Domain** | Organization Infrastructure |
+
+---
 
 ## Context & Decision
 
@@ -12,14 +20,14 @@ Following primary registry verification across ICANN and Verisign RDAP services,
 
 To ensure operational security and minimize recurring overhead, the domain infrastructure is standardized as follows:
 
-1. **Registrar**: **Cloudflare Registrar** is selected as the primary registrar due to its strict wholesale at-cost pricing model (zero markup over Verisign/PIR wholesale + ICANN fee), free WHOIS privacy redaction, and automated DNSSEC key management. **Porkbun** serves as the authorized secondary alternative should external nameserver delegation be required.
+1. **Registrar**: **Cloudflare Registrar** is selected as the primary registrar due to its wholesale at-cost pricing model (zero markup over Verisign/PIR wholesale + ICANN fee), free WHOIS privacy redaction, and automated DNSSEC key management. **Porkbun** serves as the authorized secondary alternative should external nameserver delegation be required.
 2. **DNS & Edge Routing**:
    * Authoritative DNS is managed on Cloudflare with DNSSEC enabled.
-   * `openselena.com` uses Cloudflare Redirect Rules / Page Rules to issue an immediate HTTP 301 redirect to `https://openselena.org$uri`.
+   * `openselena.com` uses Cloudflare Redirect Rules to issue an immediate HTTP 301 redirect to `https://openselena.org$uri`.
 3. **Hosting Integration (GitHub Pages)**:
    * Apex domain (`openselena.org`) routes to GitHub Pages IP ranges (`185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`).
    * Subdomain `www.openselena.org` points via `CNAME` to `openselena.github.io`.
-   * Enforce HTTPS is enabled in the repository settings.
+   * Enforce HTTPS is enabled in repository settings.
 
 ## GitHub Organization Verification
 

@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Login-Wall Auto-Recovery in Engine Dispatcher**:
   - Intercepts unauthenticated login redirect errors (`HTTP redirect to login page (https://www.instagram.com/accounts/login/)` and `401 Unauthorized`).
   - Automatically invokes browser session extraction and retries media probe transparently.
-- **Native Instagram Embed Resolver** ([ADR 0014](docs/adr/0014-native-instagram-embed-resolver.md)):
+- **Native Instagram Embed Resolver** ([ADR 0014](docs/adr/0014-native-instagram-embed-resolution.md)):
   - Probes `/embed/captioned/` endpoint for public Instagram posts, reels, and carousels before falling back to `gallery-dl`.
   - Implements direct CDN streaming for image and video assets.
 - **Session Delegation Flags**:

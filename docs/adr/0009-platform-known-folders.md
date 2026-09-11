@@ -1,10 +1,12 @@
-# 9. Platform-Native Known Folder Auto-Detection
+# ADR 0009: Platform-Native Known Folder Auto-Detection
 
-Date: 2026-09-07
+| Metadata | Specification |
+| :--- | :--- |
+| **Status** | Approved |
+| **Date** | 2026-09-07 |
+| **Domain** | Filesystem & OS Interoperability |
 
-## Status
-
-Accepted
+---
 
 ## Context
 
@@ -35,10 +37,10 @@ Because Node's `os.homedir()` points to the user's home profile root (`C:\\Users
    1. CLI Argument: `-o <path>` or `--output <path>` (Highest priority).
    2. Environment Variable: `OPEN_OMNI_DIR`.
    3. User Configuration: `~/.config/open-omni/config.json` (`outputDir` or `outDir`).
-   4. **Platform Known Folder**: Windows Registry / Linux XDG user-dirs (New).
+   4. **Platform Known Folder**: Windows Registry / Linux XDG user-dirs.
    5. Home Default: `path.join(os.homedir(), 'Downloads')` (Final safety fallback).
 
-## Consequences
+## Consequences & Trade-offs
 
 - Open Omni automatically honors the user's real Windows Downloads folder (e.g. `X:\\Downloads`) with zero manual configuration required.
 - Maintains 100% backward compatibility with CLI flags, environment variables, and user configuration.

@@ -1,10 +1,18 @@
-# 0013. Multi-Platform Package Distribution: Homebrew and Winget
+# ADR 0013: Multi-Platform Package Distribution: Homebrew and Winget
+
+| Metadata | Specification |
+| :--- | :--- |
+| **Status** | Approved |
+| **Date** | 2026-09-11 |
+| **Domain** | Package Distribution |
+
+---
 
 ## Context & Decision
 
 Open Omni is a terminal media downloader packaged as a Node.js CLI on npm (`open-omni`). To reach users on macOS, Linux, and Windows without forcing them to manually manage npm global installations or path permissions, Open Omni adopts a two-platform distribution strategy:
 
-1. **Homebrew Tap (`OpenSelena/homebrew-tap`)**: For macOS and Linux users. Provides seamless `brew install OpenSelena/tap/open-omni` integration via Homebrew's native `Language::Node` ruby formula.
+1. **Homebrew Tap (`OpenSelena/homebrew-tap`)**: For macOS and Linux users. Installs via `brew install OpenSelena/tap/open-omni` using Homebrew's native `Language::Node` ruby formula.
 2. **Winget Package Registry (`microsoft/winget-pkgs`)**: For Windows users. Provides `winget install OpenSelena.OpenOmni` using a standalone portable executable package (`open-omni-windows-x64.zip`) hosted on GitHub Releases, requiring zero Node.js prerequisites on the client system.
 
 ## Considered Options & Trade-offs

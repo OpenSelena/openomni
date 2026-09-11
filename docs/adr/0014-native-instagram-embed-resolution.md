@@ -1,8 +1,16 @@
-# 0014. Native Instagram Embed Resolution & Login Wall Bypass
+# ADR 0014: Native Instagram Embed Resolution & Login Wall Bypass
+
+| Metadata | Specification |
+| :--- | :--- |
+| **Status** | Approved |
+| **Date** | 2026-09-11 |
+| **Domain** | Network & Extraction Pipeline |
+
+---
 
 ## Context & Problem
 
-Instagram aggressively restricts unauthenticated access to standard post and reel URLs (`instagram.com/p/{id}/`, `instagram.com/reel/{id}/`), returning HTTP 302 redirects to `/accounts/login/`. Consequently, upstream CLI engines (`gallery-dl` and `yt-dlp`) without configured cookies abort extraction with `AbortExtraction: HTTP redirect to login page` or HTTP 403 Forbidden errors.
+Instagram restricts unauthenticated access to standard post and reel URLs (`instagram.com/p/{id}/`, `instagram.com/reel/{id}/`), returning HTTP 302 redirects to `/accounts/login/`. Consequently, upstream CLI engines (`gallery-dl` and `yt-dlp`) without configured cookies abort extraction with `AbortExtraction: HTTP redirect to login page` or HTTP 403 Forbidden errors.
 
 However, Instagram exposes an unauthenticated public embed endpoint (`/p/{id}/embed/captioned/`) designed for third-party websites and iframe embedding. This endpoint does not require user login and embeds the full post payload—including direct CDN URLs for photos, videos, and multi-asset carousels—directly into the initial HTML response.
 

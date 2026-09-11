@@ -1,10 +1,18 @@
-# 0011. Session Cookie Authentication & Browser Session Delegation
+# ADR 0011: Session Cookie Authentication & Browser Session Delegation
+
+| Metadata | Specification |
+| :--- | :--- |
+| **Status** | Approved |
+| **Date** | 2026-09-09 |
+| **Domain** | Security & Session Delegation |
+
+---
 
 ## Context & Decision
 
 Accessing age-restricted videos on YouTube, private/follower-only posts on Instagram, and subscriber feeds on supported media platforms requires authenticated HTTP sessions. Traditional headless CLI login prompts (username and password inputs) consistently fail due to multi-factor authentication (2FA), CAPTCHAs, and platform-level bot detection algorithms.
 
-To provide seamless access to authenticated media while preserving a non-interactive and scriptable architecture, Open Omni adopts session cookie delegation:
+To support authenticated media in headless and non-interactive workflows, Open Omni implements session cookie delegation:
 1. **Zero-Config Browser Auto-Detection (`--cookies-from-browser auto`)**: By default, Open Omni automatically scans installed browsers across macOS, Linux, and Windows (Chrome, Firefox, Brave, Edge, Safari, Zen, Helium, Floorp, Waterfox).
 2. **Browser Session Extraction (`--cookies-from-browser <browser[:profile]>`)**: Supports explicit browser targets as well as profile path aliases (e.g. `zen` normalized to `firefox:<zen_profile_path>`).
 3. **Cookie Jar Path (`--cookies <path>`)**: Accepts a standard Netscape/Mozilla formatted cookies text file exported from the user's browser.
@@ -38,4 +46,3 @@ Raw session tokens or credentials are never stored directly in `config.json`. On
 ## TUI Visibility
 
 When an authenticated session is active, the interactive terminal interface displays a passive session indicator in the header (e.g., `Auth: cookies.txt` or `Auth: zen (firefox:...)`). No sensitive authentication tokens or cookie contents are rendered.
-
