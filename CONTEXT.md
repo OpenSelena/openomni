@@ -112,6 +112,14 @@ _Avoid_: Router, handler switch, format delegator
 The uncompressed, full-resolution source image file directly extracted from a platform's CDN endpoint.
 _Avoid_: Raw image, high-res photo, max pic
 
+**Instagram Embed Resolver**:
+The native unauthenticated extraction module (`src/lib/instagram.ts`) in Open Omni that queries the `/embed/captioned/` iframe endpoint to bypass login redirection on public Instagram media.
+_Avoid_: Insta hack, login bypass script, custom scraper
+
+**Direct CDN Streaming**:
+The zero-subprocess download pipeline that streams raw media bytes directly from platform CDN endpoints (`scontent.cdninstagram.com`) into disk files using native Node HTTP streams.
+_Avoid_: Direct fetcher, fast download, web dl
+
 ### Platform Directories
 
 **Known Folder**:

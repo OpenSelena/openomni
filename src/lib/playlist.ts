@@ -10,6 +10,7 @@ export type PlaylistEntry = {
   index: number
   kind?: 'video' | 'audio' | 'photo'
   ext?: string
+  engine?: 'ytdlp' | 'gallerydl' | 'instagram'
 }
 
 export type PlaylistMetadata = {

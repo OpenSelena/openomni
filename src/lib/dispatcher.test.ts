@@ -407,3 +407,102 @@ test('probeUnified falls back to gallery-dl when yt-dlp fails on non-whitelisted
   }
 })
 
+test('probeUnified routes Instagram post to native resolver before gallery-dl', async () => {
+  let galleryDlCalled = false
+  let ytDlpCalled = false
+
+  const result = await probeUnified({
+    url: 'https://www.instagram.com/p/DFtest123/',
+    ytdlp: 'yt-dlp',
+    gallerydl: 'gallery-dl',
+    resolveInstagramFn: async () => ({
+      postId: 'DFtest123',
+      title: 'creator_DFtest123',
+      author: 'creator',
+      items: [
+        {
+          url: 'https://scontent.cdninstagram.com/photo.jpg',
+          kind: 'photo',
+        },
+      ],
+    }),
+    probeGalleryDlFn: async () => {
+      galleryDlCalled = true
+      return []
+    },
+    probeYtDlpFn: async () => {
+      ytDlpCalled = true
+      throw new Error('should not be called')
+    },
+  })
+
+  assert.equal(galleryDlCalled, false)
+  assert.equal(ytDlpCalled, false)
+  assert.equal(result.kind, 'single_photo')
+  if (result.kind === 'single_photo') {
+    assert.equal(result.postTitle, 'creator_DFtest123')
+    assert.equal(result.item.url, 'https://scontent.cdninstagram.com/photo.jpg')
+    assert.equal(result.item.engine, 'instagram')
+  }
+})
+
+test('probeUnified falls back to gallery-dl if native Instagram resolver fails', async () => {
+  let galleryDlCalled = false
+
+  const result = await probeUnified({
+    url: 'https://www.instagram.com/p/DFprivate/',
+    ytdlp: 'yt-dlp',
+    gallerydl: 'gallery-dl',
+    resolveInstagramFn: async () => {
+      throw new Error('Instagram login required or post is private')
+    },
+    probeGalleryDlFn: async () => {
+      galleryDlCalled = true
+      return [
+        {
+          url: 'https://example.com/fallback.jpg',
+          filename: 'fallback.jpg',
+          ext: 'jpg',
+          kind: 'photo',
+          title: 'Fallback Title',
+          index: 1,
+        },
+      ]
+    },
+  })
+
+  assert.equal(galleryDlCalled, true)
+  assert.equal(result.kind, 'single_photo')
+})
+
+test('downloadUnifiedItem downloads instagram item directly via downloadInstagramFn', async () => {
+  let downloadedUrl = ''
+  let downloadedPath = ''
+
+  const item: PlaylistEntry = {
+    id: 'DF1',
+    title: 'Instagram Post',
+    url: 'https://scontent.cdninstagram.com/reel.mp4',
+    index: 1,
+    kind: 'video',
+    ext: 'mp4',
+    engine: 'instagram',
+  }
+
+  const result = await downloadUnifiedItem({
+    item,
+    destDir: '/tmp/downloads',
+    ytdlp: 'yt-dlp',
+    choice: {label: 'best', kind: 'video', args: []},
+    downloadInstagramFn: async (mediaItem, outputPath) => {
+      downloadedUrl = mediaItem.url
+      downloadedPath = outputPath
+    },
+  })
+
+  assert.equal(downloadedUrl, 'https://scontent.cdninstagram.com/reel.mp4')
+  assert.ok(downloadedPath.includes('01 - Instagram Post.mp4'))
+  assert.equal(result, downloadedPath)
+})
+
+

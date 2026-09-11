@@ -9,10 +9,11 @@ We unify the self-update architecture across both engines under a dual-engine mo
 3. `--update-gallerydl`: Selectively updates only the `gallery-dl` executable.
 4. `--force`: Forces fresh release downloads for selected or all engines into `~/.open-omni/bin`.
 
-## Upstream Repository Migration & Dual-Mirror Strategy
-Following upstream issue `#9374` (maintainer `mikf` migrating active development to Codeberg under DMCA takedown actions on GitHub), Open Omni uses a dual-mirror resolution strategy for standalone bootstrap and forced updates:
-1. **Primary Mirror**: Codeberg Releases API (`https://codeberg.org/api/v1/repos/mikf/gallery-dl/releases/latest`). Standalone asset URL is resolved dynamically from release assets (`gallery-dl.exe` on Windows, `gallery-dl.bin` on Linux).
-2. **Fallback Mirror**: GitHub Releases (`https://github.com/mikf/gallery-dl/releases/latest/download`). Used if Codeberg API is unreachable or returns non-200.
+## Upstream Repository Migration & Codeberg Provisioning
+Following upstream issue `#9374` (maintainer `mikf` migrating active development and releases to Codeberg), Open Omni provisions gallery-dl standalone binaries and source solely from Codeberg:
+1. **Primary Release Source**: Codeberg Releases API (`https://codeberg.org/api/v1/repos/mikf/gallery-dl/releases/latest`). Standalone asset URL is resolved dynamically from release assets (`browser_download_url`, providing `gallery-dl.exe` on Windows, `gallery-dl.bin` on Linux).
+2. **Master Source Archive**: `https://codeberg.org/mikf/gallery-dl/archive/master.tar.gz` is referenced for upstream development builds and unreleased extractor patches.
+3. **Decommissioned Mirrors**: GitHub releases were removed entirely due to upstream deprecation and API rate-limiting issues.
 
 ## Considered Options & Trade-offs
 1. **Unified `-U` vs Separate Flags**: Having `-U` update both engines matches user expectations that `open-omni -U` updates all underlying scraper tools. Retaining `--update-ytdlp` and adding `--update-gallerydl` allows granular maintenance for scripting and CI.

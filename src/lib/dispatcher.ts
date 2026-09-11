@@ -1,3 +1,4 @@
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import {
   ensureGalleryDl,
@@ -17,6 +18,12 @@ import {
   type VideoInfo,
 } from './ytdlp.js'
 import {formatTrackFilename, type PlaylistEntry, type PlaylistMetadata} from './playlist.js'
+import {
+  isInstagramUrl,
+  isInstagramCdnUrl,
+  resolveInstagramMedia,
+  downloadInstagramItem,
+} from './instagram.js'
 
 export const MIXED_OR_PHOTO_DOMAINS = [
   'x.com',
@@ -56,7 +63,7 @@ export type UnifiedMediaItem = {
   index: number
   title: string
   kind: MediaKind
-  engine: 'ytdlp' | 'gallerydl'
+  engine: 'ytdlp' | 'gallerydl' | 'instagram'
   url: string
   ext: string
   width?: number
@@ -98,21 +105,23 @@ export function normalizeGalleryDlToUnified(
 
   const items: UnifiedMediaItem[] = galleryItems.map((g, idx) => {
     const itemTitle = g.title || `Item ${g.index || idx + 1}`
+    const itemExt = g.ext || (g.kind === 'photo' ? 'jpg' : 'mp4')
+
     return {
-      id: String(g.index || idx + 1),
+      id: `${g.index || idx + 1}`,
       index: g.index || idx + 1,
       title: itemTitle,
       kind: g.kind,
-      engine: g.kind === 'video' ? 'ytdlp' : 'gallerydl',
+      engine: g.kind === 'photo' ? 'gallerydl' : 'ytdlp',
       url: g.url,
-      ext: g.ext,
+      ext: itemExt,
       width: g.width,
       height: g.height,
     }
   })
 
   return {
-    id: first.filename || 'post',
+    id: first.title || 'post',
     title: postTitle,
     uploader: first.uploader,
     webpageUrl: originalUrl,
@@ -154,10 +163,10 @@ export function normalizeYtDlpToUnified(
     id: entry.id,
     index: entry.index,
     title: entry.title,
-    kind: 'video',
+    kind: (entry.kind as MediaKind) || 'video',
     engine: 'ytdlp',
     url: entry.url,
-    ext: 'mp4',
+    ext: entry.ext || 'mp4',
     duration: entry.duration,
   }))
 
@@ -180,6 +189,7 @@ export function postToPlaylistMetadata(post: UnifiedPostResult): PlaylistMetadat
     index: item.index,
     kind: item.kind,
     ext: item.ext,
+    engine: item.engine,
   }))
 
   return {
@@ -224,12 +234,69 @@ export type ProbeUnifiedOptions = {
   onStatus?: (status: string) => void
   probeGalleryDlFn?: typeof probeGalleryDl
   probeYtDlpFn?: typeof probe
+  resolveInstagramFn?: typeof resolveInstagramMedia
 }
 
 export async function probeUnified(options: ProbeUnifiedOptions): Promise<UnifiedProbeResult> {
   const {url, ytdlp, gallerydl, mediaFilter, signal, onStatus} = options
   const runProbeGalleryDl = options.probeGalleryDlFn || probeGalleryDl
   const runProbeYtDlp = options.probeYtDlpFn || probe
+  const runResolveInstagram = options.resolveInstagramFn || resolveInstagramMedia
+
+  let galleryDlErr: Error | undefined
+
+  if (isInstagramUrl(url)) {
+    try {
+      onStatus?.('Probing Instagram post via embed resolver…')
+      const igResult = await runResolveInstagram(url)
+      const unifiedItems: UnifiedMediaItem[] = igResult.items.map((it, idx) => ({
+        id: `${igResult.postId}_${idx + 1}`,
+        index: idx + 1,
+        title: igResult.title ? `${igResult.title} (${idx + 1})` : `Media ${idx + 1}`,
+        kind: it.kind,
+        engine: 'instagram',
+        url: it.url,
+        ext: it.kind === 'video' ? 'mp4' : 'jpg',
+        width: it.width,
+        height: it.height,
+      }))
+
+      const filteredItems = filterMediaItems(unifiedItems, mediaFilter)
+      if (filteredItems.length === 0) {
+        throw new Error(`No media items found matching the specified filter (${mediaFilter})`)
+      }
+
+      if (filteredItems.length === 1 && filteredItems[0].kind === 'photo') {
+        return {
+          kind: 'single_photo',
+          item: filteredItems[0],
+          postTitle: igResult.title,
+          uploader: igResult.author,
+        }
+      }
+
+      const post: UnifiedPostResult = {
+        id: igResult.postId,
+        title: igResult.title,
+        uploader: igResult.author,
+        webpageUrl: url,
+        isSingle: filteredItems.length === 1,
+        items: filteredItems,
+      }
+
+      return {
+        kind: 'mixed_post',
+        post,
+        playlist: postToPlaylistMetadata(post),
+      }
+    } catch (igErr) {
+      if (signal?.aborted) throw igErr
+      if (igErr instanceof Error && igErr.message.includes('No media items found matching')) {
+        throw igErr
+      }
+      // Fall through to gallery-dl / yt-dlp
+    }
+  }
 
   if (isMixedOrPhotoPlatform(url)) {
     try {
@@ -290,6 +357,7 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
       if (err instanceof Error && err.message.includes('No media items found matching')) {
         throw err
       }
+      galleryDlErr = err instanceof Error ? err : new Error(String(err))
       // Otherwise fall through to yt-dlp
     }
   }
@@ -322,6 +390,9 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
     if (signal?.aborted) throw ytErr
     if (ytErr instanceof Error && ytErr.message.includes('No photos found')) {
       throw ytErr
+    }
+    if (galleryDlErr && galleryDlErr.message.includes('gallery-dl extraction aborted')) {
+      throw galleryDlErr
     }
 
     // If url was not already probed by gallery-dl, try gallery-dl fallback
@@ -388,6 +459,7 @@ export type DownloadUnifiedItemOptions = {
   onProcessing?: () => void
   downloadPhotoFn?: typeof downloadPhotoItem
   downloadVideoFn?: typeof download
+  downloadInstagramFn?: typeof downloadInstagramItem
 }
 
 export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): Promise<string> {
@@ -408,6 +480,32 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
   } = options
   const runDownloadPhoto = options.downloadPhotoFn || downloadPhotoItem
   const runDownloadVideo = options.downloadVideoFn || download
+  const runDownloadInstagram = options.downloadInstagramFn || downloadInstagramItem
+
+  if (item.engine === 'instagram' || isInstagramCdnUrl(item.url)) {
+    const finalExt = item.ext || (item.kind === 'video' ? 'mp4' : 'jpg')
+    const finalFilename =
+      filename || formatTrackFilename(item.index, totalCount ?? Math.max(item.index, 1), item.title, finalExt)
+    const outPath = path.join(destDir, finalFilename)
+    await fs.mkdir(destDir, {recursive: true})
+
+    await runDownloadInstagram(
+      {
+        url: item.url,
+        kind: item.kind === 'photo' ? 'photo' : 'video',
+      },
+      outPath,
+      (downloadedBytes, totalBytes) => {
+        onProgress?.({
+          downloadedBytes,
+          totalBytes,
+          part: item.index,
+          totalParts: totalCount ?? 1,
+        })
+      },
+    )
+    return outPath
+  }
 
   const ext = item.kind === 'photo' ? item.ext || 'jpg' : '%(ext)s'
   const resolvedFilename =

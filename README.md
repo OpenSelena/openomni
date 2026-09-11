@@ -45,7 +45,7 @@ You want to download a video, an audio track, or a photo set without clicking th
 
 Open Omni combines the flexibility of an interactive terminal interface with scriptable command-line speed. Paste a link from your clipboard with one key, preview available formats, and download directly to your machine. 
 
-Under the hood, Open Omni automatically provisions and manages [`yt-dlp`](https://github.com/yt-dlp/yt-dlp), [`gallery-dl`](https://github.com/mikf/gallery-dl), and `ffmpeg` binaries so you never have to manually configure external dependencies.
+Under the hood, Open Omni automatically provisions and manages [`yt-dlp`](https://github.com/yt-dlp/yt-dlp), [`gallery-dl`](https://codeberg.org/mikf/gallery-dl), and `ffmpeg` binaries so you never have to manually configure external dependencies.
 
 ---
 

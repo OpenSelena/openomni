@@ -8,7 +8,7 @@ import {pipeline} from 'node:stream/promises'
 
 const OPEN_OMNI_DIR = path.join(os.homedir(), '.open-omni', 'bin')
 const CODEBERG_RELEASE_API = 'https://codeberg.org/api/v1/repos/mikf/gallery-dl/releases/latest'
-const GITHUB_RELEASE_BASE = 'https://github.com/mikf/gallery-dl/releases/latest/download'
+export const CODEBERG_MASTER_ARCHIVE = 'https://codeberg.org/mikf/gallery-dl/archive/master.tar.gz'
 
 export const PHOTO_EXTENSIONS = new Set([
   'jpg',
@@ -78,6 +78,7 @@ export function parseGalleryDlOutput(rawJson: string): GalleryDlItem[] {
   }
 
   const items: GalleryDlItem[] = []
+  let abortError: string | undefined
 
   if (Array.isArray(parsed)) {
     let index = 1
@@ -86,6 +87,16 @@ export function parseGalleryDlOutput(rawJson: string): GalleryDlItem[] {
         const itemType = entry[0]
         const mediaUrl = entry[1]
         const meta = (entry[2] && typeof entry[2] === 'object' ? entry[2] : {}) as Record<string, unknown>
+
+        // Detect AbortExtraction or error tuples: [-1, {"error": "AbortExtraction", "message": "..."}]
+        if (itemType === -1 && typeof entry[1] === 'object' && entry[1] !== null) {
+          const errObj = entry[1] as Record<string, unknown>
+          const errMsg = typeof errObj.message === 'string'
+            ? errObj.message
+            : String(errObj.error || 'extraction aborted')
+          abortError = errMsg
+          continue
+        }
 
         if (typeof mediaUrl === 'string' && mediaUrl.startsWith('http')) {
           const rawExt = (typeof meta.extension === 'string' ? meta.extension : '') || ''
@@ -136,6 +147,9 @@ export function parseGalleryDlOutput(rawJson: string): GalleryDlItem[] {
   }
 
   if (items.length === 0) {
+    if (abortError) {
+      throw new Error(`gallery-dl extraction aborted: ${abortError}`)
+    }
     throw new Error('no media entries found in gallery-dl output')
   }
 
@@ -195,25 +209,33 @@ export async function getGalleryDlDownloadUrls(
 ): Promise<string[]> {
   const urls: string[] = []
 
-  // 1. Try Codeberg API for latest release assets (primary development repo)
+  // Try Codeberg API for latest release assets (primary development and release repository)
   try {
     const res = await fetchFn(CODEBERG_RELEASE_API, {
       signal,
       headers: {'User-Agent': 'open-omni'},
     })
     if (res.ok) {
-      const data = (await res.json()) as {assets?: Array<{name?: string; download_url?: string}>}
+      const data = (await res.json()) as {
+        tag_name?: string
+        assets?: Array<{
+          name?: string
+          download_url?: string
+          browser_download_url?: string
+        }>
+      }
       const asset = data.assets?.find(a => a.name === assetName)
-      if (asset?.download_url) {
-        urls.push(asset.download_url)
+      const downloadUrl = asset?.browser_download_url || asset?.download_url
+      if (downloadUrl) {
+        urls.push(downloadUrl)
+      } else if (data.tag_name) {
+        urls.push(`https://codeberg.org/mikf/gallery-dl/releases/download/${data.tag_name}/${assetName}`)
       }
     }
   } catch {
-    // ignore Codeberg API errors and proceed to fallback
+    // ignore Codeberg API errors and return whatever URLs were resolved
   }
 
-  // 2. GitHub releases latest download fallback
-  urls.push(`${GITHUB_RELEASE_BASE}/${assetName}`)
   return urls
 }
 
@@ -238,10 +260,8 @@ export async function downloadLatestGalleryDl(
 
   for (const candidateUrl of candidateUrls) {
     try {
-      if (onStatus && candidateUrl.includes('codeberg')) {
-        onStatus('fetching gallery-dl from Codeberg mirror…')
-      } else if (onStatus && candidateUrl.includes('github')) {
-        onStatus('fetching gallery-dl from GitHub mirror…')
+      if (onStatus) {
+        onStatus('fetching gallery-dl from Codeberg…')
       }
       const res = await fetch(candidateUrl, {signal})
       if (res.ok && res.body) {
@@ -257,7 +277,7 @@ export async function downloadLatestGalleryDl(
 
   if (!response || !response.body) {
     throw new Error(
-      `Could not download gallery-dl (${lastError?.message || 'unknown error'}). Check your connection and try again.`,
+      `Could not download gallery-dl from Codeberg (${lastError?.message || 'unknown error'}). Check your connection and try again.`,
     )
   }
 
@@ -302,7 +322,7 @@ export async function updateGalleryDl(options?: {
         "Standalone gallery-dl binary is not distributed for macOS. Please upgrade it via Homebrew: 'brew upgrade gallery-dl'",
       )
     }
-    onStatus('downloading fresh standalone gallery-dl from Codeberg / GitHub mirrors…')
+    onStatus('downloading fresh standalone gallery-dl from Codeberg…')
     return await installGalleryDlStandalone(undefined, signal, onStatus)
   }
 

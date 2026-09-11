@@ -9,6 +9,7 @@ import {
   isGalleryDlUpToDateMessage,
   isGalleryDlPackageManaged,
   getGalleryDlDownloadUrls,
+  CODEBERG_MASTER_ARCHIVE,
 } from './gallerydl.js'
 
 test('isPhotoExtension correctly classifies image extensions', () => {
@@ -143,6 +144,30 @@ test('parseGalleryDlOutput throws on empty or invalid json', () => {
   assert.throws(() => parseGalleryDlOutput('[]'), /no media entries found in gallery-dl output/i)
 })
 
+test('parseGalleryDlOutput surfaces AbortExtraction error message', () => {
+  const raw = JSON.stringify([
+    [
+      -1,
+      {
+        error: 'AbortExtraction',
+        message: 'HTTP redirect to login page (https://www.instagram.com/accounts/login/)',
+      },
+    ],
+  ])
+
+  assert.throws(
+    () => parseGalleryDlOutput(raw),
+    /gallery-dl extraction aborted: HTTP redirect to login page/i,
+  )
+})
+
+test('CODEBERG_MASTER_ARCHIVE points to Codeberg master tarball', () => {
+  assert.equal(
+    CODEBERG_MASTER_ARCHIVE,
+    'https://codeberg.org/mikf/gallery-dl/archive/master.tar.gz',
+  )
+})
+
 test('isGalleryDlUpToDateMessage correctly identifies already updated outputs', () => {
   assert.equal(isGalleryDlUpToDateMessage('gallery-dl is up-to-date'), true)
   assert.equal(isGalleryDlUpToDateMessage('Already up to date'), true)
@@ -165,7 +190,7 @@ test('isGalleryDlPackageManaged detects package manager refusal messages', () =>
   )
 })
 
-test('getGalleryDlDownloadUrls returns Codeberg asset URL first and GitHub fallback second', async () => {
+test('getGalleryDlDownloadUrls returns Codeberg browser_download_url without GitHub fallback', async () => {
   const mockFetch: typeof fetch = async (input: RequestInfo | URL) => {
     const urlStr = String(input)
     if (urlStr.includes('codeberg.org/api')) {
@@ -175,11 +200,11 @@ test('getGalleryDlDownloadUrls returns Codeberg asset URL first and GitHub fallb
           assets: [
             {
               name: 'gallery-dl.exe',
-              download_url: 'https://codeberg.org/mikf/gallery-dl/releases/download/v1.32.11/gallery-dl.exe',
+              browser_download_url: 'https://codeberg.org/mikf/gallery-dl/releases/download/v1.32.11/gallery-dl.exe',
             },
             {
               name: 'gallery-dl.bin',
-              download_url: 'https://codeberg.org/mikf/gallery-dl/releases/download/v1.32.11/gallery-dl.bin',
+              browser_download_url: 'https://codeberg.org/mikf/gallery-dl/releases/download/v1.32.11/gallery-dl.bin',
             },
           ],
         }),
@@ -190,17 +215,36 @@ test('getGalleryDlDownloadUrls returns Codeberg asset URL first and GitHub fallb
   }
 
   const urls = await getGalleryDlDownloadUrls('gallery-dl.exe', mockFetch)
-  assert.equal(urls.length, 2)
+  assert.equal(urls.length, 1)
   assert.equal(urls[0], 'https://codeberg.org/mikf/gallery-dl/releases/download/v1.32.11/gallery-dl.exe')
-  assert.equal(urls[1], 'https://github.com/mikf/gallery-dl/releases/latest/download/gallery-dl.exe')
+  assert.ok(!urls.some(u => u.includes('github.com')), 'Should not contain any GitHub URLs')
 })
 
-test('getGalleryDlDownloadUrls falls back gracefully if Codeberg API is unreachable', async () => {
+test('getGalleryDlDownloadUrls constructs tag URL if browser_download_url is omitted', async () => {
+  const mockFetch: typeof fetch = async (input: RequestInfo | URL) => {
+    const urlStr = String(input)
+    if (urlStr.includes('codeberg.org/api')) {
+      return new Response(
+        JSON.stringify({
+          tag_name: 'v1.32.11',
+          assets: [],
+        }),
+        {status: 200, headers: {'content-type': 'application/json'}},
+      )
+    }
+    return new Response('not found', {status: 404})
+  }
+
+  const urls = await getGalleryDlDownloadUrls('gallery-dl.exe', mockFetch)
+  assert.equal(urls.length, 1)
+  assert.equal(urls[0], 'https://codeberg.org/mikf/gallery-dl/releases/download/v1.32.11/gallery-dl.exe')
+})
+
+test('getGalleryDlDownloadUrls returns empty array if Codeberg API is unreachable', async () => {
   const mockFetch: typeof fetch = async () => {
     throw new Error('network down')
   }
 
   const urls = await getGalleryDlDownloadUrls('gallery-dl.bin', mockFetch)
-  assert.equal(urls.length, 1)
-  assert.equal(urls[0], 'https://github.com/mikf/gallery-dl/releases/latest/download/gallery-dl.bin')
+  assert.equal(urls.length, 0)
 })
