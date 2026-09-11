@@ -64,38 +64,35 @@ jobs:
           echo "TAG=v$ver" >> $env:GITHUB_OUTPUT
           echo "Resolved version: $ver"
 
-      - name: Compile Standalone Executable (Node SEA)
+      - name: Compile Standalone Windows Package
         id: build_exe
         shell: pwsh
         run: |
-          # 1. Bundle to CJS for Single Executable Application
-          npx tsup src/cli.tsx --format cjs --no-splitting --out-dir dist-sea
+          # 1. Compile native launcher shims using csc.exe
+          $csc = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+          & $csc /nologo /target:exe /out:open-omni.exe scripts/shim.cs
+          Copy-Item open-omni.exe openomni.exe
+          Copy-Item open-omni.exe omni.exe
 
-          # 2. Write sea-config.json
-          @"
-          {
-            "main": "dist-sea/cli.cjs",
-            "output": "sea-prep.blob",
-            "disableExperimentalSEAWarning": true
-          }
-          "@ | Out-File -FilePath sea-config.json -Encoding utf8
+          # 2. Assemble zero-dependency package bundle
+          $pkgDir = 'dist-pkg'
+          New-Item -ItemType Directory -Path $pkgDir -Force | Out-Null
+          Copy-Item open-omni.exe "$pkgDir\open-omni.exe"
+          Copy-Item openomni.exe "$pkgDir\openomni.exe"
+          Copy-Item omni.exe "$pkgDir\omni.exe"
+          Copy-Item (Get-Command node).Source "$pkgDir\node.exe"
+          Copy-Item -Recurse dist "$pkgDir\dist"
+          Copy-Item package.json "$pkgDir\package.json"
+          Copy-Item LICENSE "$pkgDir\LICENSE"
+          Copy-Item README.md "$pkgDir\README.md"
 
-          # 3. Generate sea blob
-          node --experimental-sea-config sea-config.json
+          # 3. Test compiled binary inside package directory
+          & "$pkgDir\open-omni.exe" --version
 
-          # 4. Copy node.exe to open-omni.exe
-          Copy-Item (Get-Command node).Source open-omni.exe
+          # 4. Package portable zip
+          Compress-Archive -Path "$pkgDir\*" -DestinationPath dist/open-omni-windows-x64.zip -Force
 
-          # 5. Inject blob using postject
-          npx --yes postject open-omni.exe NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
-
-          # 6. Verify compiled binary runs
-          .\open-omni.exe --version
-
-          # 7. Package portable zip
-          Compress-Archive -Path open-omni.exe -DestinationPath dist/open-omni-windows-x64.zip -Force
-
-          # 8. Compute SHA256
+          # 5. Compute SHA256
           $hash = (Get-FileHash -Path dist/open-omni-windows-x64.zip -Algorithm SHA256).Hash
           echo "SHA256=$hash" >> $env:GITHUB_OUTPUT
           echo "Computed SHA256: $hash"
