@@ -83,9 +83,21 @@ Fast terminal media downloader and TUI for 1,800+ sites powered by yt-dlp and ga
 - Checksum computed directly from verified GitHub Release asset.
 `;
 
-const prUrl = run(
-  `gh pr create --repo ${UPSTREAM_OWNER}/${REPO} --head ${FORK_OWNER}:${BRANCH} --base master --title "${title}" --body "${body.replace(/"/g, '\\"')}"`
-);
-
-console.log(`\n🎉 Winget PR successfully created:`);
-console.log(prUrl);
+let prUrl: string;
+try {
+  prUrl = run(
+    `gh pr create --repo ${UPSTREAM_OWNER}/${REPO} --head ${FORK_OWNER}:${BRANCH} --base master --title "${title}" --body "${body.replace(/"/g, '\\"')}"`
+  );
+  console.log(`\n🎉 Winget PR successfully created:`);
+  console.log(prUrl);
+} catch (err) {
+  const existing = run(
+    `gh pr list --repo ${UPSTREAM_OWNER}/${REPO} --head ${FORK_OWNER}:${BRANCH} --json url --jq ".[0].url"`
+  );
+  if (existing) {
+    console.log(`\n✓ Branch updated and existing PR found:`);
+    console.log(existing);
+  } else {
+    throw err;
+  }
+}

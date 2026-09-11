@@ -88,7 +88,11 @@ ManifestType: version
 ManifestVersion: 1.6.0
 `;
 
-  const primaryCommand = options.commands.length > 0 ? options.commands[0] : 'open-omni';
+  const commands = options.commands.length > 0 ? options.commands : ['open-omni'];
+  const nestedFiles = commands
+    .map((cmd) => `  - RelativeFilePath: ${cmd}.exe\n    PortableCommandAlias: ${cmd}`)
+    .join('\n');
+  const formattedCommands = commands.map((cmd) => `  - ${cmd}`).join('\n');
 
   const installerManifest = `# Created using Open Omni Distribution Generator
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
@@ -96,9 +100,12 @@ ManifestVersion: 1.6.0
 PackageIdentifier: ${options.packageIdentifier}
 PackageVersion: ${options.packageVersion}
 InstallerLocale: ${locale}
-InstallerType: portable
+InstallerType: zip
+NestedInstallerType: portable
+NestedInstallerFiles:
+${nestedFiles}
 Commands:
-  - ${primaryCommand}
+${formattedCommands}
 Installers:
   - Architecture: x64
     InstallerUrl: ${options.installerUrl}
@@ -167,15 +174,23 @@ export function validateWingetManifests(manifests: WingetManifests): ValidationR
     errors.push(`Version mismatch across manifests: version=${vPkgVer}, installer=${iPkgVer}, locale=${lPkgVer}`);
   }
 
-  if (iType !== 'portable') {
-    errors.push(`Invalid InstallerType: expected 'portable', got '${iType}'`);
-  } else {
+  if (iType !== 'zip' && iType !== 'portable') {
+    errors.push(`Invalid InstallerType: expected 'zip' or 'portable', got '${iType}'`);
+  } else if (iType === 'portable') {
     const commandsMatch = manifests.installerManifest.match(/Commands:\s*\n((\s+-\s+[^\n]+\n?)+)/);
     if (commandsMatch) {
       const commandLines = commandsMatch[1].trim().split('\n').filter((l) => l.trim().startsWith('-'));
       if (commandLines.length > 1) {
         errors.push('Only zero or one value for Commands may be specified for InstallerType portable');
       }
+    }
+  } else if (iType === 'zip') {
+    const nestedType = getFieldValue(manifests.installerManifest, 'NestedInstallerType');
+    if (nestedType !== 'portable') {
+      errors.push(`Invalid NestedInstallerType: expected 'portable', got '${nestedType}'`);
+    }
+    if (!manifests.installerManifest.includes('NestedInstallerFiles:')) {
+      errors.push('Zip installer manifest missing NestedInstallerFiles');
     }
   }
 

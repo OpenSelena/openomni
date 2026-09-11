@@ -49,7 +49,10 @@ test('generateWingetManifests produces compliant v1.6.0 manifests for portable p
   assert.ok(manifests.versionManifest.includes('ManifestType: version'));
   assert.ok(manifests.versionManifest.includes('ManifestVersion: 1.6.0'));
 
-  assert.ok(manifests.installerManifest.includes('InstallerType: portable'));
+  assert.ok(manifests.installerManifest.includes('InstallerType: zip'));
+  assert.ok(manifests.installerManifest.includes('NestedInstallerType: portable'));
+  assert.ok(manifests.installerManifest.includes('NestedInstallerFiles:'));
+  assert.ok(manifests.installerManifest.includes('RelativeFilePath: open-omni.exe'));
   assert.ok(manifests.installerManifest.includes('Architecture: x64'));
   assert.ok(manifests.installerManifest.includes('Commands:'));
   assert.ok(manifests.installerManifest.includes('- open-omni'));
