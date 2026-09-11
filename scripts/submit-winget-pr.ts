@@ -2,11 +2,19 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 
+const args = process.argv.slice(2);
+let version = '1.1.0';
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === '--version' && args[i + 1]) {
+    version = args[++i];
+  }
+}
+
 const FORK_OWNER = 'igect';
 const UPSTREAM_OWNER = 'microsoft';
 const REPO = 'winget-pkgs';
-const BRANCH = 'add-openselena-openomni-1.0.0';
-const VERSION = '1.0.0';
+const VERSION = version;
+const BRANCH = `update-openselena-openomni-${VERSION}`;
 const MANIFEST_DIR = `manifests/o/OpenSelena/OpenOmni/${VERSION}`;
 
 function run(cmd: string): string {

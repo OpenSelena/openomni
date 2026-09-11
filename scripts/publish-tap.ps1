@@ -30,7 +30,7 @@ $readmeContent = @'
 
 <p align="center">
   <a href="https://github.com/OpenSelena/homebrew-tap/actions"><img src="https://img.shields.io/badge/Homebrew-Tap-FBB040.svg?logo=homebrew&logoColor=white" alt="Homebrew Tap"></a>
-  <a href="https://github.com/OpenSelena/openomni"><img src="https://img.shields.io/badge/Open%20Omni-v1.0.0-C15F3C.svg" alt="Open Omni Version"></a>
+  <a href="https://github.com/OpenSelena/openomni"><img src="https://img.shields.io/badge/Open%20Omni-v1.1.0-C15F3C.svg" alt="Open Omni Version"></a>
   <a href="https://github.com/OpenSelena/openomni/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
   <a href="mailto:igect@vk.com"><img src="https://img.shields.io/badge/contact-igect%40vk.com-blue.svg" alt="Contact Email"></a>
 </p>
@@ -41,7 +41,7 @@ $readmeContent = @'
 
 | Formula | Version | Description | Command |
 | :--- | :--- | :--- | :--- |
-| **`open-omni`** | `1.0.0` | Fast terminal media downloader & TUI for 1,800+ sites (YouTube, X, Instagram, TikTok, Threads, etc.) | `brew install OpenSelena/tap/open-omni` |
+| **`open-omni`** | `1.1.0` | Fast terminal media downloader & TUI for 1,800+ sites (YouTube, X, Instagram, TikTok, Threads, etc.) | `brew install OpenSelena/tap/open-omni` |
 
 ---
 
@@ -211,10 +211,10 @@ Set-Content -Path "$tapDir\README.md" -Value $readmeContent -Encoding utf8
 
 Push-Location $tapDir
 try {
-    git add README.md
-    git commit -m "docs: add fair use notice, DMCA contact email, and remove inactive website reference"
+    git add README.md Formula/open-omni.rb
+    git commit -m "chore(formula): update open-omni to v1.1.0"
     git push origin main
-    Write-Host "Updated README on OpenSelena/homebrew-tap successfully!"
+    Write-Host "Updated formula and README on OpenSelena/homebrew-tap successfully!"
 } finally {
     Pop-Location
 }
