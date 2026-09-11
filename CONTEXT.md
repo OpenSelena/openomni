@@ -140,6 +140,19 @@ _Avoid_: Browser scraper, live hijack, chrome reader
 A short-lived, temporary cookie file written to disk with restricted permissions (`0o600`) during execution and purged on process termination.
 _Avoid_: Temp token, cached cookies, scratch file
 
+**Zero-Config Browser Discovery**:
+The automated probing of host browser profile paths across Gecko (Firefox, Zen, Floorp, Waterfox) and Chromium (Chrome, Brave, Edge, Helium, Safari) ecosystems to establish authenticated sessions without flags.
+_Avoid_: Auto-sniffer, cookie finder, browser detector
+
+**Browser Spec Normalization**:
+The transformation of browser aliases and uncatalogued derivatives (such as Zen Browser) into engine-compatible specifications (e.g. `firefox:<profile_dir>`).
+_Avoid_: Spec hack, path override, target mapper
+
+**Login-Wall Auto-Recovery**:
+The dynamic interception of unauthenticated login redirection responses (such as Instagram 302 redirects) that retries the media probe transparently using local browser session cookies.
+_Avoid_: Redirect bypass, retry hack, login retryer
+
+
 ### Organization Identity & Web Presence
 
 **Canonical Domain**:
