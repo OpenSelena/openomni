@@ -4,7 +4,7 @@ class OpenOmni < Formula
   desc "Fast terminal media downloader and TUI for 1,800+ sites"
   homepage "https://github.com/OpenSelena/openomni"
   url "https://registry.npmjs.org/open-omni/-/open-omni-1.1.0.tgz"
-  sha256 "d40fc8da73d394fad399ad951ee2673ba0e6055c3bc4fde25ecbe2650edcad1d"
+  sha256 "9b503b5eea4382e2a7674a7d7e41c38f5cc8762ae254ae4e2646a13d49518dfb"
   license "MIT"
 
   livecheck do

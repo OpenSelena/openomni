@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
-    <img src="assets/logo-light.svg" alt="Open Omni" width="240">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/OpenSelena/openomni/main/assets/logo-dark.svg">
+    <img src="https://raw.githubusercontent.com/OpenSelena/openomni/main/assets/logo-light.svg" alt="Open Omni" width="240">
   </picture>
 </p>
 
@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/home.png" alt="Open Omni Interface" width="100%">
+  <img src="https://raw.githubusercontent.com/OpenSelena/openomni/main/assets/home.png" alt="Open Omni Interface" width="100%">
 </p>
 
 ---
@@ -130,7 +130,10 @@ open-omni <url> --thumb --embed-thumb
 # Download only photos from an Instagram or X gallery
 open-omni <url> --photos-only
 
-# Download private or auth-walled posts using browser session cookies (Firefox, Zen, Chrome, Edge, Brave)
+# Zero-config: auto-detects browser session (Firefox, Zen, Chrome, Brave, Edge, Safari)
+open-omni <url> --best
+
+# Target a specific browser or profile explicitly
 open-omni <url> --cookies-from-browser firefox
 
 # Download using an exported Netscape cookie file
@@ -145,7 +148,7 @@ open-omni -U
 ## Interactive Interface
 
 <p align="center">
-  <img src="assets/download-options.png" alt="Format and quality picker" width="100%">
+  <img src="https://raw.githubusercontent.com/OpenSelena/openomni/main/assets/download-options.png" alt="Format and quality picker" width="100%">
 </p>
 
 - **URL Input**: Paste URLs directly or press `Tab` to insert the current clipboard contents.
@@ -169,7 +172,7 @@ open-omni -U
 | `--photos-only` | Download only images from social post or carousel |
 | `--videos-only` | Download only videos from social post or carousel |
 | `--cookies <path>` | Load session cookies from a Netscape format file |
-| `--cookies-from-browser <spec>` | Extract cookies from browser (`firefox`, `chrome`, `zen`, etc.) |
+| `--cookies-from-browser <spec>` | Extract cookies from browser (`auto`, `firefox`, `chrome`, `zen`, etc.) |
 | `-o, --output <dir>` | Destination folder (default: Downloads or `$OPEN_OMNI_DIR`) |
 | `-U, --update` | Update bundled `yt-dlp` and `gallery-dl` binaries |
 | `--update-ytdlp` | Update only bundled `yt-dlp` binary |
