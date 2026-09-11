@@ -27,7 +27,20 @@ import {probeUnified, downloadUnifiedItem} from './lib/dispatcher.js'
 
 // read at runtime from the shipped package.json so npm version bumps
 // can't drift from a hardcoded constant
-const VERSION: string = createRequire(import.meta.url)('../package.json').version
+const resolveVersion = (): string => {
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta?.url) {
+      return createRequire(import.meta.url)('../package.json').version
+    }
+  } catch {}
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    return require('../package.json').version
+  } catch {}
+  return '1.0.0'
+}
+const VERSION: string = resolveVersion()
+
 
 const HELP = `
   Open Omni — grab any video. paste. download. done.
@@ -94,7 +107,8 @@ if (args.completion) {
   }
 }
 
-if (args.updateYtDlp || args.updateGalleryDl) {
+async function main() {
+  if (args.updateYtDlp || args.updateGalleryDl) {
   let hasFailure = false
 
   if (args.updateYtDlp) {
@@ -333,7 +347,15 @@ const {waitUntilExit} = render(
 
 await waitUntilExit()
 
-if (isTTY) leaveAltScreen()
-if (outcome.filepath) {
-  console.log(`✓ downloaded → ${outcome.filepath}`)
+  if (isTTY) leaveAltScreen()
+  if (outcome.filepath) {
+    console.log(`✓ downloaded → ${outcome.filepath}`)
+  }
 }
+
+main().catch(err => {
+  const msg = err instanceof Error ? err.message : String(err)
+  console.error(`open-omni: ${msg}`)
+  process.exit(1)
+})
+

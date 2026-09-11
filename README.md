@@ -70,6 +70,18 @@ Under the hood, Open Omni automatically provisions and manages [`yt-dlp`](https:
 curl -fsSL https://mint.dev.cv | sh
 ```
 
+### Via Homebrew (macOS & Linux)
+
+```sh
+brew install OpenSelena/tap/open-omni
+```
+
+### Via Winget (Windows)
+
+```powershell
+winget install OpenSelena.OpenOmni
+```
+
 ### Via npm (Global)
 
 ```sh
@@ -82,7 +94,7 @@ npm install -g open-omni
 npx open-omni [url]
 ```
 
-> **Requirements**: Node 20+. Extraction engines (`yt-dlp`, `gallery-dl`, and `ffmpeg`) are downloaded automatically to `~/.open-omni/bin` on demand.
+> **Requirements**: Node 20+ (when using npm or Homebrew; standalone Windows package bundles its own runtime). Extraction engines (`yt-dlp`, `gallery-dl`, and `ffmpeg`) are downloaded automatically to `~/.open-omni/bin` on demand.
 
 ---
 

@@ -131,3 +131,39 @@ _Avoid_: Browser scraper, live hijack, chrome reader
 **Ephemeral Cookie Jar**:
 A short-lived, temporary cookie file written to disk with restricted permissions (`0o600`) during execution and purged on process termination.
 _Avoid_: Temp token, cached cookies, scratch file
+
+### Organization Identity & Web Presence
+
+**Canonical Domain**:
+The primary authoritative web address (`openselena.org`) identifying the OpenSelena organization, documentation portal, and package distribution.
+_Avoid_: Main site, home url, web link
+
+**Defensive Domain**:
+A registered secondary brand alias (`openselena.com`) maintained to prevent name squatting, brand impersonation, and typosquatting by issuing a permanent 301 redirect to the canonical domain.
+_Avoid_: Parked domain, duplicate site, vanity domain
+
+**Organization Verification Record**:
+A cryptographic DNS TXT challenge record published on the canonical domain to prove domain ownership and grant the verified badge to the GitHub organization.
+_Avoid_: Auth tag, ownership key, site badge
+
+### Package Distribution & Registries
+
+**Homebrew Tap**:
+The dedicated Git repository (`OpenSelena/homebrew-tap`) housing custom third-party Homebrew package formulae for the OpenSelena ecosystem.
+_Avoid_: Brew repo, formula store, package keg
+
+**Homebrew Formula**:
+The Ruby package definition (`open-omni.rb`) orchestrating npm tarball retrieval, Node runtime linkage, and binary symlinking via Homebrew.
+_Avoid_: Brew script, install manifest, recipe
+
+**Standalone Windows Binary**:
+A self-contained Windows executable packaging the V8 runtime and Open Omni CLI into a zero-dependency `.exe` without requiring Node.js.
+_Avoid_: Win executable, compiled bundle, native shim
+
+**Winget Package Manifest**:
+The set of versioned YAML definitions (`OpenSelena.OpenOmni.*.yaml`) submitted to `microsoft/winget-pkgs` governing metadata and installer parameters.
+_Avoid_: Winget config, installer schema, submission file
+
+**Portable Package**:
+The Winget installer architecture (`portable`) that unpacks a standalone executable directly into the user's system PATH without running an installer wizard.
+_Avoid_: Zip package, archive install, unzipped tool

@@ -1,0 +1,131 @@
+name: Release & Multi-Platform Distribution
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 1.0.0)'
+        required: false
+        default: '1.0.0'
+  release:
+    types: [published]
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  build-windows:
+    name: Build Standalone Windows Binary & Winget Package
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Resolve Release Version
+        id: vars
+        shell: pwsh
+        run: |
+          $ver = if ("${{ inputs.version }}") {
+            "${{ inputs.version }}"
+          } elseif ($env:GITHUB_REF_NAME -match '^v?([0-9]+\.[0-9]+\.[0-9]+.*)') {
+            $Matches[1]
+          } else {
+            (Get-Content package.json | ConvertFrom-Json).version
+          }
+          echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
+          echo "TAG=v$ver" >> $env:GITHUB_OUTPUT
+          echo "Resolved version: $ver"
+
+      - name: Compile Standalone Executable (Node SEA)
+        id: build_exe
+        shell: pwsh
+        run: |
+          # 1. Bundle to CJS for Single Executable Application
+          npx tsup src/cli.tsx --format cjs --no-splitting --out-dir dist-sea
+
+          # 2. Write sea-config.json
+          @"
+          {
+            "main": "dist-sea/cli.cjs",
+            "output": "sea-prep.blob",
+            "disableExperimentalSEAWarning": true
+          }
+          "@ | Out-File -FilePath sea-config.json -Encoding utf8
+
+          # 3. Generate sea blob
+          node --experimental-sea-config sea-config.json
+
+          # 4. Copy node.exe to open-omni.exe
+          Copy-Item (Get-Command node).Source open-omni.exe
+
+          # 5. Inject blob using postject
+          npx --yes postject open-omni.exe NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
+
+          # 6. Verify compiled binary runs
+          .\open-omni.exe --version
+
+          # 7. Package portable zip
+          Compress-Archive -Path open-omni.exe -DestinationPath dist/open-omni-windows-x64.zip -Force
+
+          # 8. Compute SHA256
+          $hash = (Get-FileHash -Path dist/open-omni-windows-x64.zip -Algorithm SHA256).Hash
+          echo "SHA256=$hash" >> $env:GITHUB_OUTPUT
+          echo "Computed SHA256: $hash"
+
+      - name: Upload Windows Asset to GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ steps.vars.outputs.TAG }}"
+          gh release upload $tag dist/open-omni-windows-x64.zip --clobber
+
+      - name: Generate Winget Manifests
+        shell: pwsh
+        run: |
+          npx tsx scripts/generate-winget-manifest.ts --version "${{ steps.vars.outputs.VERSION }}" --sha256 "${{ steps.build_exe.outputs.SHA256 }}"
+
+      - name: Upload Winget Manifests Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: winget-manifests-v${{ steps.vars.outputs.VERSION }}
+          path: manifests/
+
+      - name: Submit to WinGet (if WINGET_TOKEN configured)
+        if: env.WINGET_TOKEN != ''
+        uses: vedantmgoyal2009/winget-releaser@v2
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        with:
+          identifier: OpenSelena.OpenOmni
+          version: ${{ steps.vars.outputs.VERSION }}
+          installers-regex: '\.zip$'
+          token: ${{ secrets.WINGET_TOKEN }}
