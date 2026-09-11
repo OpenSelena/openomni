@@ -1,4 +1,4 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to Open Omni are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
@@ -51,9 +51,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Distribution & Assets
 
 - **Standalone Windows x64**: `open-omni-windows-x64.zip`
-  - SHA256: `82B40E6D9237EF01D32CD2DA23265E3D708DB5504A3226EC1409E216F6FCD4C2`
+  - SHA256: `2c418070428527b5a886e2d28f6b4c5075fcf917deba326424dcb1569e1010d1`
 - **npm Package**: `open-omni@1.1.0`
-  - Tarball SHA256: `d40fc8da73d394fad399ad951ee2673ba0e6055c3bc4fde25ecbe2650edcad1d`
+  - Tarball SHA256: `3415f0c47a8f02e1589ab0170a5fcd5cba5d4403df977d98fc73f2e4f8dd013c`
 - **Homebrew Formula**: `OpenSelena/tap/open-omni` (v1.1.0)
 - **WinGet Identifier**: `OpenSelena.OpenOmni` (v1.1.0)
 
