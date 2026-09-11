@@ -109,7 +109,7 @@ test('App accepts initialSubtitles prop without regression', async () => {
       onOutcome: () => {},
     }),
   )
-  assert.ok(rendered.includes('v1.0.0'))
+  assert.ok(rendered.includes('v1.1.0'))
 })
 
 test('App accepts initialThumbnail prop without regression', async () => {
@@ -125,7 +125,7 @@ test('App accepts initialThumbnail prop without regression', async () => {
       onOutcome: () => {},
     }),
   )
-  assert.ok(rendered.includes('v1.0.0'))
+  assert.ok(rendered.includes('v1.1.0'))
 })
 
 
