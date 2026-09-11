@@ -181,19 +181,24 @@ let cookieJar: CookieJar | undefined
 let cookieFile: string | undefined
 let cookieHeader: string | undefined
 
-if (runtimeConfig.cookies) {
-  try {
-    let ytdlpPath: string | undefined
-    if (runtimeConfig.cookies.browser) {
-      ytdlpPath = await ensureYtDlp(status => console.error(`[open-omni] ${status}`))
-    }
-    cookieJar = resolveCookieJar(runtimeConfig.cookies, {ytdlpPath})
+const effectiveCookieOptions = runtimeConfig.cookies ?? {browser: 'auto'}
+
+try {
+  let ytdlpPath: string | undefined
+  if (effectiveCookieOptions.browser) {
+    ytdlpPath = await ensureYtDlp(status => console.error(`[open-omni] ${status}`))
+  }
+  cookieJar = resolveCookieJar(effectiveCookieOptions, {ytdlpPath})
+  if (cookieJar) {
     cookieFile = cookieJar.filePath
     cookieHeader = parseNetscapeCookieFile(cookieJar.filePath)
-  } catch (err) {
+  }
+} catch (err) {
+  if (runtimeConfig.cookies) {
     console.error(`open-omni: ${err instanceof Error ? err.message : String(err)}`)
     process.exit(1)
   }
+  // If auto-mode failed, silently proceed in unauthenticated guest mode
 }
 
 if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initialUrl) {

@@ -24,7 +24,7 @@ import {
   resolveInstagramMedia,
   downloadInstagramItem,
 } from './instagram.js'
-import {parseNetscapeCookieFile} from './cookies.js'
+import {parseNetscapeCookieFile, resolveCookieJar} from './cookies.js'
 
 export const MIXED_OR_PHOTO_DOMAINS = [
   'x.com',
@@ -238,6 +238,18 @@ export type ProbeUnifiedOptions = {
   cookieFile?: string
   cookieHeader?: string
   onStatus?: (status: string) => void
+  autoRecoverCookiesFn?: () => Promise<{ cookieFile?: string; cookieHeader?: string } | undefined>
+}
+
+export function isLoginRedirectError(err?: Error): boolean {
+  if (!err) return false
+  const msg = err.message.toLowerCase()
+  return (
+    msg.includes('http redirect to login page') ||
+    msg.includes('login required') ||
+    msg.includes('sign in to confirm you’re not a bot') ||
+    msg.includes('sign in to confirm you are not a bot')
+  )
 }
 
 export async function probeUnified(options: ProbeUnifiedOptions): Promise<UnifiedProbeResult> {
@@ -362,6 +374,32 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
         throw err
       }
       galleryDlErr = err instanceof Error ? err : new Error(String(err))
+
+      if (!cookieFile && isLoginRedirectError(galleryDlErr)) {
+        const recoverFn = options.autoRecoverCookiesFn || (async () => {
+          try {
+            const jar = resolveCookieJar({browser: 'auto'}, {ytdlpPath: ytdlp})
+            if (!jar) return undefined
+            return {
+              cookieFile: jar.filePath,
+              cookieHeader: parseNetscapeCookieFile(jar.filePath),
+            }
+          } catch {
+            return undefined
+          }
+        })
+
+        onStatus?.('Login required: auto-detecting browser session to retry…')
+        const recovered = await recoverFn()
+        if (recovered?.cookieFile || recovered?.cookieHeader) {
+          return probeUnified({
+            ...options,
+            cookieFile: recovered.cookieFile ?? cookieFile,
+            cookieHeader: recovered.cookieHeader ?? cookieHeader,
+            autoRecoverCookiesFn: undefined,
+          })
+        }
+      }
       // Otherwise fall through to yt-dlp
     }
   }

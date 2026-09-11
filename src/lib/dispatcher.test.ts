@@ -599,4 +599,46 @@ test('downloadUnifiedItem forwards cookieFile and cookieHeader to downloaders', 
   assert.equal(igCookieHeader, 'sessionid=abc')
 })
 
+test('probeUnified automatically recovers with auto-detected cookies on login redirect', async () => {
+  let attemptCount = 0
+  let autoRecoverCalled = false
+
+  const result = await probeUnified({
+    url: 'https://www.instagram.com/p/DFtestLogin/',
+    ytdlp: 'yt-dlp',
+    gallerydl: 'gallery-dl',
+    autoRecoverCookiesFn: async () => {
+      autoRecoverCalled = true
+      return {
+        cookieFile: '/tmp/recovered-cookies.txt',
+        cookieHeader: 'sessionid=recovered123',
+      }
+    },
+    resolveInstagramFn: async (_url, _fetch, cookieHeader) => {
+      attemptCount++
+      if (!cookieHeader) {
+        throw new Error('No media entries found in Instagram embed')
+      }
+      return {
+        postId: 'DFtestLogin',
+        title: 'Recovered Post',
+        items: [{url: 'https://example.com/pic.jpg', kind: 'photo'}],
+      }
+    },
+    probeGalleryDlFn: async (_gdl, _url, _sig, cookieFile) => {
+      if (!cookieFile) {
+        throw new Error('gallery-dl extraction aborted: HTTP redirect to login page (https://www.instagram.com/accounts/login/)')
+      }
+      return [{url: 'https://example.com/pic.jpg', filename: 'pic.jpg', ext: 'jpg', kind: 'photo', index: 1}]
+    },
+    probeYtDlpFn: async () => {
+      throw new Error('Unsupported URL')
+    },
+  })
+
+  assert.equal(autoRecoverCalled, true)
+  assert.equal(attemptCount, 2)
+  assert.equal(result.kind, 'single_photo')
+})
+
 
