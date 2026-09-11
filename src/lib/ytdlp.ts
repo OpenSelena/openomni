@@ -193,10 +193,12 @@ export async function findFfmpeg(): Promise<string | undefined> {
 }
 
 export type VideoInfo = {
+  id?: string
   title: string
   uploader?: string
   duration?: number
   webpage_url?: string
+  extractor?: string
   extractor_key?: string
   formats?: RawFormat[]
 }
@@ -445,6 +447,7 @@ export function download(
     subtitles?: SubtitleOptions
     thumbnail?: ThumbnailOptions
     cookieFile?: string
+    section?: string
   },
   handlers: DownloadHandlers,
   signal?: AbortSignal,
@@ -454,6 +457,7 @@ export function download(
     ...opts.choice.args,
     ...buildSubtitleArgs(opts.subtitles),
     ...buildThumbnailArgs(opts.thumbnail, Boolean(opts.ffmpegLocation)),
+    ...(opts.section ? ['--download-sections', opts.section] : []),
     '--no-playlist',
     '--no-warnings',
     '--newline',

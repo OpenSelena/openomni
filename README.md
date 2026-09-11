@@ -171,13 +171,16 @@ open-omni -U
 | `--embed-thumb` | Embed thumbnail artwork into media container |
 | `--photos-only` | Download only images from social post or carousel |
 | `--videos-only` | Download only videos from social post or carousel |
+| `--skip-existing` | Skip download if recorded in ledger and present on disk |
+| `--time <range>` | Download specific time range (e.g. `01:00-02:30` or `60-150`) |
+| `--section <range>` | Alias for `--time` |
 | `--cookies <path>` | Load session cookies from a Netscape format file |
 | `--cookies-from-browser <spec>` | Extract cookies from browser (`auto`, `firefox`, `chrome`, `zen`, etc.) |
 | `-o, --output <dir>` | Destination folder (default: Downloads or `$OPEN_OMNI_DIR`) |
 | `-U, --update` | Update bundled `yt-dlp` and `gallery-dl` binaries |
 | `--update-ytdlp` | Update only bundled `yt-dlp` binary |
 | `--update-gallerydl` | Update only bundled `gallery-dl` binary |
-| `--force` | Force clean re-download of binaries |
+| `--force` | Force overwrite existing downloads or re-fetch binaries |
 | `--theme <mode>` | Color theme: `auto`, `light`, or `dark` |
 | `--completion <shell>` | Generate completions (`bash`, `zsh`, `fish`, `powershell`) |
 | `-h, --help` | Show help screen |

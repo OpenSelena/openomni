@@ -4,6 +4,7 @@ import {isThemeMode, type ThemeMode} from '../theme.js'
 import type {SubtitleOptions, ThumbnailOptions} from './ytdlp.js'
 import {normalizeShell, type CompletionTarget} from './completion.js'
 import {resolvePlatformDownloadsDir} from './known-folders.js'
+import {parseTimeRange} from './time.js'
 
 export type FormatMode = 'best' | 'mp3'
 
@@ -26,6 +27,8 @@ export type CliArgs = {
   cookies?: string
   cookiesFromBrowser?: string
   completion?: CompletionTarget
+  skipExisting?: boolean
+  time?: string
   error?: string
 }
 
@@ -132,6 +135,19 @@ export function parseArgs(args: string[]): CliArgs {
       const target = normalizeShell(value)
       if (!target) return {...result, error: `unknown shell \u201c${value}\u201d \u2014 use bash, zsh, fish, or powershell`}
       result.completion = target
+    } else if (arg === '--skip-existing') {
+      result.skipExisting = true
+    } else if (arg === '--time' || arg === '--section') {
+      const value = args[++index]
+      if (!value) return {...result, error: `${arg} needs a time range (e.g. 01:30-03:45 or 90-180)`}
+      if (!parseTimeRange(value)) return {...result, error: `invalid time range "${value}" — use MM:SS-MM:SS, HH:MM:SS-HH:MM:SS, or start-end seconds`}
+      result.time = value
+    } else if (arg.startsWith('--time=') || arg.startsWith('--section=')) {
+      const prefix = arg.startsWith('--time=') ? '--time=' : '--section='
+      const value = arg.slice(prefix.length)
+      if (!value) return {...result, error: `${prefix.slice(0, -1)} needs a time range (e.g. 01:30-03:45 or 90-180)`}
+      if (!parseTimeRange(value)) return {...result, error: `invalid time range "${value}" — use MM:SS-MM:SS, HH:MM:SS-HH:MM:SS, or start-end seconds`}
+      result.time = value
     } else if (arg.startsWith('-')) {
       return {...result, error: `unknown option \u201c${arg}\u201d`}
     } else {
@@ -144,10 +160,6 @@ export function parseArgs(args: string[]): CliArgs {
 
   if (result.photosOnly && result.videosOnly) {
     return {...result, error: 'cannot use both --photos-only and --videos-only'}
-  }
-
-  if (result.force && !result.updateYtDlp && !result.updateGalleryDl) {
-    return {...result, error: '--force can only be used with -U, --update, --update-ytdlp, or --update-gallerydl'}
   }
 
   if (result.format && !result.initialUrl && !result.help && !result.version && !result.completion) {

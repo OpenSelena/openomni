@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import fsSync from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import {
   isMixedOrPhotoPlatform,
   filterMediaItems,
@@ -639,6 +642,99 @@ test('probeUnified automatically recovers with auto-detected cookies on login re
   assert.equal(autoRecoverCalled, true)
   assert.equal(attemptCount, 2)
   assert.equal(result.kind, 'single_photo')
+})
+
+test('downloadUnifiedItem skips extraction if item exists in Download Ledger and skipExisting is true', async () => {
+  const tmpDir = path.join(os.tmpdir(), `disp-ledger-test-${Date.now()}`)
+  const ledgerFile = path.join(tmpDir, 'ledger.json')
+  const dummyFile = path.join(tmpDir, 'existing-video.mp4')
+  fsSync.mkdirSync(tmpDir, {recursive: true})
+  fsSync.writeFileSync(dummyFile, 'dummy content')
+  process.env.OPEN_OMNI_LEDGER_FILE = ledgerFile
+
+  try {
+    const {recordDownload} = await import('./ledger.js')
+    recordDownload({
+      mediaId: 'v123',
+      platform: 'youtube',
+      url: 'https://example.com/v123',
+      title: 'Existing Video',
+      outputPath: dummyFile,
+      format: 'best',
+    })
+
+    let videoDownloaderCalled = false
+    let skipReported = false
+    const result = await downloadUnifiedItem({
+      item: {
+        id: 'v123',
+        title: 'Existing Video',
+        url: 'https://example.com/v123',
+        index: 1,
+        kind: 'video',
+      },
+      destDir: tmpDir,
+      ytdlp: 'yt-dlp',
+      choice: {label: 'best', kind: 'video', args: []},
+      skipExisting: true,
+      onSkip: () => {
+        skipReported = true
+      },
+      downloadVideoFn: async () => {
+        videoDownloaderCalled = true
+        return dummyFile
+      },
+    })
+
+    assert.equal(result, dummyFile)
+    assert.equal(videoDownloaderCalled, false)
+    assert.equal(skipReported, true)
+  } finally {
+    delete process.env.OPEN_OMNI_LEDGER_FILE
+    try {
+      fsSync.rmSync(tmpDir, {recursive: true, force: true})
+    } catch {}
+  }
+})
+
+test('postToPlaylistMetadata marks items as completed if found in Download Ledger and on disk', async () => {
+  const tmpDir = path.join(os.tmpdir(), `disp-meta-test-${Date.now()}`)
+  const ledgerFile = path.join(tmpDir, 'ledger.json')
+  const dummyFile = path.join(tmpDir, 'item1.mp4')
+  fsSync.mkdirSync(tmpDir, {recursive: true})
+  fsSync.writeFileSync(dummyFile, 'content')
+  process.env.OPEN_OMNI_LEDGER_FILE = ledgerFile
+
+  try {
+    const {recordDownload} = await import('./ledger.js')
+    recordDownload({
+      mediaId: 'item-1',
+      platform: 'ytdlp',
+      url: 'https://example.com/1',
+      title: 'Item 1',
+      outputPath: dummyFile,
+      format: 'best',
+    })
+
+    const meta = postToPlaylistMetadata({
+      id: 'post-1',
+      title: 'Post 1',
+      webpageUrl: 'https://example.com/post/1',
+      isSingle: false,
+      items: [
+        {id: 'item-1', index: 1, title: 'Item 1', kind: 'video', engine: 'ytdlp', url: 'https://example.com/1', ext: 'mp4'},
+        {id: 'item-2', index: 2, title: 'Item 2', kind: 'video', engine: 'ytdlp', url: 'https://example.com/2', ext: 'mp4'},
+      ],
+    })
+
+    assert.equal(meta.validEntries[0].completed, true)
+    assert.equal(meta.validEntries[1].completed, false)
+  } finally {
+    delete process.env.OPEN_OMNI_LEDGER_FILE
+    try {
+      fsSync.rmSync(tmpDir, {recursive: true, force: true})
+    } catch {}
+  }
 })
 
 

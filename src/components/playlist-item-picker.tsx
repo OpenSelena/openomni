@@ -52,7 +52,9 @@ export function PlaylistItemPicker({
 }: PlaylistItemPickerProps) {
   const theme = useTheme()
   const allIds = entries.map(e => e.id)
-  const [selected, setSelected] = useState<Set<string>>(() => new Set(allIds))
+  const [selected, setSelected] = useState<Set<string>>(() => {
+    return new Set(entries.filter(e => !e.completed).map(e => e.id))
+  })
   const [cursor, setCursor] = useState(0)
 
   const activePage = Math.floor(cursor / PAGE_SIZE)
@@ -111,6 +113,11 @@ export function PlaylistItemPicker({
               ) : entry.kind === 'video' ? (
                 <Text color="cyan" bold>
                   {'[VIDEO] '}
+                </Text>
+              ) : null}
+              {entry.completed ? (
+                <Text color="green" bold>
+                  {'[DONE] '}
                 </Text>
               ) : null}
               <Text color={isCursor ? theme.primary : theme.primary} bold={isCursor}>

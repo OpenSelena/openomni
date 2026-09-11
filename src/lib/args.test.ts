@@ -204,8 +204,6 @@ test('parses download engine update flags (-U, --update, --update-ytdlp, --updat
     updateGalleryDl: true,
     force: true,
   })
-
-  assert.match(parseArgs(['--force']).error ?? '', /--force can only be used with/)
 })
 
 test('parses shell autocompletion flags (--completion <shell>)', () => {
@@ -327,3 +325,47 @@ test('parses cookie flags (--cookies, --cookies-from-browser)', () => {
   assert.match(parseArgs(['--cookies']).error ?? '', /--cookies needs a file path/)
   assert.match(parseArgs(['--cookies-from-browser']).error ?? '', /--cookies-from-browser needs a browser name/)
 })
+
+test('parses --skip-existing flag', () => {
+  assert.deepEqual(parseArgs(['--skip-existing', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    skipExisting: true,
+    initialUrl: 'https://example.com/video',
+  })
+})
+
+test('parses section slicing flags (--time, --section)', () => {
+  assert.deepEqual(parseArgs(['--time', '01:30-03:45', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    time: '01:30-03:45',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(parseArgs(['--section=90-180', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    time: '90-180',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.match(parseArgs(['--time', 'bad-format', 'https://example.com/video']).error ?? '', /invalid time range/)
+  assert.match(parseArgs(['--time']).error ?? '', /needs a time range/)
+})
+
+test('allows --force alone for interactive session or with a url', () => {
+  assert.deepEqual(parseArgs(['--force']), {
+    help: false,
+    version: false,
+    force: true,
+  })
+
+  assert.deepEqual(parseArgs(['--force', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    force: true,
+    initialUrl: 'https://example.com/video',
+  })
+})
+

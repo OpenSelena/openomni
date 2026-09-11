@@ -24,6 +24,9 @@ import {
 } from './lib/config.js'
 import {generateCompletion} from './lib/completion.js'
 import {probeUnified, downloadUnifiedItem} from './lib/dispatcher.js'
+import {getCompletedDownload, recordDownloadWithStat} from './lib/ledger.js'
+import {detectPlatform} from './lib/platforms.js'
+import {normalizeToYtdlpSection} from './lib/time.js'
 import {
   resolveCookieJar,
   parseNetscapeCookieFile,
@@ -70,13 +73,16 @@ const HELP = `
     --embed-thumb   embed thumbnail into audio/video container file
     --photos-only   download only photos from post or carousel
     --videos-only   download only videos from post or carousel
+    --skip-existing skip download if recorded in ledger and present on disk
+    --time <range>  download time range (e.g. 01:00-02:30 or 60-150)
+    --section <sec> alias for --time
     --cookies <path> load cookies from a Netscape format file
     --cookies-from-browser <b[+k][:p]> load cookies from browser (firefox, chrome, edge, zen, etc.)
     -o, --output    output directory (default: ~/Downloads, or $OPEN_OMNI_DIR)
     -U, --update    update bundled engines (yt-dlp and gallery-dl) to latest version
     --update-ytdlp  update only bundled yt-dlp binary
     --update-gallerydl update only bundled gallery-dl binary
-    --force         force re-download clean binaries (with update flags)
+    --force         force overwrite existing downloads or re-fetch binaries
     --completion <sh> generate shell autocompletion (bash, zsh, fish, powershell)
     --theme <mode>  use auto, light, or dark for this run
     -h, --help      show this help
@@ -218,6 +224,14 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initial
     if (probeResult.kind === 'single_photo') {
       const item = probeResult.item
       const filename = `${sanitizeFilename(probeResult.postTitle)}.${item.ext || 'jpg'}`
+      if (args.skipExisting && !args.force) {
+        const recorded = getCompletedDownload({url: initialUrl, mediaId: item.id})
+        if (recorded) {
+          cleanupCookieJar(cookieJar)
+          console.log(`✓ already downloaded (ledger) → ${recorded.outputPath}`)
+          process.exit(0)
+        }
+      }
       console.error(`[open-omni] downloading photo “${probeResult.postTitle}”…`)
       const filepath = await downloadUnifiedItem({
         item: {
@@ -238,6 +252,9 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initial
           kind: 'photo',
           args: [],
         },
+        skipExisting: args.skipExisting,
+        force: args.force,
+        time: args.time,
       })
       cleanupCookieJar(cookieJar)
       console.log(`✓ downloaded → ${filepath}`)
@@ -262,6 +279,11 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initial
       let skipped = 0
 
       for (const entry of playlist.validEntries) {
+        if (args.skipExisting && !args.force && entry.completed) {
+          console.error(`[open-omni] [${entry.index}/${playlist.validEntries.length}] skipping already downloaded “${entry.title}”…`)
+          skipped++
+          continue
+        }
         console.error(`[open-omni] [${entry.index}/${playlist.validEntries.length}] downloading “${entry.title}”…`)
 
         try {
@@ -276,6 +298,9 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initial
             thumbnail,
             cookieFile,
             cookieHeader,
+            skipExisting: args.skipExisting,
+            force: args.force,
+            time: args.time,
             onProgress: progress => {
               if (progress.totalBytes) {
                 const pct = Math.round((progress.downloadedBytes / progress.totalBytes) * 100)
@@ -307,8 +332,18 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initial
         ? (choices.find(c => c.kind === 'audio') ?? choices[choices.length - 1]!)
         : (choices.find(c => c.kind === 'video') ?? choices[0]!)
 
+    if (args.skipExisting && !args.force) {
+      const recorded = getCompletedDownload({url: initialUrl, mediaId: info.id})
+      if (recorded) {
+        cleanupCookieJar(cookieJar)
+        console.log(`✓ already downloaded (ledger) → ${recorded.outputPath}`)
+        process.exit(0)
+      }
+    }
+
     console.error(`[open-omni] downloading ${info.title ? `“${info.title}” ` : ''}(${choice.label})…`)
     const ffmpegLocation = await findFfmpeg()
+    const section = args.time ? normalizeToYtdlpSection(args.time) ?? undefined : undefined
     const filepath = await download(
       {
         ytdlp,
@@ -320,6 +355,7 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initial
         subtitles,
         thumbnail,
         cookieFile,
+        section,
       },
       {
         onProgress: progress => {
@@ -334,6 +370,15 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initial
       },
     )
     process.stderr.write('\n')
+    const platform = detectPlatform(initialUrl).key || info.extractor || 'yt-dlp'
+    await recordDownloadWithStat({
+      mediaId: info.id || path.basename(filepath),
+      platform,
+      url: initialUrl,
+      title: info.title || path.basename(filepath),
+      outputPath: filepath,
+      format: choice.label,
+    })
     cleanupCookieJar(cookieJar)
     console.log(`✓ downloaded → ${filepath}`)
     process.exit(0)
@@ -386,6 +431,9 @@ try {
       mediaFilter={mediaFilter}
       cookieFile={cookieFile}
       cookieHeader={cookieHeader}
+      skipExisting={args.skipExisting}
+      force={args.force}
+      time={args.time}
       onOutcome={result => (outcome = result)}
     />,
     // keep a copy of every frame so clicks can be hit-tested against it

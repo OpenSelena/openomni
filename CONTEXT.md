@@ -188,3 +188,21 @@ _Avoid_: Winget config, installer schema, submission file
 **Portable Package**:
 The Winget installer architecture (`portable`) that unpacks a standalone executable directly into the user's system PATH without running an installer wizard.
 _Avoid_: Zip package, archive install, unzipped tool
+
+### Queue State & Resilience
+
+**Download Ledger**:
+The persistent, structured JSON record (`ledger.json`) tracking completed media items, filesystem paths, and completion states.
+_Avoid_: History list, download database, tracker, cache
+
+**Deduplication Check**:
+The validation routine comparing candidate media URLs or platform identifiers against the Download Ledger before network extraction.
+_Avoid_: Duplicate blocker, skip check, exist guard
+
+**Batch Resume**:
+The queue execution routine that inspects an interrupted playlist or multi-video post against the Download Ledger, skipping previously completed items.
+_Avoid_: Queue restart, pickup, retry pool
+
+**Section Slicing**:
+The remote time-bounded extraction of video or audio segments via engine section directives without downloading full media containers.
+_Avoid_: Trimming, cutting, snippet, clip extraction

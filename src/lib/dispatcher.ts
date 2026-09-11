@@ -25,6 +25,9 @@ import {
   downloadInstagramItem,
 } from './instagram.js'
 import {parseNetscapeCookieFile, resolveCookieJar} from './cookies.js'
+import {recordDownloadWithStat, getCompletedDownload} from './ledger.js'
+import {detectPlatform} from './platforms.js'
+import {normalizeToYtdlpSection} from './time.js'
 
 export const MIXED_OR_PHOTO_DOMAINS = [
   'x.com',
@@ -182,16 +185,21 @@ export function normalizeYtDlpToUnified(
 }
 
 export function postToPlaylistMetadata(post: UnifiedPostResult): PlaylistMetadata {
-  const validEntries: PlaylistEntry[] = post.items.map(item => ({
-    id: item.id,
-    title: item.title,
-    url: item.url,
-    duration: item.duration,
-    index: item.index,
-    kind: item.kind,
-    ext: item.ext,
-    engine: item.engine,
-  }))
+  const validEntries: PlaylistEntry[] = post.items.map(item => {
+    const existing = getCompletedDownload({url: item.url, mediaId: item.id})
+    const completed = Boolean(existing)
+    return {
+      id: item.id,
+      title: item.title,
+      url: item.url,
+      duration: item.duration,
+      index: item.index,
+      kind: item.kind,
+      ext: item.ext,
+      engine: item.engine,
+      completed,
+    }
+  })
 
   return {
     id: post.id,
@@ -412,9 +420,19 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
       if (mediaFilter === 'photos') {
         throw new Error('No photos found in video playlist (--photos-only specified)')
       }
+      const enrichedEntries = ytProbe.playlist.validEntries.map(entry => {
+        const existing = getCompletedDownload({url: entry.url, mediaId: entry.id})
+        return {
+          ...entry,
+          completed: Boolean(existing),
+        }
+      })
       return {
         kind: 'playlist',
-        playlist: ytProbe.playlist,
+        playlist: {
+          ...ytProbe.playlist,
+          validEntries: enrichedEntries,
+        },
         singleVideoUrl: ytProbe.singleVideoUrl,
       }
     }
@@ -504,6 +522,10 @@ export type DownloadUnifiedItemOptions = {
   downloadInstagramFn?: typeof downloadInstagramItem
   cookieFile?: string
   cookieHeader?: string
+  skipExisting?: boolean
+  force?: boolean
+  time?: string
+  onSkip?: () => void
 }
 
 export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): Promise<string> {
@@ -523,10 +545,23 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
     onProcessing,
     cookieFile,
     cookieHeader,
+    skipExisting,
+    force,
+    time,
   } = options
   const runDownloadPhoto = options.downloadPhotoFn || downloadPhotoItem
   const runDownloadVideo = options.downloadVideoFn || download
   const runDownloadInstagram = options.downloadInstagramFn || downloadInstagramItem
+
+  if (!force) {
+    const existing = getCompletedDownload({url: item.url, mediaId: item.id})
+    if (existing && skipExisting) {
+      options.onSkip?.()
+      return existing.outputPath
+    }
+  }
+
+  let downloadedPath: string
 
   if (item.engine === 'instagram' || isInstagramCdnUrl(item.url)) {
     const finalExt = item.ext || (item.kind === 'video' ? 'mp4' : 'jpg')
@@ -553,16 +588,13 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
       undefined,
       igCookies,
     )
-    return outPath
-  }
-
-  const ext = item.kind === 'photo' ? item.ext || 'jpg' : '%(ext)s'
-  const resolvedFilename =
-    filename || formatTrackFilename(item.index, totalCount ?? Math.max(item.index, 1), item.title, ext)
-
-  if (item.kind === 'photo') {
+    downloadedPath = outPath
+  } else if (item.kind === 'photo') {
+    const ext = item.ext || 'jpg'
+    const resolvedFilename =
+      filename || formatTrackFilename(item.index, totalCount ?? Math.max(item.index, 1), item.title, ext)
     const gdl = gallerydl || (options.downloadPhotoFn ? 'gallery-dl' : await ensureGalleryDl(undefined, signal))
-    return runDownloadPhoto({
+    downloadedPath = await runDownloadPhoto({
       url: item.url,
       destDir,
       filename: resolvedFilename,
@@ -581,24 +613,42 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
             })
         : undefined,
     })
+  } else {
+    const ext = '%(ext)s'
+    const resolvedFilename =
+      filename || formatTrackFilename(item.index, totalCount ?? Math.max(item.index, 1), item.title, ext)
+    const section = time ? normalizeToYtdlpSection(time) ?? undefined : undefined
+
+    downloadedPath = await runDownloadVideo(
+      {
+        ytdlp,
+        ffmpegLocation,
+        url: item.url,
+        choice,
+        outDir: destDir,
+        outputTemplate: path.join(destDir, resolvedFilename),
+        subtitles,
+        thumbnail,
+        cookieFile,
+        section,
+      },
+      {
+        onProgress: onProgress ?? (() => {}),
+        onProcessing: onProcessing ?? (() => {}),
+      },
+      signal,
+    )
   }
 
-  return runDownloadVideo(
-    {
-      ytdlp,
-      ffmpegLocation,
-      url: item.url,
-      choice,
-      outDir: destDir,
-      outputTemplate: path.join(destDir, resolvedFilename),
-      subtitles,
-      thumbnail,
-      cookieFile,
-    },
-    {
-      onProgress: onProgress ?? (() => {}),
-      onProcessing: onProcessing ?? (() => {}),
-    },
-    signal,
-  )
+  const platform = detectPlatform(item.url).key || item.engine || 'ytdlp'
+  await recordDownloadWithStat({
+    mediaId: item.id || path.basename(downloadedPath),
+    platform,
+    url: item.url,
+    title: item.title,
+    outputPath: downloadedPath,
+    format: choice?.label || 'best',
+  })
+
+  return downloadedPath
 }

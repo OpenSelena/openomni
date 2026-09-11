@@ -47,6 +47,8 @@ import {
   type QualityTier,
 } from './lib/playlist.js'
 import {downloadUnifiedItem, probeUnified} from './lib/dispatcher.js'
+import {getCompletedDownload, recordDownloadWithStat} from './lib/ledger.js'
+import {normalizeToYtdlpSection} from './lib/time.js'
 
 const OUT_DIR = path.join(os.homedir(), 'Downloads')
 const DOWNLOAD_BUTTON = 'download'
@@ -150,6 +152,11 @@ type Phase =
       targetDir: string
       hasPhotos?: boolean
     }
+  | {
+      name: 'confirm-overwrite'
+      existingPath: string
+      choice: DownloadChoice
+    }
   | {name: 'done'; filepath: string}
   | {name: 'error'; message: string}
 
@@ -166,6 +173,11 @@ const HINTS: Record<Phase['name'], Array<[string, string]>> = {
     ['↑↓', 'choose'],
     ['↵', 'download'],
     ['esc', 'back'],
+    ['^c', 'quit'],
+  ],
+  'confirm-overwrite': [
+    ['y', 'redownload'],
+    ['n', 'cancel'],
     ['^c', 'quit'],
   ],
   downloading: [
@@ -220,6 +232,9 @@ type AppProps = {
   mediaFilter?: 'all' | 'photos' | 'videos'
   cookieFile?: string
   cookieHeader?: string
+  skipExisting?: boolean
+  force?: boolean
+  time?: string
   onOutcome: (outcome: Outcome) => void
 }
 
@@ -247,6 +262,9 @@ function InnerApp({
   mediaFilter = 'all',
   cookieFile,
   cookieHeader,
+  skipExisting,
+  force,
+  time,
   onOutcome,
   cycleTheme,
 }: {
@@ -260,6 +278,9 @@ function InnerApp({
   mediaFilter?: 'all' | 'photos' | 'videos'
   cookieFile?: string
   cookieHeader?: string
+  skipExisting?: boolean
+  force?: boolean
+  time?: string
   onOutcome: (outcome: Outcome) => void
   cycleTheme: () => void
 }) {
@@ -314,10 +335,33 @@ function InnerApp({
             setPhase(prev => (prev.name === 'downloading' ? {...prev, processing: true} : prev)),
         }
         try {
+          if (skipExisting && !force) {
+            const existing = getCompletedDownload({url: targetUrl, mediaId: info?.id})
+            if (existing) {
+              onOutcome({filepath: existing.outputPath})
+              setPhase({name: 'done', filepath: existing.outputPath})
+              if (autoSelect) {
+                exit()
+              }
+              return
+            }
+          }
+
           const targetDir = outDir ?? OUT_DIR
           await fs.mkdir(targetDir, {recursive: true})
           const ffmpegLocation = await findFfmpeg()
-          const base = {ytdlp: ytdlpRef.current, ffmpegLocation, url: targetUrl, choice, outDir: targetDir, subtitles, thumbnail, cookieFile}
+          const section = time ? normalizeToYtdlpSection(time) ?? undefined : undefined
+          const base = {
+            ytdlp: ytdlpRef.current,
+            ffmpegLocation,
+            url: targetUrl,
+            choice,
+            outDir: targetDir,
+            subtitles,
+            thumbnail,
+            cookieFile,
+            section,
+          }
           let filepath: string
           try {
             filepath = await download(
@@ -332,6 +376,17 @@ function InnerApp({
             )
             filepath = await download(base, handlers, controller.signal)
           }
+
+          const platform = detectPlatform(targetUrl).key || info?.extractor || 'yt-dlp'
+          await recordDownloadWithStat({
+            mediaId: info?.id || path.basename(filepath),
+            platform,
+            url: targetUrl,
+            title: info?.title || path.basename(filepath),
+            outputPath: filepath,
+            format: choice.label,
+          })
+
           onOutcome({filepath})
           setHistory(addToHistory(targetUrl))
           setPhase({name: 'done', filepath})
@@ -347,7 +402,7 @@ function InnerApp({
         }
       })()
     },
-    [outDir, onOutcome, autoSelect, exit, subtitles, thumbnail, cookieFile],
+    [outDir, onOutcome, autoSelect, exit, subtitles, thumbnail, cookieFile, skipExisting, force, time, info],
   )
 
   const executeBatchDownload = useCallback(
@@ -390,6 +445,7 @@ function InnerApp({
                 : prev,
             )
 
+            let itemSkipped = false
             try {
               await downloadUnifiedItem({
                 item: entry,
@@ -404,6 +460,12 @@ function InnerApp({
                 signal: controller.signal,
                 cookieFile,
                 cookieHeader,
+                skipExisting,
+                force,
+                time,
+                onSkip: () => {
+                  itemSkipped = true
+                },
                 onProgress: progress =>
                   setPhase(prev =>
                     prev.name === 'playlist-downloading'
@@ -419,7 +481,11 @@ function InnerApp({
                     prev.name === 'playlist-downloading' ? {...prev, processing: true} : prev,
                   ),
               })
-              succeeded++
+              if (itemSkipped) {
+                skipped++
+              } else {
+                succeeded++
+              }
             } catch (err) {
               if (controller.signal.aborted) throw err
               skipped++
@@ -523,6 +589,9 @@ function InnerApp({
                 args: [],
               },
               signal: controller.signal,
+              skipExisting,
+              force,
+              time,
               onProgress: progress => {
                 setPhase(prev =>
                   prev.name === 'downloading'
@@ -598,7 +667,7 @@ function InnerApp({
         }
       }
     },
-    [autoSelect, executeDownload, executeBatchDownload, exit, mediaFilter, onOutcome, outDir, cookieFile, cookieHeader],
+    [autoSelect, executeDownload, executeBatchDownload, exit, mediaFilter, onOutcome, outDir, cookieFile, cookieHeader, skipExisting, force, time],
   )
 
   useEffect(() => {
@@ -634,7 +703,17 @@ function InnerApp({
         toggleThumbnail()
         return
       }
-      if (key.escape && (phase.name === 'picking' || phase.name === 'error' || phase.name === 'done' || phase.name === 'playlist-scope' || phase.name === 'playlist-done')) resetToInput()
+      if (phase.name === 'confirm-overwrite') {
+        if (input === 'y' || input === 'Y' || key.return) {
+          executeDownload(phase.choice, url, infoJsonRef.current)
+          return
+        }
+        if (input === 'n' || input === 'N' || key.escape) {
+          setPhase({name: 'picking'})
+          return
+        }
+      }
+      if (key.escape && (phase.name === 'picking' || phase.name === 'error' || phase.name === 'done' || phase.name === 'playlist-scope' || phase.name === 'playlist-done' || phase.name === 'confirm-overwrite')) resetToInput()
       if (key.escape && phase.name === 'playlist-quality') {
         setPhase({name: 'playlist-scope', playlist: phase.playlist, singleVideoUrl: phase.singleVideoUrl})
       }
@@ -659,7 +738,19 @@ function InnerApp({
 
   const handlePick = (item: {value: number}) => {
     const choice = choices[item.value]
-    if (choice) executeDownload(choice, url, infoJsonRef.current)
+    if (!choice) return
+    if (!force && !skipExisting) {
+      const existing = getCompletedDownload({url, mediaId: info?.id})
+      if (existing) {
+        setPhase({
+          name: 'confirm-overwrite',
+          existingPath: existing.outputPath,
+          choice,
+        })
+        return
+      }
+    }
+    executeDownload(choice, url, infoJsonRef.current)
   }
 
   let hints: Array<[string, string]> = [...HINTS[phase.name], ['^t', `theme:${theme.mode}`]]
@@ -922,6 +1013,15 @@ function InnerApp({
           >
             <Text bold color={theme.primary}>{DONE_LABEL}</Text>
           </Box>
+        </Box>
+      )}
+
+      {phase.name === 'confirm-overwrite' && (
+        <Box flexDirection="column" alignItems="center" width={boxWidth}>
+          <Text bold color={theme.primary}>File already exists at:</Text>
+          <Text color={theme.gray} dimColor={theme.dimSecondary}>{shortenPath(phase.existingPath, os.homedir(), 60)}</Text>
+          <Gap />
+          <Text color={theme.primary}>Redownload? <Text bold>[y/N]</Text></Text>
         </Box>
       )}
 

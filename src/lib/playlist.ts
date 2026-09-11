@@ -11,6 +11,7 @@ export type PlaylistEntry = {
   kind?: 'video' | 'audio' | 'photo'
   ext?: string
   engine?: 'ytdlp' | 'gallerydl' | 'instagram'
+  completed?: boolean
 }
 
 export type PlaylistMetadata = {
