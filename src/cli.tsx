@@ -24,6 +24,12 @@ import {
 } from './lib/config.js'
 import {generateCompletion} from './lib/completion.js'
 import {probeUnified, downloadUnifiedItem} from './lib/dispatcher.js'
+import {
+  resolveCookieJar,
+  parseNetscapeCookieFile,
+  cleanupCookieJar,
+  type CookieJar,
+} from './lib/cookies.js'
 
 // read at runtime from the shipped package.json so npm version bumps
 // can't drift from a hardcoded constant
@@ -64,6 +70,8 @@ const HELP = `
     --embed-thumb   embed thumbnail into audio/video container file
     --photos-only   download only photos from post or carousel
     --videos-only   download only videos from post or carousel
+    --cookies <path> load cookies from a Netscape format file
+    --cookies-from-browser <b[+k][:p]> load cookies from browser (firefox, chrome, edge, zen, etc.)
     -o, --output    output directory (default: ~/Downloads, or $OPEN_OMNI_DIR)
     -U, --update    update bundled engines (yt-dlp and gallery-dl) to latest version
     --update-ytdlp  update only bundled yt-dlp binary
@@ -169,6 +177,25 @@ const thumbnail = runtimeConfig.thumbnail
 const mediaFilter = args.photosOnly ? 'photos' : args.videosOnly ? 'videos' : 'all'
 const isTTY = Boolean(process.stdout.isTTY)
 
+let cookieJar: CookieJar | undefined
+let cookieFile: string | undefined
+let cookieHeader: string | undefined
+
+if (runtimeConfig.cookies) {
+  try {
+    let ytdlpPath: string | undefined
+    if (runtimeConfig.cookies.browser) {
+      ytdlpPath = await ensureYtDlp(status => console.error(`[open-omni] ${status}`))
+    }
+    cookieJar = resolveCookieJar(runtimeConfig.cookies, {ytdlpPath})
+    cookieFile = cookieJar.filePath
+    cookieHeader = parseNetscapeCookieFile(cookieJar.filePath)
+  } catch (err) {
+    console.error(`open-omni: ${err instanceof Error ? err.message : String(err)}`)
+    process.exit(1)
+  }
+}
+
 if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initialUrl) {
   try {
     await fs.mkdir(outDir, {recursive: true})
@@ -178,6 +205,8 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initial
       url: initialUrl,
       ytdlp,
       mediaFilter,
+      cookieFile,
+      cookieHeader,
       onStatus: status => console.error(`[open-omni] ${status}`),
     })
 
@@ -197,12 +226,15 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initial
         destDir: outDir,
         filename,
         ytdlp,
+        cookieFile,
+        cookieHeader,
         choice: {
           label: 'original photo',
           kind: 'photo',
           args: [],
         },
       })
+      cleanupCookieJar(cookieJar)
       console.log(`✓ downloaded → ${filepath}`)
       process.exit(0)
     }
@@ -237,6 +269,8 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initial
             choice,
             subtitles,
             thumbnail,
+            cookieFile,
+            cookieHeader,
             onProgress: progress => {
               if (progress.totalBytes) {
                 const pct = Math.round((progress.downloadedBytes / progress.totalBytes) * 100)
@@ -256,6 +290,7 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initial
         }
       }
 
+      cleanupCookieJar(cookieJar)
       console.log(`✓ downloaded ${succeeded} items to ${playlistDir}${skipped > 0 ? ` (${skipped} skipped)` : ''}`)
       process.exit(0)
     }
@@ -279,6 +314,7 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initial
         infoJsonPath,
         subtitles,
         thumbnail,
+        cookieFile,
       },
       {
         onProgress: progress => {
@@ -293,9 +329,11 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initial
       },
     )
     process.stderr.write('\n')
+    cleanupCookieJar(cookieJar)
     console.log(`✓ downloaded → ${filepath}`)
     process.exit(0)
   } catch (error) {
+    cleanupCookieJar(cookieJar)
     console.error(`✗ ${error instanceof Error ? error.message : String(error)}`)
     process.exit(1)
   }
@@ -321,6 +359,7 @@ if (isTTY) {
   for (const event of ['uncaughtException', 'unhandledRejection'] as const) {
     process.on(event, (error: unknown) => {
       leaveAltScreen()
+      cleanupCookieJar(cookieJar)
       console.error(error)
       process.exit(1)
     })
@@ -328,29 +367,35 @@ if (isTTY) {
 }
 
 let outcome: Outcome = {}
-const {waitUntilExit} = render(
-  <App
-    initialUrl={initialUrl}
-    clipboardUrl={clipboardUrl}
-    initialThemeMode={initialThemeMode}
-    autoSelect={runtimeConfig.autoSelect}
-    outDir={outDir}
-    version={VERSION}
-    initialSubtitles={subtitles}
-    initialThumbnail={thumbnail}
-    mediaFilter={mediaFilter}
-    onOutcome={result => (outcome = result)}
-  />,
-  // keep a copy of every frame so clicks can be hit-tested against it
-  {stdout: captureFrames(process.stdout)},
-)
+try {
+  const {waitUntilExit} = render(
+    <App
+      initialUrl={initialUrl}
+      clipboardUrl={clipboardUrl}
+      initialThemeMode={initialThemeMode}
+      autoSelect={runtimeConfig.autoSelect}
+      outDir={outDir}
+      version={VERSION}
+      initialSubtitles={subtitles}
+      initialThumbnail={thumbnail}
+      mediaFilter={mediaFilter}
+      cookieFile={cookieFile}
+      cookieHeader={cookieHeader}
+      onOutcome={result => (outcome = result)}
+    />,
+    // keep a copy of every frame so clicks can be hit-tested against it
+    {stdout: captureFrames(process.stdout)},
+  )
 
-await waitUntilExit()
+  await waitUntilExit()
+} finally {
+  cleanupCookieJar(cookieJar)
+}
 
-  if (isTTY) leaveAltScreen()
-  if (outcome.filepath) {
-    console.log(`✓ downloaded → ${outcome.filepath}`)
-  }
+if (isTTY) leaveAltScreen()
+if (outcome.filepath) {
+  console.log(`✓ downloaded → ${outcome.filepath}`)
+}
 }
 
 main().catch(err => {

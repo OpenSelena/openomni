@@ -29,6 +29,13 @@ export type UserConfig = {
   format?: FormatMode
   subtitles?: boolean | SubtitleConfig
   thumbnail?: boolean | ThumbnailConfig
+  cookies?: string
+  cookiesFromBrowser?: string
+}
+
+export type CookieOptions = {
+  file?: string
+  browser?: string
 }
 
 export type RuntimeConfig = {
@@ -38,6 +45,7 @@ export type RuntimeConfig = {
   autoSelect?: FormatMode
   subtitles?: SubtitleOptions
   thumbnail?: ThumbnailOptions
+  cookies?: CookieOptions
 }
 
 export function resolveConfigPath(env: NodeJS.ProcessEnv = process.env): string {
@@ -109,6 +117,22 @@ export function loadConfig(
         result.thumbnail = parsed.thumbnail
       } else {
         onWarning?.(`[open-omni] warning: invalid thumbnail setting in ${configPath}`)
+      }
+    }
+
+    if (parsed.cookies !== undefined) {
+      if (typeof parsed.cookies === 'string' && parsed.cookies.trim()) {
+        result.cookies = parsed.cookies.trim()
+      } else {
+        onWarning?.(`[open-omni] warning: invalid cookies setting in ${configPath} (expected string path)`)
+      }
+    }
+
+    if (parsed.cookiesFromBrowser !== undefined) {
+      if (typeof parsed.cookiesFromBrowser === 'string' && parsed.cookiesFromBrowser.trim()) {
+        result.cookiesFromBrowser = parsed.cookiesFromBrowser.trim()
+      } else {
+        onWarning?.(`[open-omni] warning: invalid cookiesFromBrowser setting in ${configPath} (expected string)`)
       }
     }
 
@@ -192,6 +216,16 @@ export function resolveEffectiveThumbnail(
   return undefined
 }
 
+export function resolveEffectiveCookies(
+  cliArgs: CliArgs,
+  userConfig: UserConfig = {},
+): CookieOptions | undefined {
+  const file = cliArgs.cookies ?? userConfig.cookies
+  const browser = cliArgs.cookiesFromBrowser ?? userConfig.cookiesFromBrowser
+  if (!file && !browser) return undefined
+  return {file, browser}
+}
+
 export function resolveRuntimeConfig(
   args: CliArgs,
   userConfig: UserConfig = {},
@@ -206,5 +240,6 @@ export function resolveRuntimeConfig(
     autoSelect: args.format,
     subtitles: resolveEffectiveSubtitles(cliSubs, userConfig.subtitles),
     thumbnail: resolveEffectiveThumbnail(cliThumb, userConfig.thumbnail),
+    cookies: resolveEffectiveCookies(args, userConfig),
   }
 }

@@ -218,6 +218,8 @@ type AppProps = {
   initialSubtitles?: SubtitleOptions
   initialThumbnail?: ThumbnailOptions
   mediaFilter?: 'all' | 'photos' | 'videos'
+  cookieFile?: string
+  cookieHeader?: string
   onOutcome: (outcome: Outcome) => void
 }
 
@@ -243,6 +245,8 @@ function InnerApp({
   initialSubtitles,
   initialThumbnail,
   mediaFilter = 'all',
+  cookieFile,
+  cookieHeader,
   onOutcome,
   cycleTheme,
 }: {
@@ -254,6 +258,8 @@ function InnerApp({
   initialSubtitles?: SubtitleOptions
   initialThumbnail?: ThumbnailOptions
   mediaFilter?: 'all' | 'photos' | 'videos'
+  cookieFile?: string
+  cookieHeader?: string
   onOutcome: (outcome: Outcome) => void
   cycleTheme: () => void
 }) {
@@ -311,7 +317,7 @@ function InnerApp({
           const targetDir = outDir ?? OUT_DIR
           await fs.mkdir(targetDir, {recursive: true})
           const ffmpegLocation = await findFfmpeg()
-          const base = {ytdlp: ytdlpRef.current, ffmpegLocation, url: targetUrl, choice, outDir: targetDir, subtitles, thumbnail}
+          const base = {ytdlp: ytdlpRef.current, ffmpegLocation, url: targetUrl, choice, outDir: targetDir, subtitles, thumbnail, cookieFile}
           let filepath: string
           try {
             filepath = await download(
@@ -341,7 +347,7 @@ function InnerApp({
         }
       })()
     },
-    [outDir, onOutcome, autoSelect, exit, subtitles, thumbnail],
+    [outDir, onOutcome, autoSelect, exit, subtitles, thumbnail, cookieFile],
   )
 
   const executeBatchDownload = useCallback(
@@ -396,6 +402,8 @@ function InnerApp({
                 subtitles: subtitles?.enabled ? subtitles : undefined,
                 thumbnail: thumbnail?.enabled ? thumbnail : undefined,
                 signal: controller.signal,
+                cookieFile,
+                cookieHeader,
                 onProgress: progress =>
                   setPhase(prev =>
                     prev.name === 'playlist-downloading'
@@ -469,6 +477,8 @@ function InnerApp({
           ytdlp,
           gallerydl,
           mediaFilter,
+          cookieFile,
+          cookieHeader,
           signal: controller.signal,
           onStatus: status => setPhase({name: 'probing', status}),
         })
@@ -505,6 +515,8 @@ function InnerApp({
               filename,
               ytdlp,
               gallerydl: gallerydlRef.current,
+              cookieFile,
+              cookieHeader,
               choice: {
                 label: 'original photo',
                 kind: 'photo',
@@ -586,7 +598,7 @@ function InnerApp({
         }
       }
     },
-    [autoSelect, executeDownload, executeBatchDownload, exit, mediaFilter, onOutcome, outDir],
+    [autoSelect, executeDownload, executeBatchDownload, exit, mediaFilter, onOutcome, outDir, cookieFile, cookieHeader],
   )
 
   useEffect(() => {

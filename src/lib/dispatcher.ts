@@ -24,6 +24,7 @@ import {
   resolveInstagramMedia,
   downloadInstagramItem,
 } from './instagram.js'
+import {parseNetscapeCookieFile} from './cookies.js'
 
 export const MIXED_OR_PHOTO_DOMAINS = [
   'x.com',
@@ -231,14 +232,16 @@ export type ProbeUnifiedOptions = {
   gallerydl?: string
   mediaFilter?: 'all' | 'photos' | 'videos'
   signal?: AbortSignal
-  onStatus?: (status: string) => void
   probeGalleryDlFn?: typeof probeGalleryDl
   probeYtDlpFn?: typeof probe
   resolveInstagramFn?: typeof resolveInstagramMedia
+  cookieFile?: string
+  cookieHeader?: string
+  onStatus?: (status: string) => void
 }
 
 export async function probeUnified(options: ProbeUnifiedOptions): Promise<UnifiedProbeResult> {
-  const {url, ytdlp, gallerydl, mediaFilter, signal, onStatus} = options
+  const {url, ytdlp, gallerydl, mediaFilter, signal, onStatus, cookieFile, cookieHeader} = options
   const runProbeGalleryDl = options.probeGalleryDlFn || probeGalleryDl
   const runProbeYtDlp = options.probeYtDlpFn || probe
   const runResolveInstagram = options.resolveInstagramFn || resolveInstagramMedia
@@ -248,7 +251,8 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
   if (isInstagramUrl(url)) {
     try {
       onStatus?.('Probing Instagram post via embed resolver…')
-      const igResult = await runResolveInstagram(url)
+      const igCookies = cookieHeader || (cookieFile ? parseNetscapeCookieFile(cookieFile, 'instagram.com') : undefined)
+      const igResult = await runResolveInstagram(url, undefined, igCookies)
       const unifiedItems: UnifiedMediaItem[] = igResult.items.map((it, idx) => ({
         id: `${igResult.postId}_${idx + 1}`,
         index: idx + 1,
@@ -302,7 +306,7 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
     try {
       const gdl = gallerydl || (options.probeGalleryDlFn ? 'gallery-dl' : await ensureGalleryDl(onStatus, signal))
       onStatus?.('Probing post items with gallery-dl…')
-      const rawItems = await runProbeGalleryDl(gdl, url, signal)
+      const rawItems = await runProbeGalleryDl(gdl, url, signal, cookieFile)
 
       if (rawItems && rawItems.length > 0) {
         const unifiedPost = normalizeGalleryDlToUnified(rawItems, url)
@@ -326,7 +330,7 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
         if (filteredItems.length === 1 && filteredItems[0].kind === 'video') {
           try {
             onStatus?.('Fetching video formats with yt-dlp…')
-            const ytProbe = await runProbeYtDlp(ytdlp, url, signal)
+            const ytProbe = await runProbeYtDlp(ytdlp, url, signal, cookieFile)
             if (ytProbe.kind === 'single') {
               return {
                 kind: 'single_video',
@@ -364,7 +368,7 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
 
   try {
     onStatus?.('fetching video info…')
-    const ytProbe = await runProbeYtDlp(ytdlp, url, signal)
+    const ytProbe = await runProbeYtDlp(ytdlp, url, signal, cookieFile)
 
     if (ytProbe.kind === 'playlist') {
       if (mediaFilter === 'photos') {
@@ -400,7 +404,7 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
       try {
         const gdl = gallerydl || (options.probeGalleryDlFn ? 'gallery-dl' : await ensureGalleryDl(onStatus, signal))
         onStatus?.('Probing post items with gallery-dl…')
-        const rawItems = await runProbeGalleryDl(gdl, url, signal)
+        const rawItems = await runProbeGalleryDl(gdl, url, signal, cookieFile)
 
         if (rawItems && rawItems.length > 0) {
           const unifiedPost = normalizeGalleryDlToUnified(rawItems, url)
@@ -460,6 +464,8 @@ export type DownloadUnifiedItemOptions = {
   downloadPhotoFn?: typeof downloadPhotoItem
   downloadVideoFn?: typeof download
   downloadInstagramFn?: typeof downloadInstagramItem
+  cookieFile?: string
+  cookieHeader?: string
 }
 
 export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): Promise<string> {
@@ -477,6 +483,8 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
     signal,
     onProgress,
     onProcessing,
+    cookieFile,
+    cookieHeader,
   } = options
   const runDownloadPhoto = options.downloadPhotoFn || downloadPhotoItem
   const runDownloadVideo = options.downloadVideoFn || download
@@ -489,6 +497,7 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
     const outPath = path.join(destDir, finalFilename)
     await fs.mkdir(destDir, {recursive: true})
 
+    const igCookies = cookieHeader || (cookieFile ? parseNetscapeCookieFile(cookieFile, 'instagram.com') : undefined)
     await runDownloadInstagram(
       {
         url: item.url,
@@ -503,6 +512,8 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
           totalParts: totalCount ?? 1,
         })
       },
+      undefined,
+      igCookies,
     )
     return outPath
   }
@@ -519,6 +530,7 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
       filename: resolvedFilename,
       gallerydl: gdl,
       signal,
+      cookieFile,
       onProgress: onProgress
         ? p =>
             onProgress({
@@ -543,6 +555,7 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
       outputTemplate: path.join(destDir, resolvedFilename),
       subtitles,
       thumbnail,
+      cookieFile,
     },
     {
       onProgress: onProgress ?? (() => {}),

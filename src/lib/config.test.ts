@@ -213,3 +213,38 @@ test('resolveRuntimeConfig combines CLI, env, and config correctly', () => {
   })
 })
 
+test('loadConfig and resolveRuntimeConfig handle cookies and cookiesFromBrowser', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'open-omni-cookies-config-test-'))
+  const configPath = path.join(tempDir, 'config.json')
+
+  fs.writeFileSync(
+    configPath,
+    JSON.stringify({
+      cookies: '/path/to/cookies.txt',
+      cookiesFromBrowser: 'firefox',
+    })
+  )
+
+  const loaded = loadConfig(configPath)
+  assert.equal(loaded.cookies, '/path/to/cookies.txt')
+  assert.equal(loaded.cookiesFromBrowser, 'firefox')
+
+  // CLI overrides config
+  const runtime = resolveRuntimeConfig(
+    {
+      help: false,
+      version: false,
+      cookies: '/cli/cookies.txt',
+      cookiesFromBrowser: undefined,
+    },
+    loaded
+  )
+
+  assert.deepEqual(runtime.cookies, {
+    file: '/cli/cookies.txt',
+    browser: 'firefox',
+  })
+
+  fs.rmSync(tempDir, {recursive: true, force: true})
+})
+

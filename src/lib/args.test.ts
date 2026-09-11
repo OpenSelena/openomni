@@ -294,3 +294,36 @@ test('terminalLink produces valid OSC 8 hyperlink escape sequence', () => {
   const link = terminalLink('Igect', 'https://igect.link/')
   assert.equal(link, '\u001B]8;;https://igect.link/\u0007Igect\u001B]8;;\u0007')
 })
+
+test('parses cookie flags (--cookies, --cookies-from-browser)', () => {
+  assert.deepEqual(parseArgs(['--cookies', './cookies.txt', 'https://example.com']), {
+    help: false,
+    version: false,
+    cookies: './cookies.txt',
+    initialUrl: 'https://example.com',
+  })
+
+  assert.deepEqual(parseArgs(['--cookies=./my-cookies.txt', 'https://example.com']), {
+    help: false,
+    version: false,
+    cookies: './my-cookies.txt',
+    initialUrl: 'https://example.com',
+  })
+
+  assert.deepEqual(parseArgs(['--cookies-from-browser', 'zen', 'https://example.com']), {
+    help: false,
+    version: false,
+    cookiesFromBrowser: 'zen',
+    initialUrl: 'https://example.com',
+  })
+
+  assert.deepEqual(parseArgs(['--cookies-from-browser=firefox:+/path/to/profile', 'https://example.com']), {
+    help: false,
+    version: false,
+    cookiesFromBrowser: 'firefox:+/path/to/profile',
+    initialUrl: 'https://example.com',
+  })
+
+  assert.match(parseArgs(['--cookies']).error ?? '', /--cookies needs a file path/)
+  assert.match(parseArgs(['--cookies-from-browser']).error ?? '', /--cookies-from-browser needs a browser name/)
+})

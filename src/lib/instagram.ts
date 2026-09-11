@@ -236,6 +236,7 @@ const DEFAULT_USER_AGENT =
 export async function resolveInstagramMedia(
   url: string,
   fetchImpl: typeof fetch = fetch,
+  cookieHeader?: string,
 ): Promise<InstagramMediaResult> {
   const postId = extractInstagramPostId(url);
   if (!postId) {
@@ -243,18 +244,22 @@ export async function resolveInstagramMedia(
   }
 
   const embedUrl = buildInstagramEmbedUrl(postId);
-  const response = await fetchImpl(embedUrl, {
-    headers: {
-      'User-Agent': DEFAULT_USER_AGENT,
-      'Accept':
-        'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-GB,en;q=0.9',
-      'Sec-Fetch-Dest': 'iframe',
-      'Sec-Fetch-Mode': 'navigate',
-      'Sec-Fetch-Site': 'cross-site',
-      'Referer': 'https://www.instagram.com/',
-    },
-  });
+  const headers: Record<string, string> = {
+    'User-Agent': DEFAULT_USER_AGENT,
+    'Accept':
+      'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-GB,en;q=0.9',
+    'Sec-Fetch-Dest': 'iframe',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'cross-site',
+    'Referer': 'https://www.instagram.com/',
+  };
+
+  if (cookieHeader) {
+    headers['Cookie'] = cookieHeader;
+  }
+
+  const response = await fetchImpl(embedUrl, {headers});
 
   if (!response.ok) {
     throw new Error(
@@ -274,18 +279,23 @@ export async function downloadInstagramItem(
   outputPath: string,
   onProgress?: (receivedBytes: number, totalBytes?: number) => void,
   fetchImpl: typeof fetch = fetch,
+  cookieHeader?: string,
 ): Promise<void> {
   const { createWriteStream } = await import('node:fs');
   const { pipeline } = await import('node:stream/promises');
   const { Readable } = await import('node:stream');
 
-  const response = await fetchImpl(item.url, {
-    headers: {
-      'User-Agent': DEFAULT_USER_AGENT,
-      'Referer': 'https://www.instagram.com/',
-      'Sec-Fetch-Dest': item.kind === 'video' ? 'video' : 'image',
-    },
-  });
+  const headers: Record<string, string> = {
+    'User-Agent': DEFAULT_USER_AGENT,
+    'Referer': 'https://www.instagram.com/',
+    'Sec-Fetch-Dest': item.kind === 'video' ? 'video' : 'image',
+  };
+
+  if (cookieHeader) {
+    headers['Cookie'] = cookieHeader;
+  }
+
+  const response = await fetchImpl(item.url, {headers});
 
   if (!response.ok || !response.body) {
     throw new Error(

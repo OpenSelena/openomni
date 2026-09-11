@@ -23,6 +23,8 @@ export type CliArgs = {
   embedThumb?: boolean
   photosOnly?: boolean
   videosOnly?: boolean
+  cookies?: string
+  cookiesFromBrowser?: string
   completion?: CompletionTarget
   error?: string
 }
@@ -108,6 +110,22 @@ export function parseArgs(args: string[]): CliArgs {
       result.photosOnly = true
     } else if (arg === '--videos-only') {
       result.videosOnly = true
+    } else if (arg === '--cookies') {
+      const value = args[++index]
+      if (!value) return {...result, error: '--cookies needs a file path'}
+      result.cookies = value
+    } else if (arg.startsWith('--cookies=')) {
+      const value = arg.slice('--cookies='.length)
+      if (!value) return {...result, error: '--cookies needs a file path'}
+      result.cookies = value
+    } else if (arg === '--cookies-from-browser') {
+      const value = args[++index]
+      if (!value) return {...result, error: '--cookies-from-browser needs a browser name or spec'}
+      result.cookiesFromBrowser = value
+    } else if (arg.startsWith('--cookies-from-browser=')) {
+      const value = arg.slice('--cookies-from-browser='.length)
+      if (!value) return {...result, error: '--cookies-from-browser needs a browser name or spec'}
+      result.cookiesFromBrowser = value
     } else if (arg === '--completion' || arg.startsWith('--completion=')) {
       const value = arg === '--completion' ? args[++index] : arg.slice('--completion='.length)
       if (!value) return {...result, error: '--completion needs a shell: bash, zsh, fish, or powershell'}

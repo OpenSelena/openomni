@@ -130,6 +130,12 @@ open-omni <url> --thumb --embed-thumb
 # Download only photos from an Instagram or X gallery
 open-omni <url> --photos-only
 
+# Download private or auth-walled posts using browser session cookies (Firefox, Zen, Chrome, Edge, Brave)
+open-omni <url> --cookies-from-browser firefox
+
+# Download using an exported Netscape cookie file
+open-omni <url> --cookies ~/cookies.txt
+
 # Update bundled extraction engines (yt-dlp and gallery-dl)
 open-omni -U
 ```
@@ -162,6 +168,8 @@ open-omni -U
 | `--embed-thumb` | Embed thumbnail artwork into media container |
 | `--photos-only` | Download only images from social post or carousel |
 | `--videos-only` | Download only videos from social post or carousel |
+| `--cookies <path>` | Load session cookies from a Netscape format file |
+| `--cookies-from-browser <spec>` | Extract cookies from browser (`firefox`, `chrome`, `zen`, etc.) |
 | `-o, --output <dir>` | Destination folder (default: Downloads or `$OPEN_OMNI_DIR`) |
 | `-U, --update` | Update bundled `yt-dlp` and `gallery-dl` binaries |
 | `--update-ytdlp` | Update only bundled `yt-dlp` binary |
@@ -183,6 +191,7 @@ Settings can be customized in `~/.config/open-omni/config.json`:
   "outputDir": "~/Downloads",
   "theme": "auto",
   "format": "best",
+  "cookiesFromBrowser": "firefox",
   "subtitles": {
     "enabled": true,
     "languages": "en,es",

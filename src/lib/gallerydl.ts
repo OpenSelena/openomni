@@ -391,16 +391,23 @@ export async function probeGalleryDl(
   gallerydl: string,
   url: string,
   signal?: AbortSignal,
+  cookieFile?: string,
 ): Promise<GalleryDlItem[]> {
   return new Promise((resolve, reject) => {
     let child: ChildProcess
     let stdout = ''
     let stderr = ''
 
+    const args = ['-j', '--no-part']
+    if (cookieFile) {
+      args.push('--cookies', cookieFile)
+    }
+    args.push(url)
+
     try {
       child = spawn(
         gallerydl,
-        ['-j', '--no-part', url],
+        args,
         {signal},
       )
     } catch (err) {
@@ -453,8 +460,9 @@ export async function downloadPhotoItem(options: {
   destDir: string
   filename?: string
   signal?: AbortSignal
+  cookieFile?: string
 }): Promise<string> {
-  const {gallerydl, url, destDir, filename, signal} = options
+  const {gallerydl, url, destDir, filename, signal, cookieFile} = options
   await fs.mkdir(destDir, {recursive: true})
 
   return new Promise((resolve, reject) => {
@@ -463,6 +471,10 @@ export async function downloadPhotoItem(options: {
       destDir,
       '--no-part',
     ]
+
+    if (cookieFile) {
+      args.push('--cookies', cookieFile)
+    }
 
     if (filename) {
       args.push('-f', filename)

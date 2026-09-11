@@ -274,9 +274,18 @@ export function parseProbeOutput(
   }
 }
 
-export async function probe(ytdlp: string, url: string, signal?: AbortSignal): Promise<ProbeResult> {
+export async function probe(
+  ytdlp: string,
+  url: string,
+  signal?: AbortSignal,
+  cookieFile?: string,
+): Promise<ProbeResult> {
+  const probeArgs = ['-J', '--flat-playlist', '--no-warnings']
+  if (cookieFile) probeArgs.push('--cookies', cookieFile)
+  probeArgs.push(url)
+
   const stdout = await new Promise<string>((resolve, reject) => {
-    const child = spawn(ytdlp, ['-J', '--flat-playlist', '--no-warnings', url], {signal})
+    const child = spawn(ytdlp, probeArgs, {signal})
     let out = ''
     let stderr = ''
     child.stdout.on('data', chunk => (out += chunk))
@@ -435,6 +444,7 @@ export function download(
     outputTemplate?: string
     subtitles?: SubtitleOptions
     thumbnail?: ThumbnailOptions
+    cookieFile?: string
   },
   handlers: DownloadHandlers,
   signal?: AbortSignal,
@@ -459,6 +469,7 @@ export function download(
     '-o',
     opts.outputTemplate ?? path.join(opts.outDir, '%(title).60s.%(ext)s'),
   ]
+  if (opts.cookieFile) args.push('--cookies', opts.cookieFile)
   if (opts.ffmpegLocation) args.push('--ffmpeg-location', opts.ffmpegLocation)
 
   return new Promise((resolve, reject) => {

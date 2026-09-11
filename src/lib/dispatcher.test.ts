@@ -505,4 +505,98 @@ test('downloadUnifiedItem downloads instagram item directly via downloadInstagra
   assert.equal(result, downloadedPath)
 })
 
+test('probeUnified forwards cookieHeader to instagram and cookieFile to gallery-dl', async () => {
+  let passedCookieHeader = ''
+  let passedCookieFile = ''
+
+  await probeUnified({
+    url: 'https://www.instagram.com/p/DFcookie/',
+    ytdlp: 'yt-dlp',
+    cookieFile: '/path/to/cookies.txt',
+    cookieHeader: 'sessionid=12345',
+    resolveInstagramFn: async (_url, _fetchImpl, cookieHeader) => {
+      passedCookieHeader = cookieHeader || ''
+      return {
+        postId: 'DFcookie',
+        title: 'Cookie Post',
+        items: [{url: 'https://cdn.example.com/p.jpg', kind: 'photo'}],
+      }
+    },
+  })
+
+  assert.equal(passedCookieHeader, 'sessionid=12345')
+
+  await probeUnified({
+    url: 'https://x.com/user/status/123',
+    ytdlp: 'yt-dlp',
+    cookieFile: '/path/to/cookies.txt',
+    probeGalleryDlFn: async (_gdl, _url, _signal, cookieFile) => {
+      passedCookieFile = cookieFile || ''
+      return [
+        {
+          url: 'https://example.com/pic.jpg',
+          filename: 'pic.jpg',
+          ext: 'jpg',
+          kind: 'photo',
+          index: 1,
+        },
+      ]
+    },
+  })
+
+  assert.equal(passedCookieFile, '/path/to/cookies.txt')
+})
+
+test('downloadUnifiedItem forwards cookieFile and cookieHeader to downloaders', async () => {
+  let photoCookieFile = ''
+  let igCookieHeader = ''
+
+  const photoItem: PlaylistEntry = {
+    id: '1',
+    title: 'Photo',
+    url: 'https://example.com/photo.jpg',
+    index: 1,
+    kind: 'photo',
+    ext: 'jpg',
+    engine: 'gallerydl',
+  }
+
+  await downloadUnifiedItem({
+    item: photoItem,
+    destDir: '/tmp',
+    ytdlp: 'yt-dlp',
+    choice: {label: 'original', kind: 'photo', args: []},
+    cookieFile: '/path/to/cookies.txt',
+    downloadPhotoFn: async opts => {
+      photoCookieFile = opts.cookieFile || ''
+      return '/tmp/photo.jpg'
+    },
+  })
+
+  assert.equal(photoCookieFile, '/path/to/cookies.txt')
+
+  const igItem: PlaylistEntry = {
+    id: '2',
+    title: 'Instagram Item',
+    url: 'https://scontent.cdninstagram.com/pic.jpg',
+    index: 1,
+    kind: 'photo',
+    ext: 'jpg',
+    engine: 'instagram',
+  }
+
+  await downloadUnifiedItem({
+    item: igItem,
+    destDir: '/tmp',
+    ytdlp: 'yt-dlp',
+    choice: {label: 'original', kind: 'photo', args: []},
+    cookieHeader: 'sessionid=abc',
+    downloadInstagramFn: async (_item, _dest, _onProgress, _fetchImpl, cookieHeader) => {
+      igCookieHeader = cookieHeader || ''
+    },
+  })
+
+  assert.equal(igCookieHeader, 'sessionid=abc')
+})
+
 

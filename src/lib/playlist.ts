@@ -25,12 +25,21 @@ export type PlaylistMetadata = {
 /**
  * Sanitize strings for use in file and directory names.
  * Replaces illegal OS characters: / \ : * ? " < > |
+ * Trims whitespace and trailing dots (forbidden on Windows file/folder names).
+ * Limits length to maxLength (default 100) to avoid OS MAX_PATH / 255-char filename limits.
  */
-export function sanitizeFilename(name: string): string {
-  return name
+export function sanitizeFilename(name: string, maxLength = 100): string {
+  const sanitized = name
     .replace(/[/\\:*?"<>|]/g, '')
     .replace(/\s+/g, ' ')
+    .replace(/[.\s]+$/, '')
     .trim()
+
+  if (sanitized.length > maxLength) {
+    return sanitized.slice(0, maxLength).replace(/[.\s]+$/, '').trim()
+  }
+
+  return sanitized
 }
 
 /**

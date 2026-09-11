@@ -4,11 +4,20 @@ import path from 'node:path'
 import {
   formatTrackFilename,
   resolvePlaylistDir,
+  sanitizeFilename,
   buildQualityTierArgs,
   getQualityTierExt,
   parsePlaylistOutput,
   type PlaylistMetadata
 } from './playlist.js'
+
+test('sanitizeFilename removes illegal chars, trailing dots and truncates long captions', () => {
+  const longCaption = 'Prices of computer components in Bangladesh have surged by two to four times over the past year, with RAM, SSDs, and graphics cards seeing the steepest hikes.'
+  const sanitized = sanitizeFilename(longCaption, 50)
+  assert.ok(sanitized.length <= 50)
+  assert.ok(!sanitized.endsWith('.'))
+  assert.equal(sanitizeFilename('Trailing dot test...'), 'Trailing dot test')
+})
 
 test('formatTrackFilename pads track numbers correctly and sanitizes illegal characters', () => {
   // Total 15: padded to 2 digits
