@@ -70,7 +70,7 @@ jobs:
         run: |
           # 1. Compile native launcher shims using csc.exe
           $csc = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
-          & $csc /nologo /target:exe /out:open-omni.exe scripts/shim.cs
+          & $csc /nologo /target:exe /out:open-omni.exe "scripts\shim.cs"
           Copy-Item open-omni.exe openomni.exe
           Copy-Item open-omni.exe omni.exe
 
