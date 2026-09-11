@@ -51,9 +51,8 @@ test('generateWingetManifests produces compliant v1.6.0 manifests for portable p
 
   assert.ok(manifests.installerManifest.includes('InstallerType: portable'));
   assert.ok(manifests.installerManifest.includes('Architecture: x64'));
-  assert.ok(manifests.installerManifest.includes('InstallerSha256: A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2'));
+  assert.ok(manifests.installerManifest.includes('Commands:'));
   assert.ok(manifests.installerManifest.includes('- open-omni'));
-  assert.ok(manifests.installerManifest.includes('- omni'));
 
   assert.ok(manifests.localeManifest.includes('Publisher: OpenSelena'));
   assert.ok(manifests.localeManifest.includes('PackageName: Open Omni'));

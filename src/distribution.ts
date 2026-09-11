@@ -88,7 +88,7 @@ ManifestType: version
 ManifestVersion: 1.6.0
 `;
 
-  const formattedCommands = options.commands.map((cmd) => `  - ${cmd}`).join('\n');
+  const primaryCommand = options.commands.length > 0 ? options.commands[0] : 'open-omni';
 
   const installerManifest = `# Created using Open Omni Distribution Generator
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
@@ -98,7 +98,7 @@ PackageVersion: ${options.packageVersion}
 InstallerLocale: ${locale}
 InstallerType: portable
 Commands:
-${formattedCommands}
+  - ${primaryCommand}
 Installers:
   - Architecture: x64
     InstallerUrl: ${options.installerUrl}
@@ -169,6 +169,14 @@ export function validateWingetManifests(manifests: WingetManifests): ValidationR
 
   if (iType !== 'portable') {
     errors.push(`Invalid InstallerType: expected 'portable', got '${iType}'`);
+  } else {
+    const commandsMatch = manifests.installerManifest.match(/Commands:\s*\n((\s+-\s+[^\n]+\n?)+)/);
+    if (commandsMatch) {
+      const commandLines = commandsMatch[1].trim().split('\n').filter((l) => l.trim().startsWith('-'));
+      if (commandLines.length > 1) {
+        errors.push('Only zero or one value for Commands may be specified for InstallerType portable');
+      }
+    }
   }
 
   const shaMatch = manifests.installerManifest.match(/InstallerSha256:\s*([A-Fa-f0-9]{64})/);
