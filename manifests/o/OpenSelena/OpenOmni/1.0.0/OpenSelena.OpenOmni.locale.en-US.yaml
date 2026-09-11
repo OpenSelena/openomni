@@ -5,7 +5,7 @@ PackageIdentifier: OpenSelena.OpenOmni
 PackageVersion: 1.0.0
 PackageLocale: en-US
 Publisher: OpenSelena
-PublisherUrl: https://openselena.org
+PublisherUrl: https://github.com/OpenSelena
 PublisherSupportUrl: https://github.com/OpenSelena/openomni/issues
 PackageName: Open Omni
 PackageUrl: https://github.com/OpenSelena/openomni

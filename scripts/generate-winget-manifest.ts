@@ -39,7 +39,7 @@ const options: WingetManifestOptions = {
   packageVersion: config.version,
   packageLocale: 'en-US',
   publisher: 'OpenSelena',
-  publisherUrl: 'https://openselena.org',
+  publisherUrl: 'https://github.com/OpenSelena',
   packageUrl: 'https://github.com/OpenSelena/openomni',
   license: 'MIT',
   licenseUrl: 'https://github.com/OpenSelena/openomni/blob/main/LICENSE',

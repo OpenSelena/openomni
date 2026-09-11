@@ -31,7 +31,7 @@ test('generateWingetManifests produces compliant v1.6.0 manifests for portable p
     packageVersion: '1.0.0',
     packageLocale: 'en-US',
     publisher: 'OpenSelena',
-    publisherUrl: 'https://openselena.org',
+    publisherUrl: 'https://github.com/OpenSelena',
     packageUrl: 'https://github.com/OpenSelena/openomni',
     license: 'MIT',
     licenseUrl: 'https://github.com/OpenSelena/openomni/blob/main/LICENSE',
