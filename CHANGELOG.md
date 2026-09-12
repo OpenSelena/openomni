@@ -4,6 +4,25 @@ All notable changes to Open Omni are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-09-13
+
+[Diff: v1.1.0...v1.2.0](https://github.com/OpenSelena/openomni/compare/v1.1.0...v1.2.0)
+
+### Added
+
+- **Download Ledger & Resumable Batches** ([ADR 0015](docs/adr/0015-download-ledger-and-resumable-batches.md)):
+  - Persistent download ledger tracking completed media downloads with file size, metadata, and disk verification.
+  - Automatic deduplication with `--skip-existing` flag across single downloads and batch playlists.
+  - Interactive playlist item picker marks already completed downloads directly in the TUI.
+- **Time Range Section Slicing**:
+  - Added `--time <range>` parameter to download specific portions of videos (formats: `MM:SS-MM:SS`, `HH:MM:SS-HH:MM:SS`, or raw seconds) via `yt-dlp` `--download-sections`.
+- **macOS Package Manager Delegation for gallery-dl** ([ADR 0016](docs/adr/0016-macos-gallery-dl-package-manager-fallback.md)):
+  - Added multi-tier fallback installation (`brew install gallery-dl` -> `pip install gallery-dl`) when upstream binaries are missing on macOS Darwin.
+  - Interactive TTY confirmation prompt `[Y/n]` with non-interactive headless rejection guard.
+- **CI Smoke Tests & Broad Test Suite**:
+  - Added cross-platform CLI smoke testing and native `macos-latest` GitHub Actions runner.
+  - Added dedicated unit test suites for `click-map`, `clipboard`, `format`, `history`, and `platforms`.
+
 ## [1.1.0] - 2026-09-11
 
 [Diff: v1.0.0...v1.1.0](https://github.com/OpenSelena/openomni/compare/v1.0.0...v1.1.0)
