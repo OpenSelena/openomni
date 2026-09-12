@@ -11,10 +11,10 @@ const COMMANDS: Array<[string, string[]]> =
           ['xsel', ['--clipboard', '--output']],
         ]
 
-export function readClipboard(): string {
+export function readClipboard(execFn: typeof execFileSync = execFileSync): string {
   for (const [command, args] of COMMANDS) {
     try {
-      return execFileSync(command, args, {encoding: 'utf8', timeout: 500, stdio: ['ignore', 'pipe', 'ignore']})
+      return execFn(command, args, {encoding: 'utf8', timeout: 500, stdio: ['ignore', 'pipe', 'ignore']})
     } catch {
       // tool missing or clipboard empty — try the next one
     }

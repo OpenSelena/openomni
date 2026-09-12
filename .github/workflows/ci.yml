@@ -44,3 +44,15 @@ jobs:
 
       - name: Verify package tarball
         run: npm pack --dry-run
+
+      - name: E2E CLI Smoke Test
+        run: |
+          node dist/cli.js --help
+          node dist/cli.js --version
+
+      - name: E2E macOS gallery-dl Fallback Test
+        if: runner.os == 'macOS'
+        run: |
+          node dist/cli.js --update-gallerydl
+          gallery-dl --version
+

@@ -308,26 +308,223 @@ async function installGalleryDlStandalone(
   }
 }
 
+export type MacPackageManager = 'brew' | 'pip'
+
+export async function detectMacPackageManager(
+  probeFn: (command: string, args: string[]) => Promise<boolean> = commandWorks,
+): Promise<MacPackageManager | undefined> {
+  if (await probeFn('brew', ['--version'])) {
+    return 'brew'
+  }
+  if (await probeFn('python3', ['-m', 'pip', '--version'])) {
+    return 'pip'
+  }
+  return undefined
+}
+
+export async function promptConfirmation(
+  question: string,
+  isTty = Boolean(process.stdin.isTTY),
+): Promise<boolean> {
+  if (!isTty) {
+    return false
+  }
+
+  const readline = await import('node:readline/promises')
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  })
+
+  try {
+    const answer = await rl.question(`${question} `)
+    const normalized = answer.trim().toLowerCase()
+    return normalized === '' || normalized === 'y' || normalized === 'yes'
+  } finally {
+    rl.close()
+  }
+}
+
+export async function installGalleryDlViaManager(
+  manager: MacPackageManager,
+  options?: {
+    onStatus?: (msg: string) => void
+    signal?: AbortSignal
+    spawnFn?: typeof spawn
+  },
+): Promise<void> {
+  const spawnImpl = options?.spawnFn ?? spawn
+  const onStatus = options?.onStatus
+  const signal = options?.signal
+
+  const command = manager === 'brew' ? 'brew' : 'python3'
+  const args = manager === 'brew'
+    ? ['install', 'gallery-dl']
+    : ['-m', 'pip', 'install', '--user', 'gallery-dl']
+
+  onStatus?.(`Installing gallery-dl via ${manager === 'brew' ? 'Homebrew' : 'pip'}…`)
+
+  return new Promise((resolve, reject) => {
+    let child: ChildProcess
+    let stderr = ''
+    try {
+      child = spawnImpl(command, args, {stdio: ['ignore', 'pipe', 'pipe'], signal})
+    } catch (err) {
+      reject(new Error(`Failed to execute ${command}: ${err instanceof Error ? err.message : String(err)}`))
+      return
+    }
+
+    child.stderr?.on('data', (d: Buffer) => {
+      stderr += d.toString()
+    })
+    child.on('error', err => reject(new Error(`Failed to run ${command}: ${err.message}`)))
+    child.on('close', code => {
+      if (code === 0) {
+        resolve()
+      } else {
+        reject(new Error(`${command} exited with code ${code}: ${stderr.trim() || 'installation failed'}`))
+      }
+    })
+  })
+}
+
+export async function upgradeGalleryDlViaManager(
+  manager: MacPackageManager,
+  options?: {
+    onStatus?: (msg: string) => void
+    signal?: AbortSignal
+    spawnFn?: typeof spawn
+  },
+): Promise<void> {
+  const spawnImpl = options?.spawnFn ?? spawn
+  const onStatus = options?.onStatus
+  const signal = options?.signal
+
+  const command = manager === 'brew' ? 'brew' : 'python3'
+  const args = manager === 'brew'
+    ? ['upgrade', 'gallery-dl']
+    : ['-m', 'pip', 'install', '--upgrade', 'gallery-dl']
+
+  onStatus?.(`Upgrading gallery-dl via ${manager === 'brew' ? 'Homebrew' : 'pip'}…`)
+
+  return new Promise((resolve, reject) => {
+    let child: ChildProcess
+    try {
+      child = spawnImpl(command, args, {stdio: ['ignore', 'pipe', 'pipe'], signal})
+    } catch (err) {
+      reject(new Error(`Failed to execute ${command}: ${err instanceof Error ? err.message : String(err)}`))
+      return
+    }
+
+    child.on('error', err => reject(new Error(`Failed to run ${command}: ${err.message}`)))
+    child.on('close', () => {
+      resolve()
+    })
+  })
+}
+
+export async function installGalleryDlMacOs(options?: {
+  onStatus?: (msg: string) => void
+  signal?: AbortSignal
+  promptConfirmFn?: (question: string) => Promise<boolean>
+  probeFn?: (command: string, args: string[]) => Promise<boolean>
+  installFn?: (manager: MacPackageManager) => Promise<void>
+}): Promise<string> {
+  const onStatus = options?.onStatus
+  const signal = options?.signal
+  const promptConfirm = options?.promptConfirmFn ?? (q => promptConfirmation(q))
+  const probe = options?.probeFn ?? commandWorks
+  const install = options?.installFn ?? (m => installGalleryDlViaManager(m, {onStatus, signal}))
+
+  const manager = await detectMacPackageManager(probe)
+  if (!manager) {
+    throw new Error(
+      "gallery-dl is required for photo downloads on macOS. Please install it via Homebrew: 'brew install gallery-dl' or pip: 'python3 -m pip install --user gallery-dl'",
+    )
+  }
+
+  const managerLabel = manager === 'brew' ? 'Homebrew' : 'pip'
+  const managerCmd = manager === 'brew' ? 'brew install gallery-dl' : 'python3 -m pip install --user gallery-dl'
+
+  const confirmed = await promptConfirm(`gallery-dl is required for photo downloads. Install via ${managerLabel}? [Y/n]`)
+  if (!confirmed) {
+    throw new Error(
+      `gallery-dl installation cancelled. You can install it manually with: '${managerCmd}'`,
+    )
+  }
+
+  await install(manager)
+
+  if (await probe('gallery-dl', ['--version'])) {
+    return 'gallery-dl'
+  }
+
+  for (const candidate of [
+    '/opt/homebrew/bin/gallery-dl',
+    '/usr/local/bin/gallery-dl',
+  ]) {
+    if (await probe(candidate, ['--version'])) {
+      return candidate
+    }
+  }
+
+  return 'gallery-dl'
+}
+
 export async function updateGalleryDl(options?: {
   force?: boolean
   onStatus?: (msg: string) => void
   signal?: AbortSignal
+  platform?: NodeJS.Platform
+  probeFn?: (command: string, args: string[]) => Promise<boolean>
+  getVersionFn?: (binary: string) => Promise<string | undefined>
+  upgradeFn?: (manager: MacPackageManager) => Promise<void>
+  installFn?: (manager: MacPackageManager) => Promise<void>
 }): Promise<GalleryDlUpdateResult> {
   const onStatus = options?.onStatus ?? (() => {})
   const signal = options?.signal
+  const platform = options?.platform ?? process.platform
+  const probe = options?.probeFn ?? commandWorks
+  const getVersion = options?.getVersionFn ?? getGalleryDlVersion
+  const upgrade = options?.upgradeFn ?? (m => upgradeGalleryDlViaManager(m, {onStatus, signal}))
+  const install = options?.installFn ?? (m => installGalleryDlViaManager(m, {onStatus, signal}))
 
-  if (options?.force) {
-    if (process.platform === 'darwin') {
+  if (platform === 'darwin') {
+    const isInstalled = await probe('gallery-dl', ['--version'])
+    const binary = isInstalled ? 'gallery-dl' : resolveGalleryDlPath()
+    const previousVersion = await getVersion(binary)
+    onStatus(`checking for gallery-dl updates on macOS (current: ${previousVersion ?? 'unknown'})…`)
+
+    const manager = await detectMacPackageManager(probe)
+    if (!manager) {
       throw new Error(
-        "Standalone gallery-dl binary is not distributed for macOS. Please upgrade it via Homebrew: 'brew upgrade gallery-dl'",
+        "Cannot manage gallery-dl on macOS automatically: neither Homebrew nor pip was found. Install manually with 'brew install gallery-dl' or 'python3 -m pip install --user gallery-dl'",
       )
     }
+
+    if (isInstalled) {
+      await upgrade(manager)
+    } else {
+      await install(manager)
+    }
+
+    const currentVersion = (await getVersion('gallery-dl')) ?? (await getVersion(binary)) ?? previousVersion ?? 'unknown'
+    const updated = previousVersion ? currentVersion !== previousVersion : Boolean(currentVersion && currentVersion !== 'unknown')
+
+    return {
+      previousVersion,
+      currentVersion,
+      updated,
+    }
+  }
+
+  if (options?.force) {
     onStatus('downloading fresh standalone gallery-dl from Codeberg…')
     return await installGalleryDlStandalone(undefined, signal, onStatus)
   }
 
   const binary = await ensureGalleryDl(onStatus, signal)
-  const previousVersion = await getGalleryDlVersion(binary)
+  const previousVersion = await getVersion(binary)
   onStatus(`checking for gallery-dl updates (current: ${previousVersion ?? 'unknown'})…`)
 
   const nativeResult = await new Promise<{code: number | null; output: string}>(resolve => {
@@ -350,16 +547,11 @@ export async function updateGalleryDl(options?: {
   })
 
   if (nativeResult.code !== 0 || isGalleryDlPackageManaged(nativeResult.output)) {
-    if (process.platform === 'darwin') {
-      throw new Error(
-        "System gallery-dl cannot self-update. On macOS, please upgrade via Homebrew: 'brew upgrade gallery-dl'",
-      )
-    }
     onStatus(`system binary cannot self-update; downloading standalone release into ${OPEN_OMNI_DIR}…`)
     return await installGalleryDlStandalone(previousVersion, signal, onStatus)
   }
 
-  const currentVersion = (await getGalleryDlVersion(binary)) ?? previousVersion ?? 'unknown'
+  const currentVersion = (await getVersion(binary)) ?? previousVersion ?? 'unknown'
   const isUpToDate = isGalleryDlUpToDateMessage(nativeResult.output)
   const updated = previousVersion ? currentVersion !== previousVersion : !isUpToDate
 
@@ -373,14 +565,32 @@ export async function updateGalleryDl(options?: {
 export async function ensureGalleryDl(
   onStatus?: (status: string) => void,
   signal?: AbortSignal,
+  options?: {
+    promptConfirmFn?: (question: string) => Promise<boolean>
+    platform?: NodeJS.Platform
+    probeFn?: (command: string, args: string[]) => Promise<boolean>
+    installFn?: (manager: MacPackageManager) => Promise<void>
+  },
 ): Promise<string> {
-  if (await commandWorks('gallery-dl', ['--version'])) {
+  const probe = options?.probeFn ?? commandWorks
+  if (await probe('gallery-dl', ['--version'])) {
     return 'gallery-dl'
   }
 
   const local = resolveGalleryDlPath()
-  if (await commandWorks(local, ['--version'])) {
+  if (await probe(local, ['--version'])) {
     return local
+  }
+
+  const platform = options?.platform ?? process.platform
+  if (platform === 'darwin') {
+    return await installGalleryDlMacOs({
+      onStatus,
+      signal,
+      promptConfirmFn: options?.promptConfirmFn,
+      probeFn: probe,
+      installFn: options?.installFn,
+    })
   }
 
   onStatus?.('Setting up gallery-dl for image downloads...')

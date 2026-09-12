@@ -52,6 +52,10 @@ _Avoid_: Hotpatch, auto-upgrade, sync
 The standalone POSIX shell script (`install.sh`) that validates prerequisites, installs Open Omni into an isolated user prefix (`~/.open-omni`), and configures shell PATH.
 _Avoid_: Setup wizard, payload, bootstrap script
 
+**Package Manager Delegation**:
+The automated orchestration of platform-native package managers (`brew`, `pip`) on operating systems lacking standalone engine releases (such as macOS for `gallery-dl`), subject to explicit user consent in interactive sessions.
+_Avoid_: External installer, system hook, package wrapper
+
 ### Subtitles & Metadata
 
 **Subtitles**:

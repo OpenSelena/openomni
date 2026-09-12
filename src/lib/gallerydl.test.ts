@@ -10,6 +10,10 @@ import {
   isGalleryDlPackageManaged,
   getGalleryDlDownloadUrls,
   CODEBERG_MASTER_ARCHIVE,
+  detectMacPackageManager,
+  installGalleryDlMacOs,
+  ensureGalleryDl,
+  updateGalleryDl,
 } from './gallerydl.js'
 
 test('isPhotoExtension correctly classifies image extensions', () => {
@@ -248,3 +252,114 @@ test('getGalleryDlDownloadUrls returns empty array if Codeberg API is unreachabl
   const urls = await getGalleryDlDownloadUrls('gallery-dl.bin', mockFetch)
   assert.equal(urls.length, 0)
 })
+
+test('detectMacPackageManager prefers brew if available', async () => {
+  const probe = async (cmd: string) => cmd === 'brew' || cmd === 'python3'
+  const manager = await detectMacPackageManager(probe)
+  assert.equal(manager, 'brew')
+})
+
+test('detectMacPackageManager falls back to pip if brew is missing', async () => {
+  const probe = async (cmd: string) => cmd === 'python3'
+  const manager = await detectMacPackageManager(probe)
+  assert.equal(manager, 'pip')
+})
+
+test('detectMacPackageManager returns undefined if neither brew nor pip available', async () => {
+  const probe = async () => false
+  const manager = await detectMacPackageManager(probe)
+  assert.equal(manager, undefined)
+})
+
+test('installGalleryDlMacOs throws when no package manager available', async () => {
+  await assert.rejects(
+    () => installGalleryDlMacOs({probeFn: async () => false}),
+    /gallery-dl is required for photo downloads on macOS/i,
+  )
+})
+
+test('installGalleryDlMacOs aborts when user declines prompt', async () => {
+  await assert.rejects(
+    () =>
+      installGalleryDlMacOs({
+        probeFn: async cmd => cmd === 'brew',
+        promptConfirmFn: async () => false,
+      }),
+    /gallery-dl installation cancelled/i,
+  )
+})
+
+test('installGalleryDlMacOs executes installation when confirmed', async () => {
+  let installedManager: string | undefined
+  const result = await installGalleryDlMacOs({
+    probeFn: async (cmd, args) => {
+      if (cmd === 'brew') return true
+      if (cmd === 'gallery-dl' && args[0] === '--version') return installedManager !== undefined
+      return false
+    },
+    promptConfirmFn: async () => true,
+    installFn: async manager => {
+      installedManager = manager
+    },
+  })
+  assert.equal(installedManager, 'brew')
+  assert.equal(result, 'gallery-dl')
+})
+
+test('ensureGalleryDl triggers macOS installation flow on darwin when missing', async () => {
+  let installCalled = false
+  const binary = await ensureGalleryDl(
+    undefined,
+    undefined,
+    {
+      platform: 'darwin',
+      probeFn: async (cmd, args) => {
+        if (cmd === 'brew') return true
+        if (cmd === 'gallery-dl' && args[0] === '--version') return installCalled
+        return false
+      },
+      promptConfirmFn: async () => true,
+      installFn: async () => {
+        installCalled = true
+      },
+    },
+  )
+  assert.equal(installCalled, true)
+  assert.equal(binary, 'gallery-dl')
+})
+
+test('updateGalleryDl routes to package manager upgrade on darwin', async () => {
+  let upgradedManager: string | undefined
+  const res = await updateGalleryDl({
+    platform: 'darwin',
+    probeFn: async cmd => cmd === 'brew' || cmd === 'gallery-dl',
+    getVersionFn: async () => (upgradedManager ? '1.32.12' : '1.32.11'),
+    upgradeFn: async manager => {
+      upgradedManager = manager
+    },
+  })
+  assert.equal(upgradedManager, 'brew')
+  assert.equal(res.previousVersion, '1.32.11')
+  assert.equal(res.currentVersion, '1.32.12')
+  assert.equal(res.updated, true)
+})
+
+test('updateGalleryDl installs if missing on darwin', async () => {
+  let installedManager: string | undefined
+  const res = await updateGalleryDl({
+    platform: 'darwin',
+    probeFn: async (cmd, args) => {
+      if (cmd === 'brew') return true
+      if (cmd === 'gallery-dl' && args[0] === '--version') return installedManager !== undefined
+      return false
+    },
+    getVersionFn: async () => (installedManager ? '1.32.12' : undefined),
+    installFn: async manager => {
+      installedManager = manager
+    },
+  })
+  assert.equal(installedManager, 'brew')
+  assert.equal(res.currentVersion, '1.32.12')
+  assert.equal(res.updated, true)
+})
+
