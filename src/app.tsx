@@ -3,15 +3,16 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import {Box, Text, useApp, useInput, useStdout} from 'ink'
-import SelectInput, {type IndicatorProps, type ItemProps} from 'ink-select-input'
 import Spinner from 'ink-spinner'
-import {FramedInput} from './components/framed-input.js'
 import {FullScreen} from './components/fullscreen.js'
 import {Logo} from './components/logo.js'
-import {Panel} from './components/panel.js'
-import {ProgressBar} from './components/progress-bar.js'
 import {Shortcuts} from './components/shortcuts.js'
-import {TextInput} from './components/text-input.js'
+import {InputView} from './components/views/input-view.js'
+import {ProbingView} from './components/views/probing-view.js'
+import {PickingView, choiceLabel} from './components/views/picking-view.js'
+import {DownloadingView} from './components/views/downloading-view.js'
+import {SingleDoneView, PlaylistDoneView, DONE_LABEL} from './components/views/completion-view.js'
+import {ErrorView, ConfirmOverwriteView} from './components/views/error-view.js'
 import {PlaylistScopePicker, type PlaylistScopeChoice} from './components/playlist-scope-picker.js'
 import {PlaylistItemPicker} from './components/playlist-item-picker.js'
 import {PlaylistQualityPicker} from './components/playlist-quality-picker.js'
@@ -52,32 +53,7 @@ import {normalizeToYtdlpSection} from './lib/time.js'
 
 const OUT_DIR = path.join(os.homedir(), 'Downloads')
 const DOWNLOAD_BUTTON = 'download'
-const DONE_LABEL = '↵ download another'
 const TAGLINE = 'grab any video. paste. download. done.'
-
-const choiceLabel = (choice: DownloadChoice) => {
-  if (choice.kind === 'audio') return `♪ ${choice.label}`
-  if (choice.kind === 'photo') return `📷 ${choice.label}`
-  return `▶ ${choice.label}`
-}
-
-function ChoiceIndicator({isSelected}: IndicatorProps) {
-  const theme = useTheme()
-  return (
-    <Box marginRight={1}>
-      <Text color={theme.primary}>{isSelected ? '❯' : ' '}</Text>
-    </Box>
-  )
-}
-
-function ChoiceItem({isSelected, label}: ItemProps) {
-  const theme = useTheme()
-  return (
-    <Text color={theme.primary} bold={isSelected}>
-      {label}
-    </Text>
-  )
-}
 
 const Gap = ({lines = 1}: {lines?: number}) => (
   <Box flexDirection="column" flexShrink={0}>
@@ -86,22 +62,6 @@ const Gap = ({lines = 1}: {lines?: number}) => (
     ))}
   </Box>
 )
-
-function partLabel(progress: DownloadProgress): string {
-  return progress.totalParts > 1 ? `part ${progress.part + 1}/${progress.totalParts}  ` : ''
-}
-
-function downloadMeta(progress: DownloadProgress): string {
-  const speed = progress.speed ? formatSpeed(progress.speed) : ''
-  const eta = progress.eta ? `${formatEta(progress.eta)} left` : ''
-  return `${partLabel(progress)}${speed.padStart(10)}  ${eta.padEnd(12)}`
-}
-
-function indeterminateMeta(progress: DownloadProgress): string {
-  const bytes = formatBytes(progress.downloadedBytes)
-  const speed = progress.speed ? formatSpeed(progress.speed) : ''
-  return `${partLabel(progress)}${bytes.padStart(8)}  ${speed.padEnd(10)}`
-}
 
 export type Outcome = {filepath?: string}
 
@@ -836,47 +796,32 @@ function InnerApp({
       <Gap />
 
       {phase.name === 'input' && (
-        <Box flexDirection="column" alignItems="center">
-          <FramedInput title="Paste a link" width={boxWidth} button={DOWNLOAD_BUTTON}>
-            <TextInput
-              value={urlInput}
-              onChange={setUrlInput}
-              onSubmit={handleUrlSubmit}
-              placeholder="https://youtube.com/watch?v=…"
-              width={boxWidth - 6}
-              history={history}
-              submitOnPaste={isProbablyUrl}
-              onTab={() => {
-                if (clipboardOffered) setUrlInput(clipboardUrl!)
-              }}
-            />
-          </FramedInput>
-          {phase.warning ? (
-            <Text color={theme.gray} dimColor={theme.dimSecondary}>✗ {phase.warning}</Text>
-          ) : clipboardOffered ? (
-            <Text color={theme.gray} dimColor={theme.dimSecondary}>link in your clipboard — Tab to paste it</Text>
-          ) : clipboardAccepted ? (
-            <Text color={theme.gray} dimColor={theme.dimSecondary}>from your clipboard — ↵ to download it</Text>
-          ) : null}
-          <Gap />
-          <Text color={theme.gray} dimColor={theme.dimSecondary}>
-            <Text color={BRAND_COLOR} underline>
-              {terminalLink(`v${version}`, releaseUrl)}
-            </Text>
-            {' · by '}
-            <Text color={BRAND_COLOR} underline>
-              {terminalLink('Igect', 'https://igect.link/')}
-            </Text>
-          </Text>
-        </Box>
+        <InputView
+          urlInput={urlInput}
+          setUrlInput={setUrlInput}
+          onSubmit={handleUrlSubmit}
+          boxWidth={boxWidth}
+          history={history}
+          clipboardOffered={clipboardOffered}
+          clipboardAccepted={clipboardAccepted}
+          clipboardUrl={clipboardUrl}
+          warning={phase.warning}
+          version={version}
+          releaseUrl={releaseUrl}
+          theme={theme}
+          buttonText={DOWNLOAD_BUTTON}
+          gapComponent={Gap}
+        />
       )}
 
       {phase.name === 'probing' && (
-        <Box flexDirection="column" alignItems="center">
-          <FramedInput title={platform ? platform.label : 'Paste a link'} width={boxWidth} button={DOWNLOAD_BUTTON} buttonDim>
-            <Text color={theme.gray} dimColor={theme.dimSecondary}>{url.length > boxWidth - 8 ? `${url.slice(0, boxWidth - 9)}…` : url}</Text>
-          </FramedInput>
-        </Box>
+        <ProbingView
+          platform={platform}
+          url={url}
+          boxWidth={boxWidth}
+          theme={theme}
+          buttonText={DOWNLOAD_BUTTON}
+        />
       )}
 
       {phase.name === 'playlist-scope' && (
@@ -994,151 +939,66 @@ function InnerApp({
       )}
 
       {phase.name === 'playlist-done' && (
-        <Box flexDirection="column" alignItems="center">
-          <Text>
-            <Text bold color={theme.primary}>{phase.hasPhotos ? '✓ post downloaded! ' : '✓ playlist downloaded! '}</Text>
-            <Text color={theme.primary}>saved to:</Text>
-          </Text>
-          <Text color={theme.gray} dimColor={theme.dimSecondary}>{shortenPath(phase.targetDir, os.homedir(), 60)}</Text>
-          <Text color={theme.gray} dimColor={theme.dimSecondary}>
-            {`${phase.downloadCount} ${phase.hasPhotos ? 'item' : 'video'}${phase.downloadCount === 1 ? '' : 's'} downloaded` + (phase.skippedCount > 0 ? ` (${phase.skippedCount} skipped)` : '')}
-          </Text>
-          <Gap />
-          <Box
-            borderStyle="round"
-            borderColor={theme.gray}
-            borderDimColor={theme.dimSecondary}
-            borderBackgroundColor={theme.background}
-            paddingX={3}
-          >
-            <Text bold color={theme.primary}>{DONE_LABEL}</Text>
-          </Box>
-        </Box>
+        <PlaylistDoneView
+          playlistTitle={phase.playlistTitle}
+          downloadCount={phase.downloadCount}
+          skippedCount={phase.skippedCount}
+          targetDir={phase.targetDir}
+          hasPhotos={phase.hasPhotos}
+          theme={theme}
+          gapComponent={Gap}
+        />
       )}
 
       {phase.name === 'confirm-overwrite' && (
-        <Box flexDirection="column" alignItems="center" width={boxWidth}>
-          <Text bold color={theme.primary}>File already exists at:</Text>
-          <Text color={theme.gray} dimColor={theme.dimSecondary}>{shortenPath(phase.existingPath, os.homedir(), 60)}</Text>
-          <Gap />
-          <Text color={theme.primary}>Redownload? <Text bold>[y/N]</Text></Text>
-        </Box>
+        <ConfirmOverwriteView
+          existingPath={phase.existingPath}
+          boxWidth={boxWidth}
+          theme={theme}
+          gapComponent={Gap}
+        />
       )}
 
       {phase.name === 'picking' && platform && (
-        <Box width={contentWidth}>
-          <Box flexDirection="column" flexGrow={1} flexBasis={0} paddingTop={1} paddingRight={3}>
-            {wrapText(info?.title ?? '', Math.max(10, contentWidth - 41)).map((line, index) => (
-              <Text key={index} bold color={theme.primary}>
-                {line}
-              </Text>
-            ))}
-            <Gap />
-            <Text color={theme.gray} dimColor={theme.dimSecondary}>
-              ▸ {platform.label}
-              {info?.duration ? ` · ${formatDuration(info.duration)}` : ''}
-              {info?.uploader ? ` · ${info.uploader}` : ''}
-            </Text>
-          </Box>
-          <Panel title="Download" width={38}>
-            <SelectInput
-              indicatorComponent={ChoiceIndicator}
-              itemComponent={ChoiceItem}
-              items={choices.map((choice, index) => ({
-                key: String(index),
-                label: choiceLabel(choice),
-                value: index,
-              }))}
-              onSelect={handlePick}
-              onHighlight={item => (highlightRef.current = item.value)}
-            />
-          </Panel>
-        </Box>
+        <PickingView
+          contentWidth={contentWidth}
+          info={info}
+          platform={platform}
+          choices={choices}
+          onSelect={handlePick}
+          onHighlight={item => (highlightRef.current = item.value)}
+          theme={theme}
+          gapComponent={Gap}
+        />
       )}
 
       {phase.name === 'downloading' && (
-        <Box flexDirection="column" alignItems="center">
-          <Text color={theme.gray} dimColor={theme.dimSecondary}>
-            {(phase.title || info?.title) ? `${truncate(phase.title || info!.title, 42)} · ` : ''}
-            {choiceLabel(phase.choice)}
-          </Text>
-          <Gap />
-          {phase.processing ? (
-            <>
-              <ProgressBar percent={1} />
-              <Gap />
-              <Text>
-                <Text color={theme.primary}>
-                  <Spinner type="dots" />
-                </Text>
-                <Text color={theme.gray} dimColor={theme.dimSecondary}> processing…</Text>
-              </Text>
-            </>
-          ) : phase.progress?.totalBytes ? (
-            <>
-              <ProgressBar percent={phase.progress.downloadedBytes / phase.progress.totalBytes} />
-              <Gap />
-              <Text color={theme.gray} dimColor={theme.dimSecondary}>{downloadMeta(phase.progress)}</Text>
-            </>
-          ) : phase.progress ? (
-            <>
-              <Text>
-                <Text color={theme.primary}>
-                  <Spinner type="dots" />
-                </Text>
-                <Text color={theme.gray} dimColor={theme.dimSecondary}> downloading…</Text>
-              </Text>
-              <Gap />
-              <Text color={theme.gray} dimColor={theme.dimSecondary}>{indeterminateMeta(phase.progress)}</Text>
-            </>
-          ) : (
-            <>
-              <ProgressBar percent={0} />
-              <Gap />
-              <Text>
-                <Text color={theme.primary}>
-                  <Spinner type="dots" />
-                </Text>
-                <Text color={theme.gray} dimColor={theme.dimSecondary}>
-                  {phase.refreshing ? ' link expired — grabbing a fresh one…' : ' starting download…'}
-                </Text>
-              </Text>
-            </>
-          )}
-        </Box>
+        <DownloadingView
+          title={phase.title}
+          fallbackTitle={info?.title}
+          choice={phase.choice}
+          processing={phase.processing}
+          progress={phase.progress}
+          refreshing={phase.refreshing}
+          theme={theme}
+          gapComponent={Gap}
+        />
       )}
 
       {phase.name === 'done' && (
-        <Box flexDirection="column" alignItems="center">
-          <Text>
-            <Text bold color={theme.primary}>✓ downloaded! </Text>
-            <Text color={theme.primary}>find your file in:</Text>
-          </Text>
-          <Text color={theme.gray} dimColor={theme.dimSecondary}>{shortenPath(phase.filepath, os.homedir(), 60)}</Text>
-          <Gap />
-          <Box
-            borderStyle="round"
-            borderColor={theme.gray}
-            borderDimColor={theme.dimSecondary}
-            borderBackgroundColor={theme.background}
-            paddingX={3}
-          >
-            <Text bold color={theme.primary}>{DONE_LABEL}</Text>
-          </Box>
-        </Box>
+        <SingleDoneView
+          filepath={phase.filepath}
+          theme={theme}
+          gapComponent={Gap}
+        />
       )}
 
       {phase.name === 'error' && (
-        <Box flexDirection="column" alignItems="center" width={Math.max(10, Math.min(columns - 6, 72))}>
-          <Text bold color={theme.primary}>✗ {phase.message}</Text>
-          {isExtractorError(phase.message) && (
-            <Box marginTop={1}>
-              <Text color={theme.gray} dimColor={theme.dimSecondary}>
-                Hint: Try running 'open-omni -U' to update the video extractor.
-              </Text>
-            </Box>
-          )}
-        </Box>
+        <ErrorView
+          message={phase.message}
+          columns={columns}
+          theme={theme}
+        />
       )}
 
       {hints.length > 0 ? (

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 
 const args = process.argv.slice(2);
-let version = '1.1.0';
+let version = '1.2.0';
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--version' && args[i + 1]) {
     version = args[++i];
