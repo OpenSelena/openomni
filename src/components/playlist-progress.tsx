@@ -32,12 +32,17 @@ export function PlaylistProgress({
 }: PlaylistProgressProps) {
   const theme = useTheme()
 
-  const itemPct =
-    progress && progress.totalBytes && progress.totalBytes > 0
-      ? Math.min(100, (progress.downloadedBytes / progress.totalBytes) * 100)
-      : 0
+  let itemRatio = 0
+  if (processing) {
+    itemRatio = 1
+  } else if (progress?.totalBytes && progress.totalBytes > 0) {
+    itemRatio = Math.min(1, progress.downloadedBytes / progress.totalBytes)
+  }
+  const itemPct = Math.round(itemRatio * 100)
 
-  const batchPct = Math.min(100, ((currentIndex + (itemPct / 100)) / totalCount) * 100)
+  const batchRatio =
+    totalCount > 0 ? Math.min(1, (currentIndex + itemRatio) / totalCount) : 0
+  const batchPct = Math.round(batchRatio * 100)
   const cleanTitle = currentTitle.length > 44 ? `${currentTitle.slice(0, 41)}...` : currentTitle
 
   const speedStr = progress?.speed ? formatSpeed(progress.speed) : ''
@@ -53,12 +58,12 @@ export function PlaylistProgress({
             Overall Batch:
           </Text>
           <Text color={theme.gray} dimColor={theme.dimSecondary}>
-            {`${Math.round(batchPct)}% (${currentIndex}/${totalCount})`}
+            {`${batchPct}% (${currentIndex}/${totalCount})`}
           </Text>
         </Box>
 
         {/* Overall Batch Progress Bar */}
-        <ProgressBar percent={batchPct} width={width - 6} />
+        <ProgressBar percent={batchRatio} width={width - 6} showPercent={false} />
 
         {/* Active Video Stream Header */}
         <Box marginTop={1} justifyContent="space-between" marginBottom={0}>
@@ -66,12 +71,12 @@ export function PlaylistProgress({
             {`[${currentIndex + 1}/${totalCount}] ${cleanTitle}`}
           </Text>
           <Text color={theme.primary}>
-            {`${Math.round(itemPct)}%`}
+            {`${itemPct}%`}
           </Text>
         </Box>
 
         {/* Active Stream Progress Bar */}
-        <ProgressBar percent={itemPct} width={width - 6} />
+        <ProgressBar percent={itemRatio} width={width - 6} showPercent={false} />
 
         {/* Stream Metrics / Spinner */}
         <Box marginTop={1} justifyContent="space-between">
