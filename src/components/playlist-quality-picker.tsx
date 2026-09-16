@@ -8,6 +8,8 @@ import type { QualityTier } from '../lib/playlist.js'
 export type PlaylistQualityPickerProps = {
   itemCount: number
   hasPhotos?: boolean
+  audioFormat?: string
+  videoFormat?: string
   onSelect: (tier: QualityTier) => void
   onBack: () => void
   width?: number
@@ -16,17 +18,21 @@ export type PlaylistQualityPickerProps = {
 export function PlaylistQualityPicker({
   itemCount,
   hasPhotos = false,
+  audioFormat,
+  videoFormat,
   onSelect,
   onBack,
   width = 54,
 }: PlaylistQualityPickerProps) {
   const theme = useTheme()
+  const vFmt = (videoFormat || 'mp4').toUpperCase()
+  const aFmt = (audioFormat || 'mp3').toUpperCase()
 
   const items = [
-    { label: '▶ Best video (MP4)', value: 'best' as QualityTier },
-    { label: '▶ 1080p (or best available)', value: '1080p' as QualityTier },
-    { label: '▶ 720p (or best available)', value: '720p' as QualityTier },
-    { label: '♪ Audio only (MP3)', value: 'mp3' as QualityTier },
+    { label: `▶ Best video (${vFmt})`, value: 'best' as QualityTier },
+    { label: `▶ 1080p (${vFmt})`, value: '1080p' as QualityTier },
+    { label: `▶ 720p (${vFmt})`, value: '720p' as QualityTier },
+    { label: `♪ Audio only (${aFmt})`, value: 'mp3' as QualityTier },
   ]
 
   const title = hasPhotos

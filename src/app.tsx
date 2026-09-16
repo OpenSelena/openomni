@@ -52,6 +52,7 @@ import {downloadUnifiedItem, probeUnified} from './lib/dispatcher.js'
 import {getCompletedDownload, recordDownloadWithStat} from './lib/ledger.js'
 import {normalizeToYtdlpSection} from './lib/time.js'
 import type {AudioFormat, VideoFormat} from './lib/args.js'
+import {getNextAudioFormat, getNextVideoFormat} from './lib/format-cycle.js'
 
 const OUT_DIR = path.join(os.homedir(), 'Downloads')
 const DOWNLOAD_BUTTON = 'download'
@@ -267,6 +268,8 @@ function InnerApp({
   const [subtitles, setSubtitles] = useState<SubtitleOptions | undefined>(initialSubtitles)
   const [thumbnail, setThumbnail] = useState<ThumbnailOptions | undefined>(initialThumbnail)
   const metadata = initialMetadata
+  const [activeAudioFormat, setActiveAudioFormat] = useState<AudioFormat>(audioFormat ?? 'mp3')
+  const [activeVideoFormat, setActiveVideoFormat] = useState<VideoFormat>(videoFormat ?? 'mp4')
   const ytdlpRef = useRef('')
   const gallerydlRef = useRef('')
   const highlightRef = useRef(0)
@@ -289,6 +292,22 @@ function InnerApp({
       embed: prev?.embed,
     }))
   }, [])
+
+  const cycleAudioFormat = useCallback(() => {
+    const next = getNextAudioFormat(activeAudioFormat)
+    setActiveAudioFormat(next)
+    if (info) {
+      setChoices(buildChoices(info, {audioFormat: next, videoFormat: activeVideoFormat}))
+    }
+  }, [info, activeAudioFormat, activeVideoFormat])
+
+  const cycleVideoFormat = useCallback(() => {
+    const next = getNextVideoFormat(activeVideoFormat)
+    setActiveVideoFormat(next)
+    if (info) {
+      setChoices(buildChoices(info, {audioFormat: activeAudioFormat, videoFormat: next}))
+    }
+  }, [info, activeAudioFormat, activeVideoFormat])
 
   const columns = stdout?.columns && stdout.columns > 0 ? stdout.columns : 80
   const boxWidth = Math.max(14, Math.min(64, columns - 6))
@@ -399,11 +418,11 @@ function InnerApp({
           await fs.mkdir(playlistDir, {recursive: true})
           const ffmpegLocation = await findFfmpeg()
           const choice: DownloadChoice = {
-            label: tier === 'mp3' && audioFormat ? `audio (${audioFormat})` : tier,
+            label: tier === 'mp3' && activeAudioFormat ? `audio (${activeAudioFormat})` : tier,
             kind: tier === 'mp3' ? 'audio' : 'video',
-            args: buildQualityTierArgs(tier, audioFormat, videoFormat),
+            args: buildQualityTierArgs(tier, activeAudioFormat, activeVideoFormat),
           }
-          const ext = getQualityTierExt(tier, audioFormat, videoFormat)
+          const ext = getQualityTierExt(tier, activeAudioFormat, activeVideoFormat)
 
           let succeeded = 0
           let skipped = 0
@@ -501,8 +520,8 @@ function InnerApp({
       subtitles,
       thumbnail,
       metadata,
-      audioFormat,
-      videoFormat,
+      activeAudioFormat,
+      activeVideoFormat,
       cookieFile,
       cookieHeader,
       skipExisting,
@@ -636,7 +655,10 @@ function InnerApp({
         const videoInfo = probeResult.info
         infoJsonRef.current = probeResult.infoJsonPath
         setInfo(videoInfo)
-        const availableChoices = buildChoices(videoInfo, {audioFormat, videoFormat})
+        const availableChoices = buildChoices(videoInfo, {
+          audioFormat: activeAudioFormat,
+          videoFormat: activeVideoFormat,
+        })
         setChoices(availableChoices)
         highlightRef.current = 0
         if (autoSelect) {
@@ -669,8 +691,8 @@ function InnerApp({
       skipExisting,
       force,
       time,
-      audioFormat,
-      videoFormat,
+      activeAudioFormat,
+      activeVideoFormat,
     ],
   )
 
@@ -697,6 +719,14 @@ function InnerApp({
     (input, key) => {
       if (key.ctrl && input === 't') {
         cycleTheme()
+        return
+      }
+      if ((input === 'a' || input === 'A') && !key.ctrl && isPickerPhase(phase.name)) {
+        cycleAudioFormat()
+        return
+      }
+      if ((input === 'v' || input === 'V') && !key.ctrl && isPickerPhase(phase.name)) {
+        cycleVideoFormat()
         return
       }
       if ((input === 's' || input === 'S') && !key.ctrl && isPickerPhase(phase.name)) {
@@ -761,6 +791,8 @@ function InnerApp({
   if (isPickerPhase(phase.name)) {
     hints = [
       ...hints.slice(0, 1),
+      ['a', `audio:${activeAudioFormat}`],
+      ['v', `video:${activeVideoFormat}`],
       ['s', subtitles?.enabled ? 'subs:on' : 'subs:off'],
       ['t', thumbnail?.enabled ? 'thumb:on' : 'thumb:off'],
       ...hints.slice(1),
@@ -773,6 +805,8 @@ function InnerApp({
   const hintAction = (key: string): (() => void) | undefined => {
     if (key === '^c') return () => exit()
     if (key === '^t') return cycleTheme
+    if (key === 'a') return cycleAudioFormat
+    if (key === 'v') return cycleVideoFormat
     if (key === 's') return toggleSubtitles
     if (key === 't') return toggleThumbnail
     if (key === 'esc') {
@@ -943,6 +977,8 @@ function InnerApp({
           <PlaylistQualityPicker
             itemCount={phase.selectedEntries.length}
             hasPhotos={phase.selectedEntries.some(e => e.kind === 'photo')}
+            audioFormat={activeAudioFormat}
+            videoFormat={activeVideoFormat}
             onSelect={tier => {
               executeBatchDownload(phase.playlist, phase.selectedEntries, tier)
             }}
