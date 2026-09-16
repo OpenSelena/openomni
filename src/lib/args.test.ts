@@ -394,14 +394,14 @@ test('parses metadata flags (--metadata, --add-metadata, --embed-chapters)', () 
   assert.deepEqual(toMetadataOptions({help: false, version: false}), undefined)
   assert.deepEqual(toMetadataOptions({help: false, version: false, metadata: true}), {
     enabled: true,
-    embedChapters: false,
+    embedChapters: undefined,
   })
   assert.deepEqual(toMetadataOptions({help: false, version: false, metadata: true, embedChapters: true}), {
     enabled: true,
     embedChapters: true,
   })
   assert.deepEqual(toMetadataOptions({help: false, version: false, embedChapters: true}), {
-    enabled: false,
+    enabled: undefined,
     embedChapters: true,
   })
 })
@@ -428,6 +428,14 @@ test('parses --audio-format option for official yt-dlp audio formats', () => {
   assert.match(
     parseArgs(['--audio-format']).error ?? '',
     /needs a format/
+  )
+  assert.match(
+    parseArgs(['--best', '--audio-format', 'flac']).error ?? '',
+    /cannot use both --best and --audio-format/
+  )
+  assert.match(
+    parseArgs(['--audio-format', 'flac', '--best']).error ?? '',
+    /cannot use both --best and --audio-format/
   )
 })
 

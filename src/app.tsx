@@ -266,7 +266,7 @@ function InnerApp({
   const [choices, setChoices] = useState<DownloadChoice[]>([])
   const [subtitles, setSubtitles] = useState<SubtitleOptions | undefined>(initialSubtitles)
   const [thumbnail, setThumbnail] = useState<ThumbnailOptions | undefined>(initialThumbnail)
-  const [metadata, setMetadata] = useState<MetadataOptions | undefined>(initialMetadata)
+  const metadata = initialMetadata
   const ytdlpRef = useRef('')
   const gallerydlRef = useRef('')
   const highlightRef = useRef(0)
@@ -375,7 +375,7 @@ function InnerApp({
         }
       })()
     },
-    [outDir, onOutcome, autoSelect, exit, subtitles, thumbnail, cookieFile, skipExisting, force, time, info],
+    [outDir, onOutcome, autoSelect, exit, subtitles, thumbnail, metadata, cookieFile, skipExisting, force, time, info],
   )
 
   const executeBatchDownload = useCallback(
@@ -493,7 +493,22 @@ function InnerApp({
         }
       })()
     },
-    [outDir, onOutcome, autoSelect, exit, subtitles, thumbnail],
+    [
+      outDir,
+      onOutcome,
+      autoSelect,
+      exit,
+      subtitles,
+      thumbnail,
+      metadata,
+      audioFormat,
+      videoFormat,
+      cookieFile,
+      cookieHeader,
+      skipExisting,
+      force,
+      time,
+    ],
   )
 
   const startProbe = useCallback(
@@ -641,7 +656,22 @@ function InnerApp({
         }
       }
     },
-    [autoSelect, executeDownload, executeBatchDownload, exit, mediaFilter, onOutcome, outDir, cookieFile, cookieHeader, skipExisting, force, time],
+    [
+      autoSelect,
+      executeDownload,
+      executeBatchDownload,
+      exit,
+      mediaFilter,
+      onOutcome,
+      outDir,
+      cookieFile,
+      cookieHeader,
+      skipExisting,
+      force,
+      time,
+      audioFormat,
+      videoFormat,
+    ],
   )
 
   useEffect(() => {

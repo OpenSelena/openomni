@@ -272,17 +272,38 @@ test('loadConfig and resolveRuntimeConfig handle metadata configuration', () => 
     embedChapters: true,
   })
 
-  // CLI overrides config
-  const runtimeCliOverride = resolveRuntimeConfig(
-    {help: false, version: false, metadata: true, embedChapters: false},
+  // CLI enables metadata while inheriting embedChapters from config
+  const runtimeCliInherit = resolveRuntimeConfig(
+    {help: false, version: false, metadata: true},
     {metadata: {enabled: false, embedChapters: true}}
   )
-  assert.deepEqual(runtimeCliOverride.metadata, {
+  assert.deepEqual(runtimeCliInherit.metadata, {
     enabled: true,
-    embedChapters: false,
+    embedChapters: true,
+  })
+
+  // CLI specifies both flags explicitly
+  const runtimeCliExplicit = resolveRuntimeConfig(
+    {help: false, version: false, metadata: true, embedChapters: true},
+    {metadata: {enabled: false, embedChapters: false}}
+  )
+  assert.deepEqual(runtimeCliExplicit.metadata, {
+    enabled: true,
+    embedChapters: true,
   })
 
   fs.rmSync(tempDir, {recursive: true, force: true})
+})
+
+test('resolveRuntimeConfig sets autoSelect when audioFormat CLI flag is passed', () => {
+  const fromCli = resolveRuntimeConfig({help: false, version: false, audioFormat: 'flac'})
+  assert.equal(fromCli.autoSelect, 'mp3')
+  assert.equal(fromCli.audioFormat, 'flac')
+
+  // audioFormat only in userConfig does NOT trigger autoSelect
+  const fromConfig = resolveRuntimeConfig({help: false, version: false}, {audioFormat: 'flac'})
+  assert.equal(fromConfig.autoSelect, undefined)
+  assert.equal(fromConfig.audioFormat, 'flac')
 })
 
 test('loadConfig and resolveRuntimeConfig handle audioFormat configuration', () => {
