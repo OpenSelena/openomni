@@ -94,6 +94,12 @@ npm install -g open-omni
 npx open-omni [url]
 ```
 
+Once installed, Open Omni is accessible via any of these commands:
+- `open-omni` (canonical)
+- `openomni` (hyphen-free)
+- `omni` (concise)
+- `oo` (ultra-fast alias)
+
 > **Requirements**: Node 20+ (when using npm or Homebrew; standalone Windows package bundles its own runtime). Extraction engines (`yt-dlp`, `gallery-dl`, and `ffmpeg`) are downloaded automatically to `~/.open-omni/bin` on demand.
 
 ---

@@ -46,7 +46,7 @@ const options: WingetManifestOptions = {
   shortDescription: 'Fast terminal media downloader and TUI for 1,800+ sites',
   installerUrl: config.url,
   installerSha256: config.sha256,
-  commands: ['open-omni', 'openomni', 'omni'],
+  commands: ['open-omni', 'openomni', 'omni', 'oo'],
   tags: ['video-downloader', 'yt-dlp', 'cli', 'tui', 'terminal', 'audio-downloader'],
 };
 

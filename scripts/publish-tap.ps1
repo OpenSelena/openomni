@@ -13,7 +13,12 @@ if (-not (Test-Path $formulaDir)) {
     New-Item -ItemType Directory -Path $formulaDir -Force | Out-Null
 }
 
-Copy-Item "x:\Open Omni\Formula\open-omni.rb" "$formulaDir\open-omni.rb" -Force
+$root = Resolve-Path "$PSScriptRoot\.."
+$pkg = Get-Content "$root\package.json" -Raw | ConvertFrom-Json
+$version = $pkg.version
+
+Write-Host "Updating OpenSelena/homebrew-tap to version $version..."
+Copy-Item "$root\Formula\open-omni.rb" "$formulaDir\open-omni.rb" -Force
 
 $readmeContent = @'
 <p align="center">
@@ -30,7 +35,7 @@ $readmeContent = @'
 
 <p align="center">
   <a href="https://github.com/OpenSelena/homebrew-tap/actions"><img src="https://img.shields.io/badge/Homebrew-Tap-FBB040.svg?logo=homebrew&logoColor=white" alt="Homebrew Tap"></a>
-  <a href="https://github.com/OpenSelena/openomni"><img src="https://img.shields.io/badge/Open%20Omni-v1.1.0-C15F3C.svg" alt="Open Omni Version"></a>
+  <a href="https://github.com/OpenSelena/openomni"><img src="https://img.shields.io/badge/Open%20Omni-v__VERSION__-C15F3C.svg" alt="Open Omni Version"></a>
   <a href="https://github.com/OpenSelena/openomni/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
   <a href="mailto:igect@vk.com"><img src="https://img.shields.io/badge/contact-igect%40vk.com-blue.svg" alt="Contact Email"></a>
 </p>
@@ -41,7 +46,7 @@ $readmeContent = @'
 
 | Formula | Version | Description | Command |
 | :--- | :--- | :--- | :--- |
-| **`open-omni`** | `1.1.0` | Fast terminal media downloader & TUI for 1,800+ sites (YouTube, X, Instagram, TikTok, Threads, etc.) | `brew install OpenSelena/tap/open-omni` |
+| **`open-omni`** | `__VERSION__` | Fast terminal media downloader & TUI for 1,800+ sites (YouTube, X, Instagram, TikTok, Threads, etc.) | `brew install OpenSelena/tap/open-omni` |
 
 ---
 
@@ -71,6 +76,7 @@ Once installed, the following CLI commands are immediately available in your ter
 - `open-omni`
 - `openomni`
 - `omni`
+- `oo`
 
 Verify your installation:
 
@@ -207,12 +213,13 @@ For copyright concerns, DMCA takedown requests, legal inquiries, bug reports, se
 - **Email**: [igect@vk.com](mailto:igect@vk.com)
 '@
 
+$readmeContent = $readmeContent -replace '__VERSION__', $version
 Set-Content -Path "$tapDir\README.md" -Value $readmeContent -Encoding utf8
 
 Push-Location $tapDir
 try {
     git add README.md Formula/open-omni.rb
-    git commit -m "chore(formula): update open-omni to v1.1.0"
+    git commit -m "chore(formula): update open-omni to v$version"
     git push origin main
     Write-Host "Updated formula and README on OpenSelena/homebrew-tap successfully!"
 } finally {

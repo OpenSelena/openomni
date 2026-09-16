@@ -73,6 +73,7 @@ jobs:
           & $csc /nologo /target:exe /out:open-omni.exe "scripts\shim.cs"
           Copy-Item open-omni.exe openomni.exe
           Copy-Item open-omni.exe omni.exe
+          Copy-Item open-omni.exe oo.exe
 
           # 2. Assemble zero-dependency package bundle
           $pkgDir = 'dist-pkg'
@@ -80,6 +81,7 @@ jobs:
           Copy-Item open-omni.exe "$pkgDir\open-omni.exe"
           Copy-Item openomni.exe "$pkgDir\openomni.exe"
           Copy-Item omni.exe "$pkgDir\omni.exe"
+          Copy-Item oo.exe "$pkgDir\oo.exe"
           Copy-Item (Get-Command node).Source "$pkgDir\node.exe"
           Copy-Item -Recurse dist "$pkgDir\dist"
           Copy-Item package.json "$pkgDir\package.json"

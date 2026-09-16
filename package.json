@@ -6,7 +6,8 @@
   "bin": {
     "open-omni": "dist/cli.js",
     "openomni": "dist/cli.js",
-    "omni": "dist/cli.js"
+    "omni": "dist/cli.js",
+    "oo": "dist/cli.js"
   },
   "files": [
     "dist/cli.js"
@@ -48,6 +49,7 @@
     "react": "^19.3.0"
   },
   "devDependencies": {
+    "@alibaba-group/open-code-review": "^1.12.2",
     "@types/node": "^26.6.0",
     "@types/react": "^19.3.0",
     "tsup": "^8.5.1",

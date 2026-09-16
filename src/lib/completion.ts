@@ -52,6 +52,9 @@ _open_omni_completions() {
 }
 
 complete -F _open_omni_completions open-omni
+complete -F _open_omni_completions openomni
+complete -F _open_omni_completions omni
+complete -F _open_omni_completions oo
 `
 }
 
@@ -86,6 +89,9 @@ _open_omni() {
 
 if [[ -n "$ZSH_VERSION" ]]; then
     compdef _open_omni open-omni
+    compdef _open_omni openomni
+    compdef _open_omni omni
+    compdef _open_omni oo
 fi
 `
 }
@@ -116,6 +122,10 @@ complete -c open-omni -l embed-thumb -d "Embed thumbnail cover art into media co
 complete -c open-omni -l photos-only -d "Download only photos from post or carousel"
 complete -c open-omni -l videos-only -d "Download only videos from post or carousel"
 complete -c open-omni -l completion -x -a "bash zsh fish powershell" -d "Generate shell autocompletion script"
+
+for cmd in openomni omni oo
+    complete -c $cmd -w open-omni
+end
 `
 }
 
@@ -128,7 +138,7 @@ export function generatePowerShellCompletion(): string {
 #       open-omni --completion powershell | Out-String | Invoke-Expression
 #   }
 
-Register-ArgumentCompleter -Native -CommandName 'open-omni' -ScriptBlock {
+$completer = {
     param($wordToComplete, $commandAst, $cursorPosition)
 
     $elements = $commandAst.CommandElements
@@ -185,6 +195,11 @@ Register-ArgumentCompleter -Native -CommandName 'open-omni' -ScriptBlock {
 
     $completions | Where-Object { $_.CompletionText -like "$wordToComplete*" }
 }
+
+Register-ArgumentCompleter -Native -CommandName 'open-omni' -ScriptBlock $completer
+Register-ArgumentCompleter -Native -CommandName 'openomni' -ScriptBlock $completer
+Register-ArgumentCompleter -Native -CommandName 'omni' -ScriptBlock $completer
+Register-ArgumentCompleter -Native -CommandName 'oo' -ScriptBlock $completer
 `
 }
 
