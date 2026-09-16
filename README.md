@@ -130,6 +130,15 @@ open-omni <url> --mp3 -o ~/Music
 # Download with subtitles embedded
 open-omni <url> --embed-subs --subs=en,es
 
+# Extract audio in specific format (flac, opus, aac, mp3, etc.)
+open-omni <url> --audio-format flac -o ~/Music
+
+# Download video in specific container format (mp4, mkv, webm)
+open-omni <url> --video-format mkv
+
+# Embed metadata tags and chapter markers into media container
+open-omni <url> --metadata --embed-chapters
+
 # Download thumbnail artwork
 open-omni <url> --thumb --embed-thumb
 
@@ -171,6 +180,11 @@ open-omni -U
 | `[url]` | Video, playlist, or gallery URL |
 | `--best` | Download highest available video quality directly |
 | `--mp3` | Extract audio track as MP3 directly |
+| `--audio-format <fmt>` | Audio extraction format (`best`, `aac`, `flac`, `mp3`, `m4a`, `opus`, `vorbis`, `wav`, `alac`) |
+| `--video-format <fmt>` | Video container format (`mp4`, `mkv`, `webm`) |
+| `--metadata` | Embed metadata (artist, title, date, etc.) into media container |
+| `--add-metadata` | Alias for `--metadata` |
+| `--embed-chapters` | Embed chapter markers into media container |
 | `--subs [langs]` | Download subtitles (e.g. `--subs=en,es`) |
 | `--embed-subs` | Mux subtitles into the video container |
 | `--thumb` | Save video thumbnail image |
@@ -203,6 +217,12 @@ Settings can be customized in `~/.config/open-omni/config.json`:
   "outputDir": "~/Downloads",
   "theme": "auto",
   "format": "best",
+  "audioFormat": "mp3",
+  "videoFormat": "mp4",
+  "metadata": {
+    "enabled": true,
+    "embedChapters": true
+  },
   "cookiesFromBrowser": "firefox",
   "subtitles": {
     "enabled": true,

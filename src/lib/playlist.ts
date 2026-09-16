@@ -67,33 +67,43 @@ export function resolvePlaylistDir(baseDir: string, playlistTitle: string): stri
   return path.join(baseDir, cleanName)
 }
 
-export function getQualityTierExt(tier: QualityTier): string {
-  return tier === 'mp3' ? 'mp3' : 'mp4'
+export function getQualityTierExt(tier: QualityTier, audioFormat?: string, videoFormat?: string): string {
+  if (tier === 'mp3') {
+    if (audioFormat === 'best') return 'm4a'
+    return audioFormat || 'mp3'
+  }
+  return videoFormat || 'mp4'
 }
 
 /**
  * Build yt-dlp format arguments for universal quality tiers.
  */
-export function buildQualityTierArgs(tier: QualityTier): string[] {
+export function buildQualityTierArgs(tier: QualityTier, audioFormat?: string, videoFormat?: string): string[] {
+  const vFmt = videoFormat || 'mp4'
   switch (tier) {
     case 'best':
-      return ['-f', 'bv*+ba/b', '--merge-output-format', 'mp4']
+      return ['-f', 'bv*+ba/b', '--merge-output-format', vFmt]
     case '1080p':
       return [
         '-f',
         'bv*[height<=1080]+ba/b[height<=1080]/best[height<=1080]',
         '--merge-output-format',
-        'mp4',
+        vFmt,
       ]
     case '720p':
       return [
         '-f',
         'bv*[height<=720]+ba/b[height<=720]/best[height<=720]',
         '--merge-output-format',
-        'mp4',
+        vFmt,
       ]
-    case 'mp3':
-      return ['-f', 'ba/b', '-x', '--audio-format', 'mp3']
+    case 'mp3': {
+      const fmt = audioFormat || 'mp3'
+      if (fmt === 'best') {
+        return ['-f', 'ba/b', '-x', '--audio-format', 'best']
+      }
+      return ['-f', 'ba/b', '-x', '--audio-format', fmt]
+    }
   }
 }
 

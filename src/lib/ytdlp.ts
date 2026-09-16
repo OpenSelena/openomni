@@ -7,6 +7,7 @@ import {Readable} from 'node:stream'
 import {pipeline} from 'node:stream/promises'
 import {formatBytes} from './format.js'
 import {parsePlaylistOutput, type PlaylistMetadata} from './playlist.js'
+import type {AudioFormat, VideoFormat} from './args.js'
 
 const OPEN_OMNI_DIR = path.join(os.homedir(), '.open-omni', 'bin')
 const LEGACY_YOINKS_DIR = path.join(os.homedir(), '.yoinks', 'bin')
@@ -315,9 +316,13 @@ export type DownloadChoice = {
 
 const MAX_VIDEO_CHOICES = 8
 
-export function buildChoices(info: VideoInfo): DownloadChoice[] {
+export function buildChoices(
+  info: VideoInfo,
+  options?: {audioFormat?: AudioFormat; videoFormat?: VideoFormat},
+): DownloadChoice[] {
   const formats = info.formats ?? []
   const choices: DownloadChoice[] = []
+  const videoFmt = options?.videoFormat ?? 'mp4'
 
   const audioOnly = formats.filter(f => f.acodec && f.acodec !== 'none' && (!f.vcodec || f.vcodec === 'none'))
   const bestAudio = [...audioOnly].sort((a, b) => (b.abr ?? b.tbr ?? 0) - (a.abr ?? a.tbr ?? 0))[0]
@@ -334,12 +339,12 @@ export function buildChoices(info: VideoInfo): DownloadChoice[] {
     const sizeLabel = size > 0 ? ` · ~${formatBytes(size)}` : ''
     choices.push({
       kind: 'video',
-      label: `${height}p · mp4${sizeLabel}`,
+      label: `${height}p · ${videoFmt}${sizeLabel}`,
       args: [
         '-f',
         `bv*[height=${height}]+ba/b[height=${height}]/bv*[height<=${height}]+ba/b`,
         '--merge-output-format',
-        'mp4',
+        videoFmt,
       ],
     })
   }
@@ -347,16 +352,22 @@ export function buildChoices(info: VideoInfo): DownloadChoice[] {
   if (choices.length === 0) {
     choices.push({
       kind: 'video',
-      label: 'best available · mp4',
-      args: ['-f', 'bv*+ba/b', '--merge-output-format', 'mp4'],
+      label: `best available · ${videoFmt}`,
+      args: ['-f', 'bv*+ba/b', '--merge-output-format', videoFmt],
     })
   }
 
+  const audioFmt = options?.audioFormat ?? 'mp3'
   const audioSizeLabel = audioSize ? ` · ~${formatBytes(audioSize)}` : ''
+  const audioArgs =
+    audioFmt === 'best'
+      ? ['-f', 'ba/b', '-x', '--audio-format', 'best']
+      : ['-f', 'ba/b', '-x', '--audio-format', audioFmt, '--audio-quality', '0']
+
   choices.push({
     kind: 'audio',
-    label: `audio only · mp3${audioSizeLabel}`,
-    args: ['-f', 'ba/b', '-x', '--audio-format', 'mp3', '--audio-quality', '0'],
+    label: `audio only · ${audioFmt}${audioSizeLabel}`,
+    args: audioArgs,
   })
 
   return choices
@@ -434,6 +445,23 @@ export function buildThumbnailArgs(opts?: ThumbnailOptions, hasFfmpeg: boolean =
   return args
 }
 
+export type MetadataOptions = {
+  enabled?: boolean
+  embedChapters?: boolean
+}
+
+export function buildMetadataArgs(opts?: MetadataOptions): string[] {
+  if (!opts) return []
+  const args: string[] = []
+  if (opts.enabled) {
+    args.push('--add-metadata')
+  }
+  if (opts.embedChapters) {
+    args.push('--embed-chapters')
+  }
+  return args
+}
+
 export function download(
   opts: {
     ytdlp: string
@@ -446,6 +474,7 @@ export function download(
     outputTemplate?: string
     subtitles?: SubtitleOptions
     thumbnail?: ThumbnailOptions
+    metadata?: MetadataOptions
     cookieFile?: string
     section?: string
   },
@@ -457,6 +486,7 @@ export function download(
     ...opts.choice.args,
     ...buildSubtitleArgs(opts.subtitles),
     ...buildThumbnailArgs(opts.thumbnail, Boolean(opts.ffmpegLocation)),
+    ...buildMetadataArgs(opts.metadata),
     ...(opts.section ? ['--download-sections', opts.section] : []),
     '--no-playlist',
     '--no-warnings',

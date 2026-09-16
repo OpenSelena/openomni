@@ -15,6 +15,7 @@ import {
   type ProbeResult,
   type SubtitleOptions,
   type ThumbnailOptions,
+  type MetadataOptions,
   type VideoInfo,
 } from './ytdlp.js'
 import {formatTrackFilename, type PlaylistEntry, type PlaylistMetadata} from './playlist.js'
@@ -514,6 +515,7 @@ export type DownloadUnifiedItemOptions = {
   choice: DownloadChoice
   subtitles?: SubtitleOptions
   thumbnail?: ThumbnailOptions
+  metadata?: MetadataOptions
   signal?: AbortSignal
   onProgress?: (progress: DownloadProgress) => void
   onProcessing?: () => void
@@ -540,6 +542,7 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
     choice,
     subtitles,
     thumbnail,
+    metadata,
     signal,
     onProgress,
     onProcessing,
@@ -629,6 +632,7 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
         outputTemplate: path.join(destDir, resolvedFilename),
         subtitles,
         thumbnail,
+        metadata,
         cookieFile,
         section,
       },

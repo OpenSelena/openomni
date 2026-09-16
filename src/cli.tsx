@@ -67,6 +67,10 @@ const HELP = `
   Options
     --best          skip picker and download highest video resolution
     --mp3           skip picker and extract audio as mp3
+    --audio-format <f> extract audio with format (best, aac, flac, mp3, m4a, opus, etc.)
+    --video-format <f> merge video into container format (mp4, mkv, webm)
+    --metadata      embed metadata (artist, title, date) into container
+    --embed-chapters embed chapter markers into media container
     --subs [langs]  download subtitles (default: English, or e.g. --subs es,en)
     --embed-subs    embed subtitles into video container file
     --thumb         download thumbnail image
@@ -176,10 +180,13 @@ const userConfig = loadConfig(undefined, msg => console.error(msg))
 const runtimeConfig = resolveRuntimeConfig(args, userConfig)
 const initialUrl = args.initialUrl
 const effectiveFormat = runtimeConfig.format
+const audioFormat = runtimeConfig.audioFormat
+const videoFormat = runtimeConfig.videoFormat
 const initialThemeMode = runtimeConfig.themeMode
 const outDir = runtimeConfig.outDir
 const subtitles = runtimeConfig.subtitles
 const thumbnail = runtimeConfig.thumbnail
+const metadata = runtimeConfig.metadata
 const mediaFilter = args.photosOnly ? 'photos' : args.videosOnly ? 'videos' : 'all'
 const isTTY = Boolean(process.stdout.isTTY)
 
@@ -207,7 +214,7 @@ try {
   // If auto-mode failed, silently proceed in unauthenticated guest mode
 }
 
-if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initialUrl) {
+if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFormat || videoFormat) && initialUrl) {
   try {
     await fs.mkdir(outDir, {recursive: true})
     const ytdlp = await ensureYtDlp(status => console.error(`[open-omni] ${status}`))
@@ -269,11 +276,11 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initial
         `[open-omni] found ${probeResult.kind === 'mixed_post' ? 'post' : 'playlist'} “${playlist.title}” (${playlist.validEntries.length} items)`,
       )
       const ffmpegLocation = await findFfmpeg()
-      const tier = (effectiveFormat ?? 'best') as QualityTier
+      const tier = (effectiveFormat ?? (audioFormat ? 'mp3' : 'best')) as QualityTier
       const choice: DownloadChoice = {
-        label: tier,
+        label: tier === 'mp3' && audioFormat ? `audio (${audioFormat})` : tier,
         kind: tier === 'mp3' ? 'audio' : 'video',
-        args: buildQualityTierArgs(tier),
+        args: buildQualityTierArgs(tier, audioFormat, videoFormat),
       }
       let succeeded = 0
       let skipped = 0
@@ -296,6 +303,7 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initial
             choice,
             subtitles,
             thumbnail,
+            metadata,
             cookieFile,
             cookieHeader,
             skipExisting: args.skipExisting,
@@ -326,9 +334,10 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initial
     }
 
     const {info, infoJsonPath} = probeResult
-    const choices = buildChoices(info)
+    const choices = buildChoices(info, {audioFormat, videoFormat})
+    const isAudio = effectiveFormat === 'mp3' || (effectiveFormat === undefined && Boolean(audioFormat))
     const choice =
-      effectiveFormat === 'mp3'
+      isAudio
         ? (choices.find(c => c.kind === 'audio') ?? choices[choices.length - 1]!)
         : (choices.find(c => c.kind === 'video') ?? choices[0]!)
 
@@ -354,6 +363,7 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly) && initial
         infoJsonPath,
         subtitles,
         thumbnail,
+        metadata,
         cookieFile,
         section,
       },
@@ -428,6 +438,9 @@ try {
       version={VERSION}
       initialSubtitles={subtitles}
       initialThumbnail={thumbnail}
+      initialMetadata={metadata}
+      audioFormat={audioFormat}
+      videoFormat={videoFormat}
       mediaFilter={mediaFilter}
       cookieFile={cookieFile}
       cookieHeader={cookieHeader}

@@ -1,10 +1,28 @@
 import path from 'node:path'
 import os from 'node:os'
 import {isThemeMode, type ThemeMode} from '../theme.js'
-import type {SubtitleOptions, ThumbnailOptions} from './ytdlp.js'
+import type {SubtitleOptions, ThumbnailOptions, MetadataOptions} from './ytdlp.js'
 import {normalizeShell, type CompletionTarget} from './completion.js'
 import {resolvePlatformDownloadsDir} from './known-folders.js'
 import {parseTimeRange} from './time.js'
+
+export const SUPPORTED_AUDIO_FORMATS = [
+  'best',
+  'aac',
+  'flac',
+  'mp3',
+  'm4a',
+  'opus',
+  'vorbis',
+  'wav',
+  'alac',
+] as const
+
+export type AudioFormat = (typeof SUPPORTED_AUDIO_FORMATS)[number]
+
+export const SUPPORTED_VIDEO_FORMATS = ['mp4', 'mkv', 'webm'] as const
+
+export type VideoFormat = (typeof SUPPORTED_VIDEO_FORMATS)[number]
 
 export type FormatMode = 'best' | 'mp3'
 
@@ -14,6 +32,8 @@ export type CliArgs = {
   initialUrl?: string
   themeMode?: ThemeMode
   format?: FormatMode
+  audioFormat?: AudioFormat
+  videoFormat?: VideoFormat
   outputDir?: string
   updateYtDlp?: boolean
   updateGalleryDl?: boolean
@@ -22,6 +42,8 @@ export type CliArgs = {
   embedSubs?: boolean
   thumb?: boolean
   embedThumb?: boolean
+  metadata?: boolean
+  embedChapters?: boolean
   photosOnly?: boolean
   videosOnly?: boolean
   cookies?: string
@@ -50,6 +72,14 @@ export function toThumbnailOptions(args: CliArgs): ThumbnailOptions | undefined 
   }
 }
 
+export function toMetadataOptions(args: CliArgs): MetadataOptions | undefined {
+  if (!args.metadata && !args.embedChapters) return undefined
+  return {
+    enabled: args.metadata ? true : undefined,
+    embedChapters: args.embedChapters ? true : undefined,
+  }
+}
+
 export function parseArgs(args: string[]): CliArgs {
   const result: CliArgs = {help: false, version: false}
   const positional: string[] = []
@@ -75,6 +105,10 @@ export function parseArgs(args: string[]): CliArgs {
       result.thumb = true
     } else if (arg === '--embed-thumb') {
       result.embedThumb = true
+    } else if (arg === '--metadata' || arg === '--add-metadata') {
+      result.metadata = true
+    } else if (arg === '--embed-chapters') {
+      result.embedChapters = true
     } else if (arg.startsWith('--subs=')) {
       const value = arg.slice('--subs='.length)
       result.subtitles = value || true
@@ -88,10 +122,28 @@ export function parseArgs(args: string[]): CliArgs {
       }
     } else if (arg === '--best') {
       if (result.format === 'mp3') return {...result, error: 'cannot use both --best and --mp3'}
+      if (result.audioFormat) return {...result, error: 'cannot use both --best and --audio-format'}
       result.format = 'best'
     } else if (arg === '--mp3') {
       if (result.format === 'best') return {...result, error: 'cannot use both --best and --mp3'}
       result.format = 'mp3'
+    } else if (arg === '--audio-format' || arg.startsWith('--audio-format=')) {
+      if (result.format === 'best') return {...result, error: 'cannot use both --best and --audio-format'}
+      const value = arg === '--audio-format' ? args[++index] : arg.slice('--audio-format='.length)
+      if (!value) return {...result, error: '--audio-format needs a format: best, aac, flac, mp3, m4a, opus, vorbis, wav, or alac'}
+      const normalized = value.toLowerCase().trim() as AudioFormat
+      if (!SUPPORTED_AUDIO_FORMATS.includes(normalized)) {
+        return {...result, error: `unknown audio format \u201c${value}\u201d \u2014 use best, aac, flac, mp3, m4a, opus, vorbis, wav, or alac`}
+      }
+      result.audioFormat = normalized
+    } else if (arg === '--video-format' || arg.startsWith('--video-format=')) {
+      const value = arg === '--video-format' ? args[++index] : arg.slice('--video-format='.length)
+      if (!value) return {...result, error: '--video-format needs a format: mp4, mkv, or webm'}
+      const normalized = value.toLowerCase().trim() as VideoFormat
+      if (!SUPPORTED_VIDEO_FORMATS.includes(normalized)) {
+        return {...result, error: `unknown video format \u201c${value}\u201d \u2014 use mp4, mkv, or webm`}
+      }
+      result.videoFormat = normalized
     } else if (arg === '-o' || arg === '--output') {
       const value = args[++index]
       if (!value) return {...result, error: `${arg} needs a directory path`}

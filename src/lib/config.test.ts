@@ -10,6 +10,7 @@ import {
   resolveEffectiveFormat,
   resolveEffectiveSubtitles,
   resolveEffectiveThumbnail,
+  resolveEffectiveMetadata,
   resolveRuntimeConfig,
   type UserConfig,
 } from './config.js'
@@ -247,4 +248,95 @@ test('loadConfig and resolveRuntimeConfig handle cookies and cookiesFromBrowser'
 
   fs.rmSync(tempDir, {recursive: true, force: true})
 })
+
+test('loadConfig and resolveRuntimeConfig handle metadata configuration', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'open-omni-metadata-config-test-'))
+  const configPath = path.join(tempDir, 'config.json')
+
+  fs.writeFileSync(
+    configPath,
+    JSON.stringify({
+      metadata: {enabled: true, embedChapters: true},
+    })
+  )
+
+  const loaded = loadConfig(configPath)
+  assert.deepEqual(loaded.metadata, {enabled: true, embedChapters: true})
+
+  const runtimeFromConfig = resolveRuntimeConfig(
+    {help: false, version: false},
+    loaded
+  )
+  assert.deepEqual(runtimeFromConfig.metadata, {
+    enabled: true,
+    embedChapters: true,
+  })
+
+  // CLI overrides config
+  const runtimeCliOverride = resolveRuntimeConfig(
+    {help: false, version: false, metadata: true, embedChapters: false},
+    {metadata: {enabled: false, embedChapters: true}}
+  )
+  assert.deepEqual(runtimeCliOverride.metadata, {
+    enabled: true,
+    embedChapters: false,
+  })
+
+  fs.rmSync(tempDir, {recursive: true, force: true})
+})
+
+test('loadConfig and resolveRuntimeConfig handle audioFormat configuration', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'open-omni-audio-format-test-'))
+  const configPath = path.join(tempDir, 'config.json')
+
+  fs.writeFileSync(
+    configPath,
+    JSON.stringify({
+      audioFormat: 'flac',
+    })
+  )
+
+  const loaded = loadConfig(configPath)
+  assert.equal(loaded.audioFormat, 'flac')
+
+  const runtime = resolveRuntimeConfig({help: false, version: false}, loaded)
+  assert.equal(runtime.audioFormat, 'flac')
+
+  const runtimeOverride = resolveRuntimeConfig(
+    {help: false, version: false, audioFormat: 'opus'},
+    loaded
+  )
+  assert.equal(runtimeOverride.audioFormat, 'opus')
+
+  fs.rmSync(tempDir, {recursive: true, force: true})
+})
+
+test('loadConfig and resolveRuntimeConfig handle videoFormat configuration', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'open-omni-video-format-test-'))
+  const configPath = path.join(tempDir, 'config.json')
+
+  fs.writeFileSync(
+    configPath,
+    JSON.stringify({
+      videoFormat: 'mkv',
+    })
+  )
+
+  const loaded = loadConfig(configPath)
+  assert.equal(loaded.videoFormat, 'mkv')
+
+  const runtime = resolveRuntimeConfig({help: false, version: false}, loaded)
+  assert.equal(runtime.videoFormat, 'mkv')
+
+  const runtimeOverride = resolveRuntimeConfig(
+    {help: false, version: false, videoFormat: 'webm'},
+    loaded
+  )
+  assert.equal(runtimeOverride.videoFormat, 'webm')
+
+  fs.rmSync(tempDir, {recursive: true, force: true})
+})
+
+
+
 

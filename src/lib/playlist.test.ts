@@ -79,7 +79,48 @@ test('buildQualityTierArgs produces correct yt-dlp format arguments', () => {
     '--audio-format',
     'mp3'
   ])
+
+  assert.deepEqual(buildQualityTierArgs('mp3', 'flac'), [
+    '-f',
+    'ba/b',
+    '-x',
+    '--audio-format',
+    'flac'
+  ])
+
+  assert.deepEqual(buildQualityTierArgs('mp3', 'best'), [
+    '-f',
+    'ba/b',
+    '-x',
+    '--audio-format',
+    'best'
+  ])
 })
+
+test('getQualityTierExt supports custom audio formats', () => {
+  assert.equal(getQualityTierExt('mp3', 'flac'), 'flac')
+  assert.equal(getQualityTierExt('mp3', 'opus'), 'opus')
+  assert.equal(getQualityTierExt('mp3', 'm4a'), 'm4a')
+})
+
+test('buildQualityTierArgs and getQualityTierExt support custom video container formats', () => {
+  assert.deepEqual(buildQualityTierArgs('best', undefined, 'mkv'), [
+    '-f',
+    'bv*+ba/b',
+    '--merge-output-format',
+    'mkv',
+  ])
+  assert.deepEqual(buildQualityTierArgs('1080p', undefined, 'webm'), [
+    '-f',
+    'bv*[height<=1080]+ba/b[height<=1080]/best[height<=1080]',
+    '--merge-output-format',
+    'webm',
+  ])
+  assert.equal(getQualityTierExt('best', undefined, 'mkv'), 'mkv')
+  assert.equal(getQualityTierExt('1080p', undefined, 'webm'), 'webm')
+})
+
+
 
 test('parsePlaylistOutput correctly parses yt-dlp flat-playlist json output', () => {
   const rawSample = JSON.stringify({

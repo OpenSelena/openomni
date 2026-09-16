@@ -6,10 +6,15 @@ import {
   resolveOutputDir,
   toSubtitleOptions,
   toThumbnailOptions,
+  toMetadataOptions,
   type CliArgs,
   type FormatMode,
+  type AudioFormat,
+  type VideoFormat,
+  SUPPORTED_AUDIO_FORMATS,
+  SUPPORTED_VIDEO_FORMATS,
 } from './args.js'
-import type {SubtitleOptions, ThumbnailOptions} from './ytdlp.js'
+import type {SubtitleOptions, ThumbnailOptions, MetadataOptions} from './ytdlp.js'
 
 export type SubtitleConfig = {
   enabled?: boolean
@@ -23,12 +28,20 @@ export type ThumbnailConfig = {
   embed?: boolean
 }
 
+export type MetadataConfig = {
+  enabled?: boolean
+  embedChapters?: boolean
+}
+
 export type UserConfig = {
   outputDir?: string
   theme?: ThemeMode
   format?: FormatMode
+  audioFormat?: AudioFormat
+  videoFormat?: VideoFormat
   subtitles?: boolean | SubtitleConfig
   thumbnail?: boolean | ThumbnailConfig
+  metadata?: boolean | MetadataConfig
   cookies?: string
   cookiesFromBrowser?: string
 }
@@ -42,9 +55,12 @@ export type RuntimeConfig = {
   outDir: string
   themeMode: ThemeMode
   format?: FormatMode
+  audioFormat?: AudioFormat
+  videoFormat?: VideoFormat
   autoSelect?: FormatMode
   subtitles?: SubtitleOptions
   thumbnail?: ThumbnailOptions
+  metadata?: MetadataOptions
   cookies?: CookieOptions
 }
 
@@ -104,6 +120,22 @@ export function loadConfig(
       }
     }
 
+    if (parsed.audioFormat !== undefined) {
+      if (typeof parsed.audioFormat === 'string' && (SUPPORTED_AUDIO_FORMATS as readonly string[]).includes(parsed.audioFormat.toLowerCase().trim())) {
+        result.audioFormat = parsed.audioFormat.toLowerCase().trim() as AudioFormat
+      } else {
+        onWarning?.(`[open-omni] warning: invalid audioFormat “${parsed.audioFormat}” in ${configPath}`)
+      }
+    }
+
+    if (parsed.videoFormat !== undefined) {
+      if (typeof parsed.videoFormat === 'string' && (SUPPORTED_VIDEO_FORMATS as readonly string[]).includes(parsed.videoFormat.toLowerCase().trim())) {
+        result.videoFormat = parsed.videoFormat.toLowerCase().trim() as VideoFormat
+      } else {
+        onWarning?.(`[open-omni] warning: invalid videoFormat “${parsed.videoFormat}” in ${configPath}`)
+      }
+    }
+
     if (parsed.subtitles !== undefined) {
       if (typeof parsed.subtitles === 'boolean' || (typeof parsed.subtitles === 'object' && parsed.subtitles !== null)) {
         result.subtitles = parsed.subtitles
@@ -117,6 +149,14 @@ export function loadConfig(
         result.thumbnail = parsed.thumbnail
       } else {
         onWarning?.(`[open-omni] warning: invalid thumbnail setting in ${configPath}`)
+      }
+    }
+
+    if (parsed.metadata !== undefined) {
+      if (typeof parsed.metadata === 'boolean' || (typeof parsed.metadata === 'object' && parsed.metadata !== null)) {
+        result.metadata = parsed.metadata
+      } else {
+        onWarning?.(`[open-omni] warning: invalid metadata setting in ${configPath}`)
       }
     }
 
@@ -216,6 +256,51 @@ export function resolveEffectiveThumbnail(
   return undefined
 }
 
+export function resolveEffectiveMetadata(
+  cliMetadata?: MetadataOptions,
+  configMetadata?: boolean | MetadataConfig,
+): MetadataOptions | undefined {
+  const normConfig =
+    typeof configMetadata === 'boolean'
+      ? {enabled: configMetadata}
+      : configMetadata
+
+  if (cliMetadata) {
+    const enabled = cliMetadata.enabled ?? normConfig?.enabled
+    const embedChapters = cliMetadata.embedChapters ?? normConfig?.embedChapters
+    if (enabled || embedChapters) {
+      return {
+        enabled: Boolean(enabled),
+        embedChapters: Boolean(embedChapters),
+      }
+    }
+    return undefined
+  }
+
+  if (normConfig?.enabled || normConfig?.embedChapters) {
+    return {
+      enabled: Boolean(normConfig.enabled),
+      embedChapters: Boolean(normConfig.embedChapters),
+    }
+  }
+
+  return undefined
+}
+
+export function resolveEffectiveAudioFormat(
+  cliFormat?: AudioFormat,
+  configFormat?: AudioFormat,
+): AudioFormat | undefined {
+  return cliFormat ?? configFormat
+}
+
+export function resolveEffectiveVideoFormat(
+  cliFormat?: VideoFormat,
+  configFormat?: VideoFormat,
+): VideoFormat | undefined {
+  return cliFormat ?? configFormat
+}
+
 export function resolveEffectiveCookies(
   cliArgs: CliArgs,
   userConfig: UserConfig = {},
@@ -232,14 +317,18 @@ export function resolveRuntimeConfig(
 ): RuntimeConfig {
   const cliSubs = toSubtitleOptions(args)
   const cliThumb = toThumbnailOptions(args)
+  const cliMetadata = toMetadataOptions(args)
 
   return {
     outDir: resolveOutputDir(args.outputDir, process.env.OPEN_OMNI_DIR, userConfig.outputDir),
     themeMode: resolveEffectiveTheme(args.themeMode, userConfig.theme),
     format: resolveEffectiveFormat(args.format, userConfig.format),
-    autoSelect: args.format,
+    audioFormat: resolveEffectiveAudioFormat(args.audioFormat, userConfig.audioFormat),
+    videoFormat: resolveEffectiveVideoFormat(args.videoFormat, userConfig.videoFormat),
+    autoSelect: args.format ?? (args.audioFormat ? 'mp3' : undefined),
     subtitles: resolveEffectiveSubtitles(cliSubs, userConfig.subtitles),
     thumbnail: resolveEffectiveThumbnail(cliThumb, userConfig.thumbnail),
+    metadata: resolveEffectiveMetadata(cliMetadata, userConfig.metadata),
     cookies: resolveEffectiveCookies(args, userConfig),
   }
 }

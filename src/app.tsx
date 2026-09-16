@@ -35,6 +35,7 @@ import {
   type DownloadProgress,
   type SubtitleOptions,
   type ThumbnailOptions,
+  type MetadataOptions,
   type VideoInfo,
 } from './lib/ytdlp.js'
 import {
@@ -50,6 +51,7 @@ import {
 import {downloadUnifiedItem, probeUnified} from './lib/dispatcher.js'
 import {getCompletedDownload, recordDownloadWithStat} from './lib/ledger.js'
 import {normalizeToYtdlpSection} from './lib/time.js'
+import type {AudioFormat, VideoFormat} from './lib/args.js'
 
 const OUT_DIR = path.join(os.homedir(), 'Downloads')
 const DOWNLOAD_BUTTON = 'download'
@@ -189,6 +191,9 @@ type AppProps = {
   version?: string
   initialSubtitles?: SubtitleOptions
   initialThumbnail?: ThumbnailOptions
+  initialMetadata?: MetadataOptions
+  audioFormat?: AudioFormat
+  videoFormat?: VideoFormat
   mediaFilter?: 'all' | 'photos' | 'videos'
   cookieFile?: string
   cookieHeader?: string
@@ -219,6 +224,9 @@ function InnerApp({
   version = '1.2.0',
   initialSubtitles,
   initialThumbnail,
+  initialMetadata,
+  audioFormat,
+  videoFormat,
   mediaFilter = 'all',
   cookieFile,
   cookieHeader,
@@ -235,6 +243,9 @@ function InnerApp({
   version?: string
   initialSubtitles?: SubtitleOptions
   initialThumbnail?: ThumbnailOptions
+  initialMetadata?: MetadataOptions
+  audioFormat?: AudioFormat
+  videoFormat?: VideoFormat
   mediaFilter?: 'all' | 'photos' | 'videos'
   cookieFile?: string
   cookieHeader?: string
@@ -255,6 +266,7 @@ function InnerApp({
   const [choices, setChoices] = useState<DownloadChoice[]>([])
   const [subtitles, setSubtitles] = useState<SubtitleOptions | undefined>(initialSubtitles)
   const [thumbnail, setThumbnail] = useState<ThumbnailOptions | undefined>(initialThumbnail)
+  const [metadata, setMetadata] = useState<MetadataOptions | undefined>(initialMetadata)
   const ytdlpRef = useRef('')
   const gallerydlRef = useRef('')
   const highlightRef = useRef(0)
@@ -319,6 +331,7 @@ function InnerApp({
             outDir: targetDir,
             subtitles,
             thumbnail,
+            metadata,
             cookieFile,
             section,
           }
@@ -386,11 +399,11 @@ function InnerApp({
           await fs.mkdir(playlistDir, {recursive: true})
           const ffmpegLocation = await findFfmpeg()
           const choice: DownloadChoice = {
-            label: tier,
+            label: tier === 'mp3' && audioFormat ? `audio (${audioFormat})` : tier,
             kind: tier === 'mp3' ? 'audio' : 'video',
-            args: buildQualityTierArgs(tier),
+            args: buildQualityTierArgs(tier, audioFormat, videoFormat),
           }
-          const ext = getQualityTierExt(tier)
+          const ext = getQualityTierExt(tier, audioFormat, videoFormat)
 
           let succeeded = 0
           let skipped = 0
@@ -417,6 +430,7 @@ function InnerApp({
                 choice,
                 subtitles: subtitles?.enabled ? subtitles : undefined,
                 thumbnail: thumbnail?.enabled ? thumbnail : undefined,
+                metadata,
                 signal: controller.signal,
                 cookieFile,
                 cookieHeader,
@@ -607,7 +621,7 @@ function InnerApp({
         const videoInfo = probeResult.info
         infoJsonRef.current = probeResult.infoJsonPath
         setInfo(videoInfo)
-        const availableChoices = buildChoices(videoInfo)
+        const availableChoices = buildChoices(videoInfo, {audioFormat, videoFormat})
         setChoices(availableChoices)
         highlightRef.current = 0
         if (autoSelect) {

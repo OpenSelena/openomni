@@ -13,6 +13,13 @@ test('README documentation parity with CLI options', () => {
   const documentedFlags = [
     ['https://youtu.be/dQw4w9WgXcQ', '--best'],
     ['https://youtu.be/dQw4w9WgXcQ', '--mp3'],
+    ['https://youtu.be/dQw4w9WgXcQ', '--audio-format', 'flac'],
+    ['https://youtu.be/dQw4w9WgXcQ', '--audio-format=opus'],
+    ['https://youtu.be/dQw4w9WgXcQ', '--video-format', 'mkv'],
+    ['https://youtu.be/dQw4w9WgXcQ', '--video-format=webm'],
+    ['https://youtu.be/dQw4w9WgXcQ', '--metadata'],
+    ['https://youtu.be/dQw4w9WgXcQ', '--add-metadata'],
+    ['https://youtu.be/dQw4w9WgXcQ', '--embed-chapters'],
     ['https://youtu.be/dQw4w9WgXcQ', '--subs'],
     ['https://youtu.be/dQw4w9WgXcQ', '--subs=en,es'],
     ['https://youtu.be/dQw4w9WgXcQ', '--embed-subs'],
@@ -38,6 +45,11 @@ test('README documentation parity with CLI options', () => {
     ['--completion', 'zsh'],
     ['--completion', 'fish'],
     ['--completion', 'powershell'],
+    ['https://youtu.be/dQw4w9WgXcQ', '--audio-format', 'flac'],
+    ['https://youtu.be/dQw4w9WgXcQ', '--video-format', 'mkv'],
+    ['https://youtu.be/dQw4w9WgXcQ', '--metadata'],
+    ['https://youtu.be/dQw4w9WgXcQ', '--add-metadata'],
+    ['https://youtu.be/dQw4w9WgXcQ', '--embed-chapters'],
     ['-h'],
     ['--help'],
     ['-v'],
@@ -68,6 +80,12 @@ test('README documentation parity with CLI options', () => {
   // Ensure README covers dual engines: yt-dlp and gallery-dl
   assert.match(readme, /yt-dlp/i, 'README should mention yt-dlp')
   assert.match(readme, /gallery-dl/i, 'README should mention gallery-dl')
+
+  // Ensure README documents new format and metadata flags
+  assert.match(readme, /--audio-format/, 'README should document --audio-format')
+  assert.match(readme, /--video-format/, 'README should document --video-format')
+  assert.match(readme, /--metadata/, 'README should document --metadata')
+  assert.match(readme, /--embed-chapters/, 'README should document --embed-chapters')
 
   // Ensure README includes one-line installer domain mint.dev.cv
   assert.match(readme, /mint\.dev\.cv/, 'README should link to mint.dev.cv installer')

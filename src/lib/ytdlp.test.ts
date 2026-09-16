@@ -9,6 +9,8 @@ import {
   getYtDlpVersion,
   buildSubtitleArgs,
   buildThumbnailArgs,
+  buildMetadataArgs,
+  buildChoices,
   type VideoInfo
 } from './ytdlp.js'
 
@@ -166,3 +168,76 @@ test('buildThumbnailArgs generates correct yt-dlp thumbnail arguments', () => {
     '--embed-thumbnail',
   ])
 })
+
+test('buildMetadataArgs generates correct yt-dlp metadata and chapter arguments', () => {
+  assert.deepEqual(buildMetadataArgs(undefined), [])
+  assert.deepEqual(buildMetadataArgs({enabled: false}), [])
+  assert.deepEqual(buildMetadataArgs({enabled: true}), ['--add-metadata'])
+  assert.deepEqual(buildMetadataArgs({enabled: true, embedChapters: true}), [
+    '--add-metadata',
+    '--embed-chapters',
+  ])
+  assert.deepEqual(buildMetadataArgs({enabled: false, embedChapters: true}), [
+    '--embed-chapters',
+  ])
+})
+
+test('buildChoices respects audioFormat option', () => {
+  const dummyInfo: VideoInfo = {
+    title: 'Test Song',
+    formats: [
+      {format_id: '140', acodec: 'mp4a.40.2', abr: 128},
+      {format_id: '18', vcodec: 'avc1', height: 360},
+    ],
+  }
+
+  const defaultChoices = buildChoices(dummyInfo)
+  const defaultAudio = defaultChoices.find(c => c.kind === 'audio')
+  assert.ok(defaultAudio)
+  assert.match(defaultAudio.label, /audio only · mp3/)
+  assert.deepEqual(defaultAudio.args, [
+    '-f',
+    'ba/b',
+    '-x',
+    '--audio-format',
+    'mp3',
+    '--audio-quality',
+    '0',
+  ])
+
+  const flacChoices = buildChoices(dummyInfo, {audioFormat: 'flac'})
+  const flacAudio = flacChoices.find(c => c.kind === 'audio')
+  assert.ok(flacAudio)
+  assert.match(flacAudio.label, /audio only · flac/)
+  assert.deepEqual(flacAudio.args, [
+    '-f',
+    'ba/b',
+    '-x',
+    '--audio-format',
+    'flac',
+    '--audio-quality',
+    '0',
+  ])
+
+  const bestAudioChoices = buildChoices(dummyInfo, {audioFormat: 'best'})
+  const bestAudio = bestAudioChoices.find(c => c.kind === 'audio')
+  assert.ok(bestAudio)
+  assert.match(bestAudio.label, /audio only · best/)
+  assert.deepEqual(bestAudio.args, [
+    '-f',
+    'ba/b',
+    '-x',
+    '--audio-format',
+    'best',
+  ])
+
+  const mkvChoices = buildChoices(dummyInfo, {videoFormat: 'mkv'})
+  const mkvVideo = mkvChoices.find(c => c.kind === 'video')
+  assert.ok(mkvVideo)
+  assert.match(mkvVideo.label, /· mkv/)
+  assert.ok(mkvVideo.args.includes('mkv'))
+  assert.equal(mkvVideo.args[mkvVideo.args.indexOf('--merge-output-format') + 1], 'mkv')
+})
+
+
+

@@ -28,11 +28,19 @@ _open_omni_completions() {
     cur="\${COMP_WORDS[COMP_CWORD]}"
     prev="\${COMP_WORDS[COMP_CWORD-1]}"
 
-    local options="--help -h --version -v --best --mp3 --output -o --theme --update --update-ytdlp --update-gallerydl -U --force --subs --embed-subs --thumb --embed-thumb --photos-only --videos-only --completion"
+    local options="--help -h --version -v --best --mp3 --output -o --theme --update --update-ytdlp --update-gallerydl -U --force --subs --embed-subs --thumb --embed-thumb --metadata --add-metadata --embed-chapters --audio-format --video-format --photos-only --videos-only --completion"
 
     case "$prev" in
         --theme)
             COMPREPLY=($(compgen -W "auto light dark" -- "$cur"))
+            return 0
+            ;;
+        --audio-format)
+            COMPREPLY=($(compgen -W "best aac flac mp3 m4a opus vorbis wav alac" -- "$cur"))
+            return 0
+            ;;
+        --video-format)
+            COMPREPLY=($(compgen -W "mp4 mkv webm" -- "$cur"))
             return 0
             ;;
         --completion)
@@ -72,6 +80,11 @@ _open_omni() {
         '(-v --version)'{-v,--version}'[Show version information and exit]' \\
         '--best[Download highest quality video stream with audio]' \\
         '--mp3[Extract and transcode audio to MP3]' \\
+        '--audio-format[Extract audio with specified format]:format:(best aac flac mp3 m4a opus vorbis wav alac)' \\
+        '--video-format[Merge video into specified container format]:format:(mp4 mkv webm)' \\
+        '--metadata[Embed metadata into media container tags]' \\
+        '--add-metadata[Embed metadata into media container tags]' \\
+        '--embed-chapters[Embed chapter markers into media container]' \\
         '(-o --output)'{-o,--output}'[Specify download destination directory]:output directory:_files -/' \\
         '--theme[Set color theme]:theme:(auto light dark)' \\
         '(-U --update)'{-U,--update}'[Update bundled download engines (yt-dlp and gallery-dl)]' \\
@@ -121,6 +134,11 @@ complete -c open-omni -l thumb -d "Save thumbnail image as adjacent JPEG"
 complete -c open-omni -l embed-thumb -d "Embed thumbnail cover art into media container"
 complete -c open-omni -l photos-only -d "Download only photos from post or carousel"
 complete -c open-omni -l videos-only -d "Download only videos from post or carousel"
+complete -c open-omni -l audio-format -x -a "best aac flac mp3 m4a opus vorbis wav alac" -d "Extract audio with format"
+complete -c open-omni -l video-format -x -a "mp4 mkv webm" -d "Merge video into container format"
+complete -c open-omni -l metadata -d "Embed metadata into media container"
+complete -c open-omni -l add-metadata -d "Embed metadata into media container"
+complete -c open-omni -l embed-chapters -d "Embed chapter markers into media container"
 complete -c open-omni -l completion -x -a "bash zsh fish powershell" -d "Generate shell autocompletion script"
 
 for cmd in openomni omni oo
@@ -154,6 +172,22 @@ $completer = {
         return
     }
 
+    if ($prev -eq '--audio-format') {
+        $formats = @('best', 'aac', 'flac', 'mp3', 'm4a', 'opus', 'vorbis', 'wav', 'alac')
+        $formats | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+            [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', "Audio format: $_")
+        }
+        return
+    }
+
+    if ($prev -eq '--video-format') {
+        $formats = @('mp4', 'mkv', 'webm')
+        $formats | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+            [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', "Video format: $_")
+        }
+        return
+    }
+
     if ($prev -eq '--completion') {
         $shells = @('bash', 'zsh', 'fish', 'powershell')
         $shells | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
@@ -176,6 +210,11 @@ $completer = {
         [System.Management.Automation.CompletionResult]::new('-v', '-v', 'ParameterName', 'Show version information and exit'),
         [System.Management.Automation.CompletionResult]::new('--best', '--best', 'ParameterName', 'Download highest quality video stream with audio'),
         [System.Management.Automation.CompletionResult]::new('--mp3', '--mp3', 'ParameterName', 'Extract and transcode audio to MP3'),
+        [System.Management.Automation.CompletionResult]::new('--audio-format', '--audio-format', 'ParameterName', 'Extract audio with format (best, flac, opus, etc.)'),
+        [System.Management.Automation.CompletionResult]::new('--video-format', '--video-format', 'ParameterName', 'Merge video into container format (mp4, mkv, webm)'),
+        [System.Management.Automation.CompletionResult]::new('--metadata', '--metadata', 'ParameterName', 'Embed metadata into container tags'),
+        [System.Management.Automation.CompletionResult]::new('--add-metadata', '--add-metadata', 'ParameterName', 'Embed metadata into container tags'),
+        [System.Management.Automation.CompletionResult]::new('--embed-chapters', '--embed-chapters', 'ParameterName', 'Embed chapter markers into container'),
         [System.Management.Automation.CompletionResult]::new('--output', '--output', 'ParameterName', 'Specify download destination directory'),
         [System.Management.Automation.CompletionResult]::new('-o', '-o', 'ParameterName', 'Specify download destination directory'),
         [System.Management.Automation.CompletionResult]::new('--theme', '--theme', 'ParameterName', 'Set color theme (auto, light, dark)'),

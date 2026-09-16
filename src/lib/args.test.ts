@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import path from 'node:path'
 import os from 'node:os'
-import {parseArgs, resolveOutputDir, toSubtitleOptions, toThumbnailOptions} from './args.js'
+import {parseArgs, resolveOutputDir, toSubtitleOptions, toThumbnailOptions, toMetadataOptions} from './args.js'
 import {terminalLink} from './format.js'
 import {isThemeMode, nextThemeMode, themeFor} from '../theme.js'
 
@@ -368,4 +368,94 @@ test('allows --force alone for interactive session or with a url', () => {
     initialUrl: 'https://example.com/video',
   })
 })
+
+test('parses metadata flags (--metadata, --add-metadata, --embed-chapters)', () => {
+  assert.deepEqual(parseArgs(['--metadata', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    metadata: true,
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(parseArgs(['--add-metadata', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    metadata: true,
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(parseArgs(['--embed-chapters', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    embedChapters: true,
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(toMetadataOptions({help: false, version: false}), undefined)
+  assert.deepEqual(toMetadataOptions({help: false, version: false, metadata: true}), {
+    enabled: true,
+    embedChapters: false,
+  })
+  assert.deepEqual(toMetadataOptions({help: false, version: false, metadata: true, embedChapters: true}), {
+    enabled: true,
+    embedChapters: true,
+  })
+  assert.deepEqual(toMetadataOptions({help: false, version: false, embedChapters: true}), {
+    enabled: false,
+    embedChapters: true,
+  })
+})
+
+test('parses --audio-format option for official yt-dlp audio formats', () => {
+  assert.deepEqual(parseArgs(['--audio-format', 'flac', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    audioFormat: 'flac',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(parseArgs(['--audio-format=opus', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    audioFormat: 'opus',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.match(
+    parseArgs(['--audio-format', 'xyz', 'https://example.com/video']).error ?? '',
+    /unknown audio format/
+  )
+  assert.match(
+    parseArgs(['--audio-format']).error ?? '',
+    /needs a format/
+  )
+})
+
+test('parses --video-format option for container formats (mp4, mkv, webm)', () => {
+  assert.deepEqual(parseArgs(['--video-format', 'mkv', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    videoFormat: 'mkv',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(parseArgs(['--video-format=webm', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    videoFormat: 'webm',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.match(
+    parseArgs(['--video-format', 'avi', 'https://example.com/video']).error ?? '',
+    /unknown video format/
+  )
+  assert.match(
+    parseArgs(['--video-format']).error ?? '',
+    /needs a format/
+  )
+})
+
+
+
 
