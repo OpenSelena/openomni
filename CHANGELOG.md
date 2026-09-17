@@ -4,6 +4,27 @@ All notable changes to Open Omni are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-09-17
+
+[Diff: v1.2.0...v1.3.0](https://github.com/OpenSelena/openomni/compare/v1.2.0...v1.3.0)
+
+### Added
+
+- **Audio & Video Format Cycling in TUI**:
+  - Added interactive hotkeys `'a'` to cycle audio formats (`mp3` -> `opus` -> `aac` -> `wav` -> `flac`) and `'v'` to cycle video containers (`mp4` -> `mkv` -> `webm`) directly in the quality selector screen.
+- **CLI Format & Metadata Options**:
+  - Added `--audio-format` and `--video-format` flags with config file persistence in `~/.config/open-omni/config.json`.
+  - Added `--metadata` and `--chapters` options with yt-dlp embedding support.
+- **`oo` Launcher Alias & Shell Completions**:
+  - Added short binary alias `oo` alongside `open-omni`, `openomni`, and `omni`.
+  - Multi-alias tab-completion generation for Bash, Zsh, and Fish.
+
+### Fixed
+
+- **Real-Time Playlist Batch Progress Bar**:
+  - Synced overall playlist progress bar with active item stream byte count and post-processing muxing state.
+  - Normalized progress bar scaling (`0..1` and `0..100`), preventing false 100% clamping on low percentage values and eliminating orphan percentage line-wraps.
+
 ## [1.2.0] - 2026-09-13
 
 [Diff: v1.1.0...v1.2.0](https://github.com/OpenSelena/openomni/compare/v1.1.0...v1.2.0)
