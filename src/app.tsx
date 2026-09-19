@@ -11,7 +11,7 @@ import {InputView} from './components/views/input-view.js'
 import {ProbingView} from './components/views/probing-view.js'
 import {PickingView, choiceLabel} from './components/views/picking-view.js'
 import {DownloadingView} from './components/views/downloading-view.js'
-import {SingleDoneView, PlaylistDoneView, DONE_LABEL} from './components/views/completion-view.js'
+import {SingleDoneView, PlaylistDoneView, DONE_LABEL, REVEAL_LABEL} from './components/views/completion-view.js'
 import {ErrorView, ConfirmOverwriteView} from './components/views/error-view.js'
 import {PlaylistScopePicker, type PlaylistScopeChoice} from './components/playlist-scope-picker.js'
 import {PlaylistItemPicker} from './components/playlist-item-picker.js'
@@ -20,7 +20,7 @@ import {PlaylistProgress} from './components/playlist-progress.js'
 import {clickTargetAt, findFrameRow, frameRowSpan, type ClickTarget} from './lib/click-map.js'
 import {formatBytes, formatDuration, formatEta, formatSpeed, shortenPath, terminalLink, truncate, wrapText} from './lib/format.js'
 import {addToHistory, loadHistory} from './lib/history.js'
-import {detectPlatform, isProbablyUrl, openBrowser, type Platform} from './lib/platforms.js'
+import {detectPlatform, isProbablyUrl, openBrowser, revealInFileManager, type Platform} from './lib/platforms.js'
 import {useMouseClick} from './lib/use-mouse-click.js'
 import {BRAND_COLOR, nextThemeMode, ThemeProvider, type ThemeMode, useTheme} from './theme.js'
 import {
@@ -30,6 +30,7 @@ import {
   ensureYtDlp,
   findFfmpeg,
   isExtractorError,
+  maskProxyCredentials,
   probe,
   type DownloadChoice,
   type DownloadProgress,
@@ -171,8 +172,14 @@ const HINTS: Record<Phase['name'], Array<[string, string]>> = {
     ['esc', 'cancel'],
     ['^c', 'quit'],
   ],
-  'playlist-done': [['^c', 'quit']],
-  done: [['^c', 'quit']],
+  'playlist-done': [
+    ['o', 'reveal'],
+    ['^c', 'quit'],
+  ],
+  done: [
+    ['o', 'reveal'],
+    ['^c', 'quit'],
+  ],
   error: [
     ['↵', 'try again'],
     ['^c', 'quit'],
@@ -201,6 +208,12 @@ type AppProps = {
   skipExisting?: boolean
   force?: boolean
   time?: string
+  proxy?: string
+  geoBypass?: boolean
+  geoCountry?: string
+  limitRate?: string
+  sponsorblock?: boolean
+  sponsorblockRemove?: string
   onOutcome: (outcome: Outcome) => void
 }
 
@@ -234,6 +247,12 @@ function InnerApp({
   skipExisting,
   force,
   time,
+  proxy,
+  geoBypass,
+  geoCountry,
+  limitRate,
+  sponsorblock,
+  sponsorblockRemove,
   onOutcome,
   cycleTheme,
 }: {
@@ -253,6 +272,12 @@ function InnerApp({
   skipExisting?: boolean
   force?: boolean
   time?: string
+  proxy?: string
+  geoBypass?: boolean
+  geoCountry?: string
+  limitRate?: string
+  sponsorblock?: boolean
+  sponsorblockRemove?: string
   onOutcome: (outcome: Outcome) => void
   cycleTheme: () => void
 }) {
@@ -353,6 +378,12 @@ function InnerApp({
             metadata,
             cookieFile,
             section,
+            proxy,
+            geoBypass,
+            geoCountry,
+            limitRate,
+            sponsorblock,
+            sponsorblockRemove,
           }
           let filepath: string
           try {
@@ -387,14 +418,33 @@ function InnerApp({
           }
         } catch (error) {
           if (controller.signal.aborted) return
-          setPhase({name: 'error', message: error instanceof Error ? error.message : String(error)})
+          setPhase({name: 'error', message: maskProxyCredentials(error instanceof Error ? error.message : String(error))})
           if (autoSelect) {
             exit(error instanceof Error ? error : new Error(String(error)))
           }
         }
       })()
     },
-    [outDir, onOutcome, autoSelect, exit, subtitles, thumbnail, metadata, cookieFile, skipExisting, force, time, info],
+    [
+      outDir,
+      onOutcome,
+      autoSelect,
+      exit,
+      subtitles,
+      thumbnail,
+      metadata,
+      cookieFile,
+      skipExisting,
+      force,
+      time,
+      info,
+      proxy,
+      geoBypass,
+      geoCountry,
+      limitRate,
+      sponsorblock,
+      sponsorblockRemove,
+    ],
   )
 
   const executeBatchDownload = useCallback(
@@ -456,6 +506,12 @@ function InnerApp({
                 skipExisting,
                 force,
                 time,
+                proxy,
+                geoBypass,
+                geoCountry,
+                limitRate,
+                sponsorblock,
+                sponsorblockRemove,
                 onSkip: () => {
                   itemSkipped = true
                 },
@@ -485,7 +541,7 @@ function InnerApp({
               const errMsg = err instanceof Error ? err.message : String(err)
               setPhase(prev =>
                 prev.name === 'playlist-downloading'
-                  ? {...prev, skippedCount: skipped, lastWarning: `${entry.title}: ${errMsg}`}
+                  ? {...prev, skippedCount: skipped, lastWarning: `${entry.title}: ${maskProxyCredentials(errMsg)}`}
                   : prev,
               )
             }
@@ -505,7 +561,7 @@ function InnerApp({
           }
         } catch (error) {
           if (controller.signal.aborted) return
-          setPhase({name: 'error', message: error instanceof Error ? error.message : String(error)})
+          setPhase({name: 'error', message: maskProxyCredentials(error instanceof Error ? error.message : String(error))})
           if (autoSelect) {
             exit(error instanceof Error ? error : new Error(String(error)))
           }
@@ -527,6 +583,12 @@ function InnerApp({
       skipExisting,
       force,
       time,
+      proxy,
+      geoBypass,
+      geoCountry,
+      limitRate,
+      sponsorblock,
+      sponsorblockRemove,
     ],
   )
 
@@ -553,6 +615,10 @@ function InnerApp({
           mediaFilter,
           cookieFile,
           cookieHeader,
+          proxy,
+          geoBypass,
+          geoCountry,
+          limitRate,
           signal: controller.signal,
           onStatus: status => setPhase({name: 'probing', status}),
         })
@@ -600,6 +666,8 @@ function InnerApp({
               skipExisting,
               force,
               time,
+              proxy,
+              limitRate,
               onProgress: progress => {
                 setPhase(prev =>
                   prev.name === 'downloading'
@@ -619,7 +687,7 @@ function InnerApp({
             }
           } catch (err) {
             if (controller.signal.aborted) return
-            setPhase({name: 'error', message: err instanceof Error ? err.message : String(err)})
+            setPhase({name: 'error', message: maskProxyCredentials(err instanceof Error ? err.message : String(err))})
             if (autoSelect) {
               exit(err instanceof Error ? err : new Error(String(err)))
             }
@@ -672,7 +740,7 @@ function InnerApp({
         }
       } catch (error) {
         if (controller.signal.aborted) return
-        setPhase({name: 'error', message: error instanceof Error ? error.message : String(error)})
+        setPhase({name: 'error', message: maskProxyCredentials(error instanceof Error ? error.message : String(error))})
         if (autoSelect) {
           exit(error instanceof Error ? error : new Error(String(error)))
         }
@@ -693,6 +761,10 @@ function InnerApp({
       time,
       activeAudioFormat,
       activeVideoFormat,
+      proxy,
+      geoBypass,
+      geoCountry,
+      limitRate,
     ],
   )
 
@@ -753,6 +825,16 @@ function InnerApp({
       }
       if (key.escape && (phase.name === 'probing' || phase.name === 'downloading' || phase.name === 'playlist-downloading')) cancelRun()
       if (key.return && (phase.name === 'error' || phase.name === 'done' || phase.name === 'playlist-done')) resetToInput()
+      if ((input === 'o' || input === 'O') && !key.ctrl) {
+        if (phase.name === 'done') {
+          revealInFileManager(phase.filepath)
+          return
+        }
+        if (phase.name === 'playlist-done') {
+          revealInFileManager(phase.targetDir)
+          return
+        }
+      }
     },
     {isActive: Boolean(process.stdin.isTTY)},
   )
@@ -819,6 +901,10 @@ function InnerApp({
       if (phase.name === 'picking') return () => handlePick({value: highlightRef.current})
       if (phase.name === 'error' || phase.name === 'done' || phase.name === 'playlist-done') return resetToInput
     }
+    if (key === 'o') {
+      if (phase.name === 'done') return () => revealInFileManager(phase.filepath)
+      if (phase.name === 'playlist-done') return () => revealInFileManager(phase.targetDir)
+    }
     return undefined
   }
 
@@ -843,6 +929,8 @@ function InnerApp({
   }
   if (phase.name === 'done' || phase.name === 'playlist-done') {
     clickTargets.push({match: DONE_LABEL, padX: 4, padY: 1, action: resetToInput})
+    const revealTarget = phase.name === 'done' ? phase.filepath : phase.targetDir
+    clickTargets.push({match: REVEAL_LABEL, padX: 1, action: () => revealInFileManager(revealTarget)})
   }
   for (const [key, label] of hints) {
     const action = hintAction(key)

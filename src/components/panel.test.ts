@@ -128,4 +128,52 @@ test('App accepts initialThumbnail prop without regression', async () => {
   assert.ok(rendered.includes('v1.3.0'))
 })
 
+test('SingleDoneView and PlaylistDoneView render reveal in folder shortcut', async () => {
+  const [{default: React}, {renderToString}, {SingleDoneView, PlaylistDoneView, REVEAL_LABEL, DONE_LABEL}] = await Promise.all([
+    import('react'),
+    import('ink'),
+    import('./views/completion-view.js'),
+  ])
+
+  assert.equal(REVEAL_LABEL, '[o] reveal in folder')
+  assert.equal(DONE_LABEL, '↵ download another')
+
+  const dummyTheme = {
+    primary: 'cyan',
+    secondary: 'gray',
+    dimSecondary: true,
+    background: undefined,
+    gray: 'gray',
+    error: 'red',
+    warning: 'yellow',
+  } as any
+
+  const DummyGap = () => React.createElement('div', null)
+
+  const singleRendered = renderToString(
+    React.createElement(SingleDoneView, {
+      filepath: '/path/to/downloaded/video.mp4',
+      theme: dummyTheme,
+      gapComponent: DummyGap,
+    }),
+  )
+  assert.ok(singleRendered.includes('[o]'))
+  assert.ok(singleRendered.includes('reveal in folder'))
+  assert.ok(singleRendered.includes(DONE_LABEL))
+
+  const playlistRendered = renderToString(
+    React.createElement(PlaylistDoneView, {
+      playlistTitle: 'Test Playlist',
+      downloadCount: 3,
+      skippedCount: 1,
+      targetDir: '/path/to/downloaded/folder',
+      theme: dummyTheme,
+      gapComponent: DummyGap,
+    }),
+  )
+  assert.ok(playlistRendered.includes('[o]'))
+  assert.ok(playlistRendered.includes('reveal in folder'))
+  assert.ok(playlistRendered.includes(DONE_LABEL))
+})
+
 

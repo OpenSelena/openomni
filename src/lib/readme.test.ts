@@ -50,6 +50,12 @@ test('README documentation parity with CLI options', () => {
     ['https://youtu.be/dQw4w9WgXcQ', '--metadata'],
     ['https://youtu.be/dQw4w9WgXcQ', '--add-metadata'],
     ['https://youtu.be/dQw4w9WgXcQ', '--embed-chapters'],
+    ['https://youtu.be/dQw4w9WgXcQ', '--proxy', 'http://127.0.0.1:8080'],
+    ['https://youtu.be/dQw4w9WgXcQ', '--geo-bypass'],
+    ['https://youtu.be/dQw4w9WgXcQ', '--geo-country', 'US'],
+    ['https://youtu.be/dQw4w9WgXcQ', '--limit-rate', '1.5M'],
+    ['https://youtu.be/dQw4w9WgXcQ', '--sponsorblock'],
+    ['https://youtu.be/dQw4w9WgXcQ', '--sponsorblock-remove', 'sponsor,intro'],
     ['-h'],
     ['--help'],
     ['-v'],
@@ -86,6 +92,12 @@ test('README documentation parity with CLI options', () => {
   assert.match(readme, /--video-format/, 'README should document --video-format')
   assert.match(readme, /--metadata/, 'README should document --metadata')
   assert.match(readme, /--embed-chapters/, 'README should document --embed-chapters')
+  assert.match(readme, /--proxy/, 'README should document --proxy')
+  assert.match(readme, /--geo-bypass/, 'README should document --geo-bypass')
+  assert.match(readme, /--geo-country/, 'README should document --geo-country')
+  assert.match(readme, /--limit-rate/, 'README should document --limit-rate')
+  assert.match(readme, /--sponsorblock/, 'README should document --sponsorblock')
+  assert.match(readme, /--sponsorblock-remove/, 'README should document --sponsorblock-remove')
 
   // Ensure README includes one-line installer domain mint.dev.cv
   assert.match(readme, /mint\.dev\.cv/, 'README should link to mint.dev.cv installer')

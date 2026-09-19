@@ -464,6 +464,165 @@ test('parses --video-format option for container formats (mp4, mkv, webm)', () =
   )
 })
 
+test('parses --proxy flag with http/socks URLs and rejects missing value', () => {
+  assert.deepEqual(parseArgs(['--proxy', 'http://127.0.0.1:8080', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    proxy: 'http://127.0.0.1:8080',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(parseArgs(['--proxy=socks5://user:pass@10.0.0.1:1080', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    proxy: 'socks5://user:pass@10.0.0.1:1080',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.match(parseArgs(['--proxy']).error ?? '', /needs a proxy URL/)
+  assert.match(parseArgs(['--proxy=']).error ?? '', /needs a proxy URL/)
+})
+
+test('parses --geo-bypass and --geo-country flags and validates country codes', () => {
+  assert.deepEqual(parseArgs(['--geo-bypass', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    geoBypass: true,
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(parseArgs(['--geo-country', 'us', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    geoCountry: 'US',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(parseArgs(['--geo-bypass-country=de', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    geoCountry: 'DE',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.match(parseArgs(['--geo-country']).error ?? '', /needs a 2-letter country code/)
+  assert.match(parseArgs(['--geo-country', 'USA']).error ?? '', /needs a 2-letter country code/)
+  assert.match(parseArgs(['--geo-country=12']).error ?? '', /needs a 2-letter country code/)
+})
+
+test('parses --limit-rate and validates bandwidth strings', () => {
+  assert.deepEqual(parseArgs(['--limit-rate', '50K', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    limitRate: '50K',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(parseArgs(['--limit-rate=1.5M', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    limitRate: '1.5M',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(parseArgs(['--rate-limit', '2G', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    limitRate: '2G',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(parseArgs(['--limit-rate', '100000', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    limitRate: '100000',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.match(parseArgs(['--limit-rate']).error ?? '', /needs a rate limit/)
+  assert.match(parseArgs(['--limit-rate=']).error ?? '', /needs a rate limit/)
+  assert.match(parseArgs(['--limit-rate', 'invalid']).error ?? '', /invalid rate limit/)
+  assert.match(parseArgs(['--limit-rate', '-50K']).error ?? '', /unknown option|invalid rate limit/)
+  assert.match(parseArgs(['--limit-rate', '50MBps']).error ?? '', /invalid rate limit/)
+})
+
+test('parses --sponsorblock and --sponsorblock-remove flags', () => {
+  assert.deepEqual(parseArgs(['--sponsorblock', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    sponsorblock: true,
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(parseArgs(['--sponsorblock-remove', 'sponsor,intro', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    sponsorblock: true,
+    sponsorblockRemove: 'sponsor,intro',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.deepEqual(parseArgs(['--sponsorblock-remove=all', 'https://example.com/video']), {
+    help: false,
+    version: false,
+    sponsorblock: true,
+    sponsorblockRemove: 'all',
+    initialUrl: 'https://example.com/video',
+  })
+
+  assert.match(parseArgs(['--sponsorblock-remove']).error ?? '', /needs category names/)
+  assert.match(parseArgs(['--sponsorblock-remove=']).error ?? '', /needs category names/)
+})
+
+test('parses combination of network proxy, geo-bypass, limit-rate, and sponsorblock flags', () => {
+  const parsed = parseArgs([
+    '--proxy',
+    'socks5://127.0.0.1:9050',
+    '--geo-bypass',
+    '--geo-country',
+    'jp',
+    '--limit-rate',
+    '2.5M',
+    '--sponsorblock',
+    '--sponsorblock-remove',
+    'sponsor,outro',
+    'https://example.com/video',
+  ])
+
+  assert.deepEqual(parsed, {
+    help: false,
+    version: false,
+    proxy: 'socks5://127.0.0.1:9050',
+    geoBypass: true,
+    geoCountry: 'JP',
+    limitRate: '2.5M',
+    sponsorblock: true,
+    sponsorblockRemove: 'sponsor,outro',
+    initialUrl: 'https://example.com/video',
+  })
+})
+
+test('rejects options when followed immediately by another flag without argument value', () => {
+  assert.match(
+    parseArgs(['--proxy', '--best', 'https://example.com']).error ?? '',
+    /--proxy needs a proxy URL/
+  )
+  assert.match(
+    parseArgs(['--sponsorblock-remove', '--best', 'https://example.com']).error ?? '',
+    /--sponsorblock-remove needs category names/
+  )
+  assert.match(
+    parseArgs(['--geo-country', '--best', 'https://example.com']).error ?? '',
+    /needs a 2-letter country code/
+  )
+  assert.match(
+    parseArgs(['--limit-rate', '--best', 'https://example.com']).error ?? '',
+    /invalid rate limit/
+  )
+})
+
+
+
 
 
 

@@ -14,6 +14,8 @@ import {
   installGalleryDlMacOs,
   ensureGalleryDl,
   updateGalleryDl,
+  buildGalleryDlProbeArgs,
+  buildGalleryDlDownloadArgs,
 } from './gallerydl.js'
 
 test('isPhotoExtension correctly classifies image extensions', () => {
@@ -362,4 +364,57 @@ test('updateGalleryDl installs if missing on darwin', async () => {
   assert.equal(res.currentVersion, '1.32.12')
   assert.equal(res.updated, true)
 })
+
+test('buildGalleryDlProbeArgs formats probe arguments with proxy, limit-rate, and cookies', () => {
+  assert.deepEqual(
+    buildGalleryDlProbeArgs('https://example.com/gallery'),
+    ['-j', '--no-part', 'https://example.com/gallery']
+  )
+
+  assert.deepEqual(
+    buildGalleryDlProbeArgs('https://example.com/gallery', '/path/cookies.txt', {
+      proxy: 'http://127.0.0.1:8080',
+      limitRate: '1.5M',
+    }),
+    [
+      '-j',
+      '--no-part',
+      '--cookies',
+      '/path/cookies.txt',
+      '--proxy',
+      'http://127.0.0.1:8080',
+      '--limit-rate',
+      '1.5M',
+      'https://example.com/gallery',
+    ]
+  )
+})
+
+test('buildGalleryDlDownloadArgs formats download arguments with destination, proxy, and limit-rate', () => {
+  assert.deepEqual(
+    buildGalleryDlDownloadArgs({
+      url: 'https://example.com/photo.jpg',
+      destDir: '/downloads',
+      filename: 'photo.jpg',
+      proxy: 'socks5://127.0.0.1:1080',
+      limitRate: '50K',
+      cookieFile: '/cookies.txt',
+    }),
+    [
+      '-D',
+      '/downloads',
+      '--no-part',
+      '--cookies',
+      '/cookies.txt',
+      '--proxy',
+      'socks5://127.0.0.1:1080',
+      '--limit-rate',
+      '50K',
+      '-f',
+      'photo.jpg',
+      'https://example.com/photo.jpg',
+    ]
+  )
+})
+
 

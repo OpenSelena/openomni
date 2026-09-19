@@ -51,6 +51,12 @@ export type CliArgs = {
   completion?: CompletionTarget
   skipExisting?: boolean
   time?: string
+  proxy?: string
+  geoBypass?: boolean
+  geoCountry?: string
+  limitRate?: string
+  sponsorblock?: boolean
+  sponsorblockRemove?: string
   error?: string
 }
 
@@ -200,6 +206,54 @@ export function parseArgs(args: string[]): CliArgs {
       if (!value) return {...result, error: `${prefix.slice(0, -1)} needs a time range (e.g. 01:30-03:45 or 90-180)`}
       if (!parseTimeRange(value)) return {...result, error: `invalid time range "${value}" — use MM:SS-MM:SS, HH:MM:SS-HH:MM:SS, or start-end seconds`}
       result.time = value
+    } else if (arg === '--proxy') {
+      const value = args[++index]
+      if (!value || value.startsWith('-')) return {...result, error: '--proxy needs a proxy URL'}
+      result.proxy = value
+    } else if (arg.startsWith('--proxy=')) {
+      const value = arg.slice('--proxy='.length)
+      if (!value) return {...result, error: '--proxy needs a proxy URL'}
+      result.proxy = value
+    } else if (arg === '--geo-bypass') {
+      result.geoBypass = true
+    } else if (arg === '--geo-country' || arg === '--geo-bypass-country') {
+      const value = args[++index]
+      if (!value) return {...result, error: `${arg} needs a 2-letter country code`}
+      if (!/^[a-zA-Z]{2}$/.test(value)) return {...result, error: `${arg} needs a 2-letter country code (e.g. US, GB)`}
+      result.geoCountry = value.toUpperCase()
+    } else if (arg.startsWith('--geo-country=') || arg.startsWith('--geo-bypass-country=')) {
+      const prefix = arg.startsWith('--geo-country=') ? '--geo-country=' : '--geo-bypass-country='
+      const value = arg.slice(prefix.length)
+      if (!value) return {...result, error: `${prefix.slice(0, -1)} needs a 2-letter country code`}
+      if (!/^[a-zA-Z]{2}$/.test(value)) return {...result, error: `${prefix.slice(0, -1)} needs a 2-letter country code (e.g. US, GB)`}
+      result.geoCountry = value.toUpperCase()
+    } else if (arg === '--limit-rate' || arg === '--rate-limit') {
+      const value = args[++index]
+      if (!value) return {...result, error: `${arg} needs a rate limit (e.g. 50K, 1.5M, 2G)`}
+      if (!/^\d+(\.\d+)?[kKmMgGbB]?$/.test(value)) {
+        return {...result, error: `invalid rate limit \u201c${value}\u201d \u2014 use format like 50K, 1.5M, 2G, or bytes`}
+      }
+      result.limitRate = value
+    } else if (arg.startsWith('--limit-rate=') || arg.startsWith('--rate-limit=')) {
+      const prefix = arg.startsWith('--limit-rate=') ? '--limit-rate=' : '--rate-limit='
+      const value = arg.slice(prefix.length)
+      if (!value) return {...result, error: `${prefix.slice(0, -1)} needs a rate limit (e.g. 50K, 1.5M, 2G)`}
+      if (!/^\d+(\.\d+)?[kKmMgGbB]?$/.test(value)) {
+        return {...result, error: `invalid rate limit \u201c${value}\u201d \u2014 use format like 50K, 1.5M, 2G, or bytes`}
+      }
+      result.limitRate = value
+    } else if (arg === '--sponsorblock') {
+      result.sponsorblock = true
+    } else if (arg === '--sponsorblock-remove') {
+      const value = args[++index]
+      if (!value || value.startsWith('-')) return {...result, error: '--sponsorblock-remove needs category names (e.g. all, default, sponsor, intro)'}
+      result.sponsorblock = true
+      result.sponsorblockRemove = value
+    } else if (arg.startsWith('--sponsorblock-remove=')) {
+      const value = arg.slice('--sponsorblock-remove='.length)
+      if (!value) return {...result, error: '--sponsorblock-remove needs category names (e.g. all, default, sponsor, intro)'}
+      result.sponsorblock = true
+      result.sponsorblockRemove = value
     } else if (arg.startsWith('-')) {
       return {...result, error: `unknown option \u201c${arg}\u201d`}
     } else {

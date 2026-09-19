@@ -282,9 +282,15 @@ export async function probe(
   url: string,
   signal?: AbortSignal,
   cookieFile?: string,
+  options?: {
+    proxy?: string
+    geoBypass?: boolean
+    geoCountry?: string
+  },
 ): Promise<ProbeResult> {
   const probeArgs = ['-J', '--flat-playlist', '--no-warnings']
   if (cookieFile) probeArgs.push('--cookies', cookieFile)
+  probeArgs.push(...buildProxyArgs(options))
   probeArgs.push(url)
 
   const stdout = await new Promise<string>((resolve, reject) => {
@@ -293,10 +299,10 @@ export async function probe(
     let stderr = ''
     child.stdout.on('data', chunk => (out += chunk))
     child.stderr.on('data', chunk => (stderr += chunk))
-    child.on('error', reject)
+    child.on('error', err => reject(new Error(maskProxyCredentials(err.message))))
     child.on('close', code => {
       if (code !== 0) {
-        reject(new Error(cleanYtDlpError(stderr) || `yt-dlp exited with code ${code}`))
+        reject(new Error(cleanYtDlpError(stderr) || maskProxyCredentials(stderr.trim()) || `yt-dlp exited with code ${code}`))
       } else {
         resolve(out)
       }
@@ -462,10 +468,69 @@ export function buildMetadataArgs(opts?: MetadataOptions): string[] {
   return args
 }
 
-export function download(
+export function maskProxyCredentials(text: string): string {
+  if (!text || typeof text !== 'string') return ''
+  return text.replace(
+    /([a-zA-Z][a-zA-Z0-9+.-]*:\/\/)([^/\s]+)@/g,
+    (_match, proto, userInfo) => (userInfo.includes(':') ? `${proto}***:***@` : `${proto}***@`),
+  )
+}
+
+export function buildProxyArgs(options?: {
+  proxy?: string
+  geoBypass?: boolean
+  geoCountry?: string
+}): string[] {
+  if (!options) return []
+  const args: string[] = []
+  if (options.proxy) {
+    args.push('--proxy', options.proxy)
+  }
+  if (options.geoBypass) {
+    args.push('--geo-bypass')
+  }
+  if (options.geoCountry) {
+    args.push('--geo-bypass-country', options.geoCountry)
+  }
+  return args
+}
+
+export function buildRateLimitArgs(limitRate?: string): string[] {
+  if (!limitRate) return []
+  return ['--limit-rate', limitRate]
+}
+
+export type SponsorBlockOptions = {
+  enabled?: boolean
+  categories?: string
+}
+
+export function buildSponsorBlockArgs(
+  opts?: SponsorBlockOptions,
+  hasFfmpeg: boolean = true,
+): string[] {
+  if (!opts || !opts.enabled || !hasFfmpeg) return []
+  const rawCats = opts.categories && opts.categories.trim() ? opts.categories.trim() : 'all'
+  const cats = rawCats
+    .split(',')
+    .map(c => c.trim())
+    .filter(Boolean)
+    .join(',')
+  return ['--sponsorblock-remove', cats || 'all']
+}
+
+export async function isFfmpegAvailable(ffmpegLocation?: string): Promise<boolean> {
+  if (ffmpegLocation && (await commandWorks(ffmpegLocation, ['-version']))) {
+    return true
+  }
+  return commandWorks('ffmpeg', ['-version'])
+}
+
+export async function download(
   opts: {
     ytdlp: string
     ffmpegLocation?: string
+    hasFfmpeg?: boolean
     url: string
     /** When set, reuse the probe's metadata instead of re-extracting — starts much faster. */
     infoJsonPath?: string
@@ -477,16 +542,34 @@ export function download(
     metadata?: MetadataOptions
     cookieFile?: string
     section?: string
+    proxy?: string
+    geoBypass?: boolean
+    geoCountry?: string
+    limitRate?: string
+    sponsorblock?: boolean
+    sponsorblockRemove?: string
   },
   handlers: DownloadHandlers,
   signal?: AbortSignal,
 ): Promise<string> {
+  const hasFfmpeg =
+    opts.hasFfmpeg !== undefined
+      ? opts.hasFfmpeg
+      : await isFfmpegAvailable(opts.ffmpegLocation)
+  const sponsorblockOpts =
+    opts.sponsorblock || opts.sponsorblockRemove
+      ? {enabled: true, categories: opts.sponsorblockRemove}
+      : undefined
+
   const args = [
     ...(opts.infoJsonPath ? ['--load-info-json', opts.infoJsonPath] : [opts.url]),
     ...opts.choice.args,
     ...buildSubtitleArgs(opts.subtitles),
-    ...buildThumbnailArgs(opts.thumbnail, Boolean(opts.ffmpegLocation)),
+    ...buildThumbnailArgs(opts.thumbnail, hasFfmpeg),
     ...buildMetadataArgs(opts.metadata),
+    ...buildProxyArgs(opts),
+    ...buildRateLimitArgs(opts.limitRate),
+    ...buildSponsorBlockArgs(sponsorblockOpts, hasFfmpeg),
     ...(opts.section ? ['--download-sections', opts.section] : []),
     '--no-playlist',
     '--no-warnings',
@@ -556,7 +639,7 @@ export function download(
       }
     })
     child.stderr.on('data', chunk => (stderr += chunk))
-    child.on('error', reject)
+    child.on('error', err => reject(new Error(maskProxyCredentials(err.message))))
     child.on('close', code => {
       activeChild = undefined
       if (signal?.aborted) {
@@ -568,7 +651,7 @@ export function download(
       if (code === 0 && filepath) {
         resolve(filepath)
       } else {
-        reject(new Error(cleanYtDlpError(stderr) || `Download failed (yt-dlp exit code ${code}).`))
+        reject(new Error(cleanYtDlpError(stderr) || maskProxyCredentials(stderr.trim()) || maskProxyCredentials(`Download failed (yt-dlp exit code ${code}).`)))
       }
     })
   })
@@ -588,11 +671,12 @@ function toNumber(value: string | undefined): number | undefined {
   return Number.isFinite(n) ? n : undefined
 }
 
-function cleanYtDlpError(stderr: string): string {
+export function cleanYtDlpError(stderr: string): string {
   const lines = stderr
     .split('\n')
     .map(l => l.trim())
     .filter(l => l.startsWith('ERROR:'))
   const last = lines.at(-1)
-  return last ? last.replace(/^ERROR:\s*(\[[^\]]+\]\s*)?/, '') : ''
+  const cleaned = last ? last.replace(/^ERROR:\s*(\[[^\]]+\]\s*)?/, '') : ''
+  return maskProxyCredentials(cleaned)
 }

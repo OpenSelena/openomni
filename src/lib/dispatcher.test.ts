@@ -737,4 +737,118 @@ test('postToPlaylistMetadata marks items as completed if found in Download Ledge
   }
 })
 
+test('probeUnified forwards proxy, geoBypass, geoCountry, and limitRate to engine probe functions', async () => {
+  let gdlOptionsPassed: any
+  let ytOptionsPassed: any
+
+  await probeUnified({
+    url: 'https://x.com/user/status/123456',
+    ytdlp: 'yt-dlp',
+    proxy: 'http://127.0.0.1:8080',
+    geoBypass: true,
+    geoCountry: 'US',
+    limitRate: '2M',
+    probeGalleryDlFn: async (_bin, _url, _sig, _cookie, opts) => {
+      gdlOptionsPassed = opts
+      return [
+        {
+          url: 'https://video.twimg.com/vid.mp4',
+          filename: 'vid.mp4',
+          ext: 'mp4',
+          kind: 'video',
+          index: 1,
+        },
+      ]
+    },
+    probeYtDlpFn: async (_bin, _url, _sig, _cookie, opts) => {
+      ytOptionsPassed = opts
+      return {
+        kind: 'single',
+        info: {title: 'Twitter Video', formats: []},
+        infoJsonPath: '/tmp/test.json',
+      }
+    },
+  })
+
+  assert.deepEqual(gdlOptionsPassed, {proxy: 'http://127.0.0.1:8080', limitRate: '2M'})
+  assert.deepEqual(ytOptionsPassed, {
+    proxy: 'http://127.0.0.1:8080',
+    geoBypass: true,
+    geoCountry: 'US',
+  })
+})
+
+test('downloadUnifiedItem forwards proxy, rate limit, and sponsorblock options to download functions', async () => {
+  let photoOptsPassed: any
+  let videoOptsPassed: any
+
+  const tmpDir = path.join(os.tmpdir(), `disp-opts-test-${Date.now()}`)
+  fsSync.mkdirSync(tmpDir, {recursive: true})
+
+  try {
+    // 1. Photo item
+    await downloadUnifiedItem({
+      item: {
+        id: 'photo-1',
+        title: 'Photo 1',
+        url: 'https://example.com/photo.jpg',
+        index: 1,
+        kind: 'photo',
+      },
+      destDir: tmpDir,
+      ytdlp: 'yt-dlp',
+      choice: {label: 'original photo', kind: 'photo', args: []},
+      proxy: 'socks5://127.0.0.1:1080',
+      limitRate: '1.5M',
+      downloadPhotoFn: async opts => {
+        photoOptsPassed = opts
+        const p = path.join(tmpDir, 'photo.jpg')
+        fsSync.writeFileSync(p, 'photo')
+        return p
+      },
+    })
+
+    assert.equal(photoOptsPassed.proxy, 'socks5://127.0.0.1:1080')
+    assert.equal(photoOptsPassed.limitRate, '1.5M')
+
+    // 2. Video item
+    await downloadUnifiedItem({
+      item: {
+        id: 'vid-1',
+        title: 'Video 1',
+        url: 'https://example.com/video.mp4',
+        index: 1,
+        kind: 'video',
+      },
+      destDir: tmpDir,
+      ytdlp: 'yt-dlp',
+      choice: {label: 'best', kind: 'video', args: []},
+      proxy: 'http://proxy.org:8080',
+      geoBypass: true,
+      geoCountry: 'GB',
+      limitRate: '500K',
+      sponsorblock: true,
+      sponsorblockRemove: 'sponsor,intro',
+      downloadVideoFn: async opts => {
+        videoOptsPassed = opts
+        const p = path.join(tmpDir, 'video.mp4')
+        fsSync.writeFileSync(p, 'video')
+        return p
+      },
+    })
+
+    assert.equal(videoOptsPassed.proxy, 'http://proxy.org:8080')
+    assert.equal(videoOptsPassed.geoBypass, true)
+    assert.equal(videoOptsPassed.geoCountry, 'GB')
+    assert.equal(videoOptsPassed.limitRate, '500K')
+    assert.equal(videoOptsPassed.sponsorblock, true)
+    assert.equal(videoOptsPassed.sponsorblockRemove, 'sponsor,intro')
+  } finally {
+    try {
+      fsSync.rmSync(tmpDir, {recursive: true, force: true})
+    } catch {}
+  }
+})
+
+
 

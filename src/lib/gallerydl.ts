@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import {Readable} from 'node:stream'
 import {pipeline} from 'node:stream/promises'
+import {maskProxyCredentials} from './ytdlp.js'
 
 const OPEN_OMNI_DIR = path.join(os.homedir(), '.open-omni', 'bin')
 const CODEBERG_RELEASE_API = 'https://codeberg.org/api/v1/repos/mikf/gallery-dl/releases/latest'
@@ -597,22 +598,41 @@ export async function ensureGalleryDl(
   return downloadLatestGalleryDl(path.dirname(local), signal, onStatus)
 }
 
+export function buildGalleryDlProbeArgs(
+  url: string,
+  cookieFile?: string,
+  options?: {proxy?: string; limitRate?: string},
+): string[] {
+  const args = ['-j', '--no-part']
+  if (cookieFile) {
+    args.push('--cookies', cookieFile)
+  }
+  if (options?.proxy) {
+    args.push('--proxy', options.proxy)
+  }
+  if (options?.limitRate) {
+    args.push('--limit-rate', options.limitRate)
+  }
+  args.push(url)
+  return args
+}
+
 export async function probeGalleryDl(
   gallerydl: string,
   url: string,
   signal?: AbortSignal,
   cookieFile?: string,
+  options?: {
+    proxy?: string
+    limitRate?: string
+  },
 ): Promise<GalleryDlItem[]> {
   return new Promise((resolve, reject) => {
     let child: ChildProcess
     let stdout = ''
     let stderr = ''
 
-    const args = ['-j', '--no-part']
-    if (cookieFile) {
-      args.push('--cookies', cookieFile)
-    }
-    args.push(url)
+    const args = buildGalleryDlProbeArgs(url, cookieFile, options)
 
     try {
       child = spawn(
@@ -621,7 +641,7 @@ export async function probeGalleryDl(
         {signal},
       )
     } catch (err) {
-      reject(new Error(`failed to spawn gallery-dl: ${err instanceof Error ? err.message : String(err)}`))
+      reject(new Error(maskProxyCredentials(`failed to spawn gallery-dl: ${err instanceof Error ? err.message : String(err)}`)))
       return
     }
 
@@ -634,13 +654,13 @@ export async function probeGalleryDl(
     })
 
     child.on('error', err => {
-      reject(err)
+      reject(new Error(maskProxyCredentials(err.message)))
     })
 
     child.on('close', code => {
       if (code !== 0) {
         const errorMsg = stderr.trim() || stdout.trim() || `gallery-dl exited with code ${code}`
-        reject(new Error(errorMsg))
+        reject(new Error(maskProxyCredentials(errorMsg)))
         return
       }
 
@@ -663,6 +683,40 @@ export type PhotoDownloadProgress = {
   totalParts: number
 }
 
+export function buildGalleryDlDownloadArgs(options: {
+  url: string
+  destDir: string
+  filename?: string
+  cookieFile?: string
+  proxy?: string
+  limitRate?: string
+}): string[] {
+  const args: string[] = [
+    '-D',
+    options.destDir,
+    '--no-part',
+  ]
+
+  if (options.cookieFile) {
+    args.push('--cookies', options.cookieFile)
+  }
+
+  if (options.proxy) {
+    args.push('--proxy', options.proxy)
+  }
+
+  if (options.limitRate) {
+    args.push('--limit-rate', options.limitRate)
+  }
+
+  if (options.filename) {
+    args.push('-f', options.filename)
+  }
+
+  args.push(options.url)
+  return args
+}
+
 export async function downloadPhotoItem(options: {
   onProgress?: (progress: PhotoDownloadProgress) => void
   gallerydl: string
@@ -671,26 +725,14 @@ export async function downloadPhotoItem(options: {
   filename?: string
   signal?: AbortSignal
   cookieFile?: string
+  proxy?: string
+  limitRate?: string
 }): Promise<string> {
-  const {gallerydl, url, destDir, filename, signal, cookieFile} = options
+  const {gallerydl, url, destDir, filename, signal, cookieFile, proxy, limitRate} = options
   await fs.mkdir(destDir, {recursive: true})
 
   return new Promise((resolve, reject) => {
-    const args: string[] = [
-      '-D',
-      destDir,
-      '--no-part',
-    ]
-
-    if (cookieFile) {
-      args.push('--cookies', cookieFile)
-    }
-
-    if (filename) {
-      args.push('-f', filename)
-    }
-
-    args.push(url)
+    const args = buildGalleryDlDownloadArgs({url, destDir, filename, cookieFile, proxy, limitRate})
 
     let child: ChildProcess
     let stderr = ''
@@ -698,7 +740,7 @@ export async function downloadPhotoItem(options: {
     try {
       child = spawn(gallerydl, args, {signal})
     } catch (err) {
-      reject(new Error(`failed to spawn gallery-dl for download: ${err instanceof Error ? err.message : String(err)}`))
+      reject(new Error(maskProxyCredentials(`failed to spawn gallery-dl for download: ${err instanceof Error ? err.message : String(err)}`)))
       return
     }
 
@@ -707,12 +749,12 @@ export async function downloadPhotoItem(options: {
     })
 
     child.on('error', err => {
-      reject(err)
+      reject(new Error(maskProxyCredentials(err.message)))
     })
 
     child.on('close', code => {
       if (code !== 0) {
-        reject(new Error(stderr.trim() || `gallery-dl download exited with code ${code}`))
+        reject(new Error(maskProxyCredentials(stderr.trim() || `gallery-dl download exited with code ${code}`)))
         return
       }
 

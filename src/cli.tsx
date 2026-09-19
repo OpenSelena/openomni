@@ -8,7 +8,7 @@ import {captureFrames} from './lib/click-map.js'
 import {parseArgs, resolveOutputDir, toSubtitleOptions, toThumbnailOptions} from './lib/args.js'
 import {readClipboard} from './lib/clipboard.js'
 import {isProbablyUrl} from './lib/platforms.js'
-import {buildChoices, download, ensureYtDlp, findFfmpeg, probe, updateYtDlp, type DownloadChoice} from './lib/ytdlp.js'
+import {buildChoices, download, ensureYtDlp, findFfmpeg, maskProxyCredentials, probe, updateYtDlp, type DownloadChoice} from './lib/ytdlp.js'
 import {updateGalleryDl} from './lib/gallerydl.js'
 import {
   buildQualityTierArgs,
@@ -82,6 +82,12 @@ const HELP = `
     --section <sec> alias for --time
     --cookies <path> load cookies from a Netscape format file
     --cookies-from-browser <b[+k][:p]> load cookies from browser (firefox, chrome, edge, zen, etc.)
+    --proxy <url>   use HTTP/HTTPS/SOCKS proxy (e.g. http://127.0.0.1:8080 or socks5://...)
+    --geo-bypass    bypass geographic restriction via fake X-Forwarded-For HTTP header
+    --geo-country <code> bypass geographic restriction with 2-letter country code (e.g. US, DE)
+    --limit-rate <rate> limit download speed (e.g. 50K, 1.5M, 2G)
+    --sponsorblock   remove sponsored segments using SponsorBlock
+    --sponsorblock-remove <cats> SponsorBlock categories to remove (default: all)
     -o, --output    output directory (default: ~/Downloads, or $OPEN_OMNI_DIR)
     -U, --update    update bundled engines (yt-dlp and gallery-dl) to latest version
     --update-ytdlp  update only bundled yt-dlp binary
@@ -225,6 +231,10 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFor
       mediaFilter,
       cookieFile,
       cookieHeader,
+      proxy: runtimeConfig.proxy,
+      geoBypass: runtimeConfig.geoBypass,
+      geoCountry: runtimeConfig.geoCountry,
+      limitRate: runtimeConfig.limitRate,
       onStatus: status => console.error(`[open-omni] ${status}`),
     })
 
@@ -262,6 +272,8 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFor
         skipExisting: args.skipExisting,
         force: args.force,
         time: args.time,
+        proxy: runtimeConfig.proxy,
+        limitRate: runtimeConfig.limitRate,
       })
       cleanupCookieJar(cookieJar)
       console.log(`✓ downloaded → ${filepath}`)
@@ -309,6 +321,12 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFor
             skipExisting: args.skipExisting,
             force: args.force,
             time: args.time,
+            proxy: runtimeConfig.proxy,
+            geoBypass: runtimeConfig.geoBypass,
+            geoCountry: runtimeConfig.geoCountry,
+            limitRate: runtimeConfig.limitRate,
+            sponsorblock: runtimeConfig.sponsorblock,
+            sponsorblockRemove: runtimeConfig.sponsorblockRemove,
             onProgress: progress => {
               if (progress.totalBytes) {
                 const pct = Math.round((progress.downloadedBytes / progress.totalBytes) * 100)
@@ -366,6 +384,12 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFor
         metadata,
         cookieFile,
         section,
+        proxy: runtimeConfig.proxy,
+        geoBypass: runtimeConfig.geoBypass,
+        geoCountry: runtimeConfig.geoCountry,
+        limitRate: runtimeConfig.limitRate,
+        sponsorblock: runtimeConfig.sponsorblock,
+        sponsorblockRemove: runtimeConfig.sponsorblockRemove,
       },
       {
         onProgress: progress => {
@@ -394,7 +418,7 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFor
     process.exit(0)
   } catch (error) {
     cleanupCookieJar(cookieJar)
-    console.error(`✗ ${error instanceof Error ? error.message : String(error)}`)
+    console.error(`✗ ${maskProxyCredentials(error instanceof Error ? error.message : String(error))}`)
     process.exit(1)
   }
 }
@@ -447,6 +471,12 @@ try {
       skipExisting={args.skipExisting}
       force={args.force}
       time={args.time}
+      proxy={runtimeConfig.proxy}
+      geoBypass={runtimeConfig.geoBypass}
+      geoCountry={runtimeConfig.geoCountry}
+      limitRate={runtimeConfig.limitRate}
+      sponsorblock={runtimeConfig.sponsorblock}
+      sponsorblockRemove={runtimeConfig.sponsorblockRemove}
       onOutcome={result => (outcome = result)}
     />,
     // keep a copy of every frame so clicks can be hit-tested against it
@@ -466,7 +496,7 @@ if (outcome.filepath) {
 
 main().catch(err => {
   const msg = err instanceof Error ? err.message : String(err)
-  console.error(`open-omni: ${msg}`)
+  console.error(`open-omni: ${maskProxyCredentials(msg)}`)
   process.exit(1)
 })
 

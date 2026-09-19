@@ -11,6 +11,12 @@ import {
   buildThumbnailArgs,
   buildMetadataArgs,
   buildChoices,
+  maskProxyCredentials,
+  cleanYtDlpError,
+  buildProxyArgs,
+  buildRateLimitArgs,
+  buildSponsorBlockArgs,
+  isFfmpegAvailable,
   type VideoInfo
 } from './ytdlp.js'
 
@@ -238,6 +244,141 @@ test('buildChoices respects audioFormat option', () => {
   assert.ok(mkvVideo.args.includes('mkv'))
   assert.equal(mkvVideo.args[mkvVideo.args.indexOf('--merge-output-format') + 1], 'mkv')
 })
+
+test('maskProxyCredentials removes passwords and user credentials from URLs in strings', () => {
+  assert.equal(
+    maskProxyCredentials('http://user:secret123@proxy.example.com:8080/'),
+    'http://***:***@proxy.example.com:8080/'
+  )
+  assert.equal(
+    maskProxyCredentials('socks5://admin:pass@127.0.0.1:1080'),
+    'socks5://***:***@127.0.0.1:1080'
+  )
+  assert.equal(
+    maskProxyCredentials('socks5://admin@127.0.0.1:1080'),
+    'socks5://***@127.0.0.1:1080'
+  )
+  assert.equal(
+    maskProxyCredentials('ERROR: Failed to connect through http://user:supersecret@10.0.0.1:3128: Connection refused'),
+    'ERROR: Failed to connect through http://***:***@10.0.0.1:3128: Connection refused'
+  )
+  assert.equal(
+    maskProxyCredentials('http://proxy.example.com:8080/no/credentials'),
+    'http://proxy.example.com:8080/no/credentials'
+  )
+  // Passwords containing colons or symbols
+  assert.equal(
+    maskProxyCredentials('http://user:p:a:s:s:123@127.0.0.1:8080'),
+    'http://***:***@127.0.0.1:8080'
+  )
+  // Passwords containing unencoded @ or percent-encoded @
+  assert.equal(
+    maskProxyCredentials('http://user:p@ssword@proxy.example.com:8080'),
+    'http://***:***@proxy.example.com:8080'
+  )
+  assert.equal(
+    maskProxyCredentials('http://user:p%40ssword@proxy.example.com:8080'),
+    'http://***:***@proxy.example.com:8080'
+  )
+  // Email usernames or usernames with @
+  assert.equal(
+    maskProxyCredentials('http://user@example.com:secret@proxy.example.com:8080'),
+    'http://***:***@proxy.example.com:8080'
+  )
+  // IPv6 proxy host
+  assert.equal(
+    maskProxyCredentials('socks5://admin:secret@[::1]:1080/'),
+    'socks5://***:***@[::1]:1080/'
+  )
+  // URL with @ in path should NOT be treated as credentials
+  assert.equal(
+    maskProxyCredentials('https://cdn.example.com/images/avatar@2x.png'),
+    'https://cdn.example.com/images/avatar@2x.png'
+  )
+  // Non-string or falsy input safety
+  assert.equal(maskProxyCredentials(''), '')
+  assert.equal(maskProxyCredentials(undefined as unknown as string), '')
+  assert.equal(maskProxyCredentials(null as unknown as string), '')
+})
+
+test('buildProxyArgs generates correct yt-dlp proxy and geo bypass arguments', () => {
+  assert.deepEqual(buildProxyArgs(undefined), [])
+  assert.deepEqual(buildProxyArgs({}), [])
+  assert.deepEqual(buildProxyArgs({proxy: 'http://127.0.0.1:8080'}), [
+    '--proxy',
+    'http://127.0.0.1:8080',
+  ])
+  assert.deepEqual(buildProxyArgs({geoBypass: true}), ['--geo-bypass'])
+  assert.deepEqual(buildProxyArgs({geoCountry: 'US'}), ['--geo-bypass-country', 'US'])
+  assert.deepEqual(
+    buildProxyArgs({
+      proxy: 'socks5://127.0.0.1:1080',
+      geoBypass: true,
+      geoCountry: 'JP',
+    }),
+    [
+      '--proxy',
+      'socks5://127.0.0.1:1080',
+      '--geo-bypass',
+      '--geo-bypass-country',
+      'JP',
+    ]
+  )
+})
+
+test('buildRateLimitArgs generates correct yt-dlp --limit-rate arguments', () => {
+  assert.deepEqual(buildRateLimitArgs(undefined), [])
+  assert.deepEqual(buildRateLimitArgs(''), [])
+  assert.deepEqual(buildRateLimitArgs('50K'), ['--limit-rate', '50K'])
+  assert.deepEqual(buildRateLimitArgs('1.5M'), ['--limit-rate', '1.5M'])
+})
+
+test('buildSponsorBlockArgs generates correct yt-dlp --sponsorblock-remove arguments when ffmpeg is available', () => {
+  assert.deepEqual(buildSponsorBlockArgs(undefined), [])
+  assert.deepEqual(buildSponsorBlockArgs({enabled: false}), [])
+  assert.deepEqual(buildSponsorBlockArgs({enabled: true}), ['--sponsorblock-remove', 'all'])
+  assert.deepEqual(
+    buildSponsorBlockArgs({enabled: true, categories: 'sponsor,intro'}),
+    ['--sponsorblock-remove', 'sponsor,intro']
+  )
+  assert.deepEqual(
+    buildSponsorBlockArgs({enabled: true, categories: 'sponsor, intro, music_offtopic'}),
+    ['--sponsorblock-remove', 'sponsor,intro,music_offtopic']
+  )
+  // Omits sponsorblock when ffmpeg is unavailable
+  assert.deepEqual(buildSponsorBlockArgs({enabled: true}, false), [])
+  assert.deepEqual(buildSponsorBlockArgs({enabled: true, categories: 'sponsor'}, false), [])
+})
+
+test('isFfmpegAvailable returns true if custom location works or ffmpeg is on PATH', async () => {
+  const available = await isFfmpegAvailable()
+  assert.equal(typeof available, 'boolean')
+  // Passing a nonexistent location falls back to commandWorks('ffmpeg')
+  const withBogus = await isFfmpegAvailable('/nonexistent/path/to/ffmpeg.exe')
+  assert.equal(typeof withBogus, 'boolean')
+})
+
+test('cleanYtDlpError extracts error message and masks proxy credentials', () => {
+  const rawStderr = [
+    'WARNING: Some harmless warning',
+    'ERROR: [generic] Failed to connect to http://admin:supersecret@proxy.corp.internal:8080: HTTP Error 407',
+  ].join('\n')
+
+  assert.equal(
+    cleanYtDlpError(rawStderr),
+    'Failed to connect to http://***:***@proxy.corp.internal:8080: HTTP Error 407',
+  )
+
+  const socksStderr = 'ERROR: socks5://myuser:mypassword@127.0.0.1:1080: Connection refused'
+  assert.equal(
+    cleanYtDlpError(socksStderr),
+    'socks5://***:***@127.0.0.1:1080: Connection refused',
+  )
+
+  assert.equal(cleanYtDlpError(''), '')
+  assert.equal(cleanYtDlpError('Just normal info output'), '')
+})
+
 
 
 

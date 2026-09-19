@@ -26,6 +26,7 @@
 ## Contents
 
 - [Why Open Omni](#why-open-omni)
+- [Key features](#key-features)
 - [How It Compares](#how-it-compares)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
@@ -46,6 +47,18 @@ You want to download a video, an audio track, or a photo set without clicking th
 Open Omni combines the flexibility of an interactive terminal interface with scriptable command-line speed. Paste a link from your clipboard with one key, preview available formats, and download directly to your machine. 
 
 Under the hood, Open Omni automatically provisions and manages [`yt-dlp`](https://github.com/yt-dlp/yt-dlp), [`gallery-dl`](https://codeberg.org/mikf/gallery-dl), and `ffmpeg` binaries so you never have to manually configure external dependencies.
+
+---
+
+## Key features
+
+- Press `o` on completion to highlight the downloaded file in your file manager (Explorer, Finder, or Linux file managers).
+- Route downloads through HTTP, HTTPS, or SOCKS5 proxies with `--proxy`, or pass country codes with `--geo-bypass` and `--geo-country`. Passwords in proxy URLs are masked in logs.
+- Throttle download speeds with `--limit-rate` (for example, `1.5M` or `500K`).
+- Skip sponsored segments and channel intros during download with `--sponsorblock` and `--sponsorblock-remove`.
+- Automatically routes video extractors to `yt-dlp` and multi-photo social carousels to `gallery-dl`.
+- Skips already-downloaded files using `--skip-existing` by checking the local history ledger against disk.
+- Interactive terminal interface with clipboard paste (`Tab`), format selection, and progress bars.
 
 ---
 
@@ -158,6 +171,20 @@ open-omni <url> --cookies-from-browser firefox
 # Download using an exported Netscape cookie file
 open-omni <url> --cookies ~/cookies.txt
 
+# Route downloads through HTTP/HTTPS/SOCKS proxy
+open-omni <url> --proxy http://127.0.0.1:8080
+
+# Bypass geographic restriction with synthetic header or country code
+open-omni <url> --geo-bypass
+open-omni <url> --geo-country US
+
+# Throttle bandwidth consumption
+open-omni <url> --limit-rate 1.5M
+
+# Remove sponsored segments using SponsorBlock
+open-omni <url> --sponsorblock
+open-omni <url> --sponsorblock-remove sponsor,intro
+
 # Update bundled extraction engines (yt-dlp and gallery-dl)
 open-omni -U
 ```
@@ -174,6 +201,7 @@ open-omni -U
 - **Format Picker**: Select from highest quality video, optimized 1080p/720p tiers, or audio-only extraction.
 - **Playlists & Carousels**: Toggle individual tracks with `Space` or select all with `A`.
 - **Themes**: Switch between `dark`, `light`, and `auto` terminal palette integration.
+- **Reveal in Folder**: Press `O` on completion screen to reveal downloaded media in your native file manager.
 
 ---
 
@@ -200,6 +228,12 @@ open-omni -U
 | `--section <range>` | Alias for `--time` |
 | `--cookies <path>` | Load session cookies from a Netscape format file |
 | `--cookies-from-browser <spec>` | Extract cookies from browser (`auto`, `firefox`, `chrome`, `zen`, etc.) |
+| `--proxy <url>` | Route requests via HTTP/HTTPS/SOCKS proxy (e.g. `socks5://...`) |
+| `--geo-bypass` | Bypass geographic restriction via synthetic `X-Forwarded-For` header |
+| `--geo-country <code>` | Bypass geographic restriction with 2-letter country code (e.g. `US`, `DE`) |
+| `--limit-rate <rate>` | Limit download bandwidth (e.g. `50K`, `1.5M`, `2G`) |
+| `--sponsorblock` | Remove sponsored segments using SponsorBlock |
+| `--sponsorblock-remove <cats>` | SponsorBlock categories to remove (default: `all`) |
 | `-o, --output <dir>` | Destination folder (default: Downloads or `$OPEN_OMNI_DIR`) |
 | `-U, --update` | Update bundled `yt-dlp` and `gallery-dl` binaries |
 | `--update-ytdlp` | Update only bundled `yt-dlp` binary |
@@ -223,6 +257,12 @@ Settings can be customized in `~/.config/open-omni/config.json`:
   "format": "best",
   "audioFormat": "mp3",
   "videoFormat": "mp4",
+  "proxy": "http://127.0.0.1:8080",
+  "geoBypass": true,
+  "geoCountry": "US",
+  "limitRate": "1.5M",
+  "sponsorblock": true,
+  "sponsorblockRemove": "all",
   "metadata": {
     "enabled": true,
     "embedChapters": true
@@ -240,7 +280,7 @@ Settings can be customized in `~/.config/open-omni/config.json`:
 }
 ```
 
-*Precedence*: Command-line flags > `$OPEN_OMNI_DIR` > `config.json` > OS default Downloads.
+*Precedence*: Command-line flags > Environment variables (`ALL_PROXY`, `OPEN_OMNI_DIR`) > `config.json` > OS default Downloads.
 
 ---
 

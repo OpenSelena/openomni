@@ -1,4 +1,5 @@
 import {spawn} from 'node:child_process'
+import path from 'node:path'
 
 export type Platform = {
   key: string
@@ -56,3 +57,31 @@ export function openBrowser(url: string): void {
     // ignore if browser cannot open
   }
 }
+
+export function getRevealCommand(
+  targetPath: string,
+  platform: NodeJS.Platform = process.platform,
+): {command: string; args: string[]} {
+  const resolved = path.resolve(targetPath)
+  if (platform === 'darwin') {
+    return {command: 'open', args: ['-R', resolved]}
+  }
+  if (platform === 'win32') {
+    return {command: 'explorer.exe', args: [`/select,${resolved}`]}
+  }
+  return {command: 'xdg-open', args: [resolved]}
+}
+
+export const getRevealInFileManagerCommand = getRevealCommand
+
+export function revealInFileManager(targetPath: string): void {
+  try {
+    const {command, args} = getRevealCommand(targetPath)
+    const child = spawn(command, args, {detached: true, stdio: 'ignore'})
+    child.on('error', () => {})
+    child.unref()
+  } catch {
+    // Safe try/catch: ignore errors if file manager cannot be launched
+  }
+}
+

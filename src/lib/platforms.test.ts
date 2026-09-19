@@ -1,6 +1,7 @@
-﻿import assert from 'node:assert/strict'
+import assert from 'node:assert/strict'
 import test from 'node:test'
-import { detectPlatform, isProbablyUrl } from './platforms.js'
+import path from 'node:path'
+import { detectPlatform, isProbablyUrl, getRevealCommand, getRevealInFileManagerCommand, revealInFileManager } from './platforms.js'
 
 test('detectPlatform correctly detects supported media platforms', () => {
   assert.equal(detectPlatform('https://www.youtube.com/watch?v=123').key, 'youtube')
@@ -33,3 +34,36 @@ test('isProbablyUrl validates URLs with http or https protocol', () => {
   assert.equal(isProbablyUrl('not-a-url'), false)
   assert.equal(isProbablyUrl(''), false)
 })
+
+test('getRevealCommand formats platform-specific reveal commands correctly', () => {
+  const target = path.resolve('/test/folder/video.mp4')
+
+  const macCmd = getRevealCommand(target, 'darwin')
+  assert.equal(macCmd.command, 'open')
+  assert.deepEqual(macCmd.args, ['-R', target])
+
+  const winCmd = getRevealCommand(target, 'win32')
+  assert.equal(winCmd.command, 'explorer.exe')
+  assert.deepEqual(winCmd.args, [`/select,${target}`])
+
+  const linuxCmd = getRevealCommand(target, 'linux')
+  assert.equal(linuxCmd.command, 'xdg-open')
+  assert.deepEqual(linuxCmd.args, [target])
+
+  // getRevealInFileManagerCommand alias check
+  const aliasCmd = getRevealInFileManagerCommand(target, 'darwin')
+  assert.deepEqual(aliasCmd, macCmd)
+})
+
+test('revealInFileManager safely executes without throwing on unhandled errors', () => {
+  assert.doesNotThrow(() => {
+    revealInFileManager('/nonexistent/test/path/to/file.mp4')
+  })
+  assert.doesNotThrow(() => {
+    revealInFileManager('')
+  })
+  assert.doesNotThrow(() => {
+    revealInFileManager('./relative/path/folder')
+  })
+})
+

@@ -11,6 +11,7 @@ import {
   resolveEffectiveSubtitles,
   resolveEffectiveThumbnail,
   resolveEffectiveMetadata,
+  resolveEffectiveProxy,
   resolveRuntimeConfig,
   type UserConfig,
 } from './config.js'
@@ -357,6 +358,215 @@ test('loadConfig and resolveRuntimeConfig handle videoFormat configuration', () 
 
   fs.rmSync(tempDir, {recursive: true, force: true})
 })
+
+test('loadConfig and resolveRuntimeConfig handle proxy configuration', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'open-omni-proxy-test-'))
+  const configPath = path.join(tempDir, 'config.json')
+
+  fs.writeFileSync(
+    configPath,
+    JSON.stringify({
+      proxy: 'http://127.0.0.1:8080',
+    })
+  )
+
+  const loaded = loadConfig(configPath)
+  assert.equal(loaded.proxy, 'http://127.0.0.1:8080')
+
+  fs.rmSync(tempDir, {recursive: true, force: true})
+})
+
+test('resolveEffectiveProxy enforces precedence CLI > ALL_PROXY/HTTPS_PROXY/HTTP_PROXY > UserConfig.proxy', () => {
+  // 1. CLI wins over all
+  assert.equal(
+    resolveEffectiveProxy(
+      'http://cli-proxy:8080',
+      {ALL_PROXY: 'http://env-proxy:8080'},
+      'http://cfg-proxy:8080'
+    ),
+    'http://cli-proxy:8080'
+  )
+
+  // 2. ALL_PROXY wins over config
+  assert.equal(
+    resolveEffectiveProxy(
+      undefined,
+      {ALL_PROXY: 'http://all-proxy:8080', HTTPS_PROXY: 'http://https-proxy:8080'},
+      'http://cfg-proxy:8080'
+    ),
+    'http://all-proxy:8080'
+  )
+
+  // 3. HTTPS_PROXY wins over config when ALL_PROXY absent
+  assert.equal(
+    resolveEffectiveProxy(
+      undefined,
+      {HTTPS_PROXY: 'http://https-proxy:8080'},
+      'http://cfg-proxy:8080'
+    ),
+    'http://https-proxy:8080'
+  )
+
+  // 4. HTTP_PROXY wins over config
+  assert.equal(
+    resolveEffectiveProxy(
+      undefined,
+      {HTTP_PROXY: 'http://http-proxy:8080'},
+      'http://cfg-proxy:8080'
+    ),
+    'http://http-proxy:8080'
+  )
+
+  // 5. Config proxy used when CLI and env absent
+  assert.equal(
+    resolveEffectiveProxy(
+      undefined,
+      {},
+      'http://cfg-proxy:8080'
+    ),
+    'http://cfg-proxy:8080'
+  )
+
+  // 6. Whitespace-only and empty env vars are ignored and fall through
+  assert.equal(
+    resolveEffectiveProxy(
+      undefined,
+      {ALL_PROXY: '   ', HTTPS_PROXY: 'http://fallback-proxy:8080'},
+      'http://cfg-proxy:8080'
+    ),
+    'http://fallback-proxy:8080'
+  )
+  assert.equal(
+    resolveEffectiveProxy(
+      undefined,
+      {ALL_PROXY: '', HTTPS_PROXY: '', HTTP_PROXY: 'http://http-fallback:8080'},
+      'http://cfg-proxy:8080'
+    ),
+    'http://http-fallback:8080'
+  )
+
+  // 7. Undefined when nothing is set
+  assert.equal(
+    resolveEffectiveProxy(
+      undefined,
+      {},
+      undefined
+    ),
+    undefined
+  )
+})
+
+test('resolveRuntimeConfig correctly forwards proxy, geo, limitRate, and sponsorblock', () => {
+  const runtime = resolveRuntimeConfig({
+    help: false,
+    version: false,
+    proxy: 'http://proxy.local:8080',
+    geoBypass: true,
+    geoCountry: 'US',
+    limitRate: '1.5M',
+    sponsorblock: true,
+    sponsorblockRemove: 'sponsor,intro',
+  })
+
+  assert.equal(runtime.proxy, 'http://proxy.local:8080')
+  assert.equal(runtime.geoBypass, true)
+  assert.equal(runtime.geoCountry, 'US')
+  assert.equal(runtime.limitRate, '1.5M')
+  assert.equal(runtime.sponsorblock, true)
+  assert.equal(runtime.sponsorblockRemove, 'sponsor,intro')
+})
+
+test('loadConfig and resolveRuntimeConfig handle limitRate and sponsorblock in user config', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'open-omni-opts-test-'))
+  const configPath = path.join(tempDir, 'config.json')
+
+  fs.writeFileSync(
+    configPath,
+    JSON.stringify({
+      limitRate: '2M',
+      sponsorblock: true,
+      sponsorblockRemove: 'all',
+    })
+  )
+
+  const loaded = loadConfig(configPath)
+  assert.equal(loaded.limitRate, '2M')
+  assert.equal(loaded.sponsorblock, true)
+  assert.equal(loaded.sponsorblockRemove, 'all')
+
+  const runtime = resolveRuntimeConfig({help: false, version: false}, loaded)
+  assert.equal(runtime.limitRate, '2M')
+  assert.equal(runtime.sponsorblock, true)
+  assert.equal(runtime.sponsorblockRemove, 'all')
+
+  // CLI override wins
+  const runtimeOverride = resolveRuntimeConfig(
+    {help: false, version: false, limitRate: '500K', sponsorblockRemove: 'sponsor'},
+    loaded
+  )
+  assert.equal(runtimeOverride.limitRate, '500K')
+  assert.equal(runtimeOverride.sponsorblockRemove, 'sponsor')
+
+  fs.rmSync(tempDir, {recursive: true, force: true})
+})
+
+test('loadConfig and resolveRuntimeConfig handle geoBypass and geoCountry in user config', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'open-omni-geo-test-'))
+  const configPath = path.join(tempDir, 'config.json')
+
+  fs.writeFileSync(
+    configPath,
+    JSON.stringify({
+      geoBypass: true,
+      geoCountry: 'jp',
+    })
+  )
+
+  const warnings: string[] = []
+  const loaded = loadConfig(configPath, msg => warnings.push(msg))
+  assert.equal(loaded.geoBypass, true)
+  assert.equal(loaded.geoCountry, 'JP')
+  assert.equal(warnings.length, 0)
+
+  // Fallback to userConfig when CLI flags are absent
+  const runtime = resolveRuntimeConfig({help: false, version: false}, loaded)
+  assert.equal(runtime.geoBypass, true)
+  assert.equal(runtime.geoCountry, 'JP')
+
+  // CLI override takes precedence over userConfig
+  const runtimeOverride = resolveRuntimeConfig(
+    {help: false, version: false, geoBypass: false, geoCountry: 'US'},
+    loaded
+  )
+  assert.equal(runtimeOverride.geoCountry, 'US')
+
+  fs.rmSync(tempDir, {recursive: true, force: true})
+})
+
+test('loadConfig discards invalid geoBypass and geoCountry with warnings', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'open-omni-geo-invalid-test-'))
+  const configPath = path.join(tempDir, 'config.json')
+
+  fs.writeFileSync(
+    configPath,
+    JSON.stringify({
+      geoBypass: 'not-a-boolean',
+      geoCountry: 'INVALID',
+    })
+  )
+
+  const warnings: string[] = []
+  const loaded = loadConfig(configPath, msg => warnings.push(msg))
+  assert.equal(loaded.geoBypass, undefined)
+  assert.equal(loaded.geoCountry, undefined)
+  assert.equal(warnings.length, 2)
+  assert.ok(warnings.some(w => w.includes('invalid geoBypass')))
+  assert.ok(warnings.some(w => w.includes('invalid geoCountry')))
+
+  fs.rmSync(tempDir, {recursive: true, force: true})
+})
+
+
 
 
 

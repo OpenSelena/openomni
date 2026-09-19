@@ -248,6 +248,10 @@ export type ProbeUnifiedOptions = {
   cookieHeader?: string
   onStatus?: (status: string) => void
   autoRecoverCookiesFn?: () => Promise<{ cookieFile?: string; cookieHeader?: string } | undefined>
+  proxy?: string
+  geoBypass?: boolean
+  geoCountry?: string
+  limitRate?: string
 }
 
 export function isLoginRedirectError(err?: Error): boolean {
@@ -262,7 +266,7 @@ export function isLoginRedirectError(err?: Error): boolean {
 }
 
 export async function probeUnified(options: ProbeUnifiedOptions): Promise<UnifiedProbeResult> {
-  const {url, ytdlp, gallerydl, mediaFilter, signal, onStatus, cookieFile, cookieHeader} = options
+  const {url, ytdlp, gallerydl, mediaFilter, signal, onStatus, cookieFile, cookieHeader, proxy, geoBypass, geoCountry, limitRate} = options
   const runProbeGalleryDl = options.probeGalleryDlFn || probeGalleryDl
   const runProbeYtDlp = options.probeYtDlpFn || probe
   const runResolveInstagram = options.resolveInstagramFn || resolveInstagramMedia
@@ -327,7 +331,7 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
     try {
       const gdl = gallerydl || (options.probeGalleryDlFn ? 'gallery-dl' : await ensureGalleryDl(onStatus, signal))
       onStatus?.('Probing post items with gallery-dl…')
-      const rawItems = await runProbeGalleryDl(gdl, url, signal, cookieFile)
+      const rawItems = await runProbeGalleryDl(gdl, url, signal, cookieFile, {proxy, limitRate})
 
       if (rawItems && rawItems.length > 0) {
         const unifiedPost = normalizeGalleryDlToUnified(rawItems, url)
@@ -351,7 +355,7 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
         if (filteredItems.length === 1 && filteredItems[0].kind === 'video') {
           try {
             onStatus?.('Fetching video formats with yt-dlp…')
-            const ytProbe = await runProbeYtDlp(ytdlp, url, signal, cookieFile)
+            const ytProbe = await runProbeYtDlp(ytdlp, url, signal, cookieFile, {proxy, geoBypass, geoCountry})
             if (ytProbe.kind === 'single') {
               return {
                 kind: 'single_video',
@@ -415,7 +419,7 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
 
   try {
     onStatus?.('fetching video info…')
-    const ytProbe = await runProbeYtDlp(ytdlp, url, signal, cookieFile)
+    const ytProbe = await runProbeYtDlp(ytdlp, url, signal, cookieFile, {proxy, geoBypass, geoCountry})
 
     if (ytProbe.kind === 'playlist') {
       if (mediaFilter === 'photos') {
@@ -461,7 +465,7 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
       try {
         const gdl = gallerydl || (options.probeGalleryDlFn ? 'gallery-dl' : await ensureGalleryDl(onStatus, signal))
         onStatus?.('Probing post items with gallery-dl…')
-        const rawItems = await runProbeGalleryDl(gdl, url, signal, cookieFile)
+        const rawItems = await runProbeGalleryDl(gdl, url, signal, cookieFile, {proxy, limitRate})
 
         if (rawItems && rawItems.length > 0) {
           const unifiedPost = normalizeGalleryDlToUnified(rawItems, url)
@@ -528,6 +532,12 @@ export type DownloadUnifiedItemOptions = {
   force?: boolean
   time?: string
   onSkip?: () => void
+  proxy?: string
+  geoBypass?: boolean
+  geoCountry?: string
+  limitRate?: string
+  sponsorblock?: boolean
+  sponsorblockRemove?: string
 }
 
 export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): Promise<string> {
@@ -551,6 +561,12 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
     skipExisting,
     force,
     time,
+    proxy,
+    geoBypass,
+    geoCountry,
+    limitRate,
+    sponsorblock,
+    sponsorblockRemove,
   } = options
   const runDownloadPhoto = options.downloadPhotoFn || downloadPhotoItem
   const runDownloadVideo = options.downloadVideoFn || download
@@ -604,6 +620,8 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
       gallerydl: gdl,
       signal,
       cookieFile,
+      proxy,
+      limitRate,
       onProgress: onProgress
         ? p =>
             onProgress({
@@ -635,6 +653,12 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
         metadata,
         cookieFile,
         section,
+        proxy,
+        geoBypass,
+        geoCountry,
+        limitRate,
+        sponsorblock,
+        sponsorblockRemove,
       },
       {
         onProgress: onProgress ?? (() => {}),

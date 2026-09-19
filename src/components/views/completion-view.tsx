@@ -5,6 +5,7 @@ import {shortenPath} from '../../lib/format.js'
 import type {Theme} from '../../theme.js'
 
 export const DONE_LABEL = '↵ download another'
+export const REVEAL_LABEL = '[o] reveal in folder'
 
 export type SingleDoneViewProps = {
   filepath: string
@@ -26,6 +27,11 @@ export function SingleDoneView({
       <Text color={theme.gray} dimColor={theme.dimSecondary}>
         {shortenPath(filepath, os.homedir(), 60)}
       </Text>
+      <Box marginTop={1}>
+        <Text color={theme.gray} dimColor={theme.dimSecondary}>
+          <Text bold color={theme.primary}>[o]</Text> reveal in folder
+        </Text>
+      </Box>
       <Gap />
       <Box
         borderStyle="round"
@@ -74,6 +80,11 @@ export function PlaylistDoneView({
       <Text color={theme.gray} dimColor={theme.dimSecondary}>
         {`${downloadCount} ${itemType}${plural} downloaded${skipText}`}
       </Text>
+      <Box marginTop={1}>
+        <Text color={theme.gray} dimColor={theme.dimSecondary}>
+          <Text bold color={theme.primary}>[o]</Text> reveal in folder
+        </Text>
+      </Box>
       <Gap />
       <Box
         borderStyle="round"

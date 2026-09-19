@@ -44,6 +44,12 @@ export type UserConfig = {
   metadata?: boolean | MetadataConfig
   cookies?: string
   cookiesFromBrowser?: string
+  proxy?: string
+  geoBypass?: boolean
+  geoCountry?: string
+  limitRate?: string
+  sponsorblock?: boolean
+  sponsorblockRemove?: string
 }
 
 export type CookieOptions = {
@@ -62,6 +68,12 @@ export type RuntimeConfig = {
   thumbnail?: ThumbnailOptions
   metadata?: MetadataOptions
   cookies?: CookieOptions
+  proxy?: string
+  geoBypass?: boolean
+  geoCountry?: string
+  limitRate?: string
+  sponsorblock?: boolean
+  sponsorblockRemove?: string
 }
 
 export function resolveConfigPath(env: NodeJS.ProcessEnv = process.env): string {
@@ -173,6 +185,54 @@ export function loadConfig(
         result.cookiesFromBrowser = parsed.cookiesFromBrowser.trim()
       } else {
         onWarning?.(`[open-omni] warning: invalid cookiesFromBrowser setting in ${configPath} (expected string)`)
+      }
+    }
+
+    if (parsed.proxy !== undefined) {
+      if (typeof parsed.proxy === 'string' && parsed.proxy.trim()) {
+        result.proxy = parsed.proxy.trim()
+      } else {
+        onWarning?.(`[open-omni] warning: invalid proxy in ${configPath} (expected string URL)`)
+      }
+    }
+
+    if (parsed.geoBypass !== undefined) {
+      if (typeof parsed.geoBypass === 'boolean') {
+        result.geoBypass = parsed.geoBypass
+      } else {
+        onWarning?.(`[open-omni] warning: invalid geoBypass setting in ${configPath} (expected boolean)`)
+      }
+    }
+
+    if (parsed.geoCountry !== undefined) {
+      if (typeof parsed.geoCountry === 'string' && /^[a-zA-Z]{2}$/.test(parsed.geoCountry.trim())) {
+        result.geoCountry = parsed.geoCountry.trim().toUpperCase()
+      } else {
+        onWarning?.(`[open-omni] warning: invalid geoCountry in ${configPath} (expected 2-letter country code)`)
+      }
+    }
+
+    if (parsed.limitRate !== undefined) {
+      if (typeof parsed.limitRate === 'string' && /^\d+(\.\d+)?[kKmMgGbB]?$/.test(parsed.limitRate.trim())) {
+        result.limitRate = parsed.limitRate.trim()
+      } else {
+        onWarning?.(`[open-omni] warning: invalid limitRate in ${configPath} (expected format like 50K, 1.5M, 2G)`)
+      }
+    }
+
+    if (parsed.sponsorblock !== undefined) {
+      if (typeof parsed.sponsorblock === 'boolean') {
+        result.sponsorblock = parsed.sponsorblock
+      } else {
+        onWarning?.(`[open-omni] warning: invalid sponsorblock setting in ${configPath} (expected boolean)`)
+      }
+    }
+
+    if (parsed.sponsorblockRemove !== undefined) {
+      if (typeof parsed.sponsorblockRemove === 'string' && parsed.sponsorblockRemove.trim()) {
+        result.sponsorblockRemove = parsed.sponsorblockRemove.trim()
+      } else {
+        onWarning?.(`[open-omni] warning: invalid sponsorblockRemove setting in ${configPath} (expected string)`)
       }
     }
 
@@ -311,6 +371,27 @@ export function resolveEffectiveCookies(
   return {file, browser}
 }
 
+export function resolveEffectiveProxy(
+  cliProxy?: string,
+  env: NodeJS.ProcessEnv = process.env,
+  configProxy?: string,
+): string | undefined {
+  if (cliProxy && cliProxy.trim()) return cliProxy.trim()
+  const envCandidates = [
+    env.ALL_PROXY,
+    env.all_proxy,
+    env.HTTPS_PROXY,
+    env.https_proxy,
+    env.HTTP_PROXY,
+    env.http_proxy,
+  ]
+  for (const candidate of envCandidates) {
+    if (candidate && candidate.trim()) return candidate.trim()
+  }
+  if (configProxy && configProxy.trim()) return configProxy.trim()
+  return undefined
+}
+
 export function resolveRuntimeConfig(
   args: CliArgs,
   userConfig: UserConfig = {},
@@ -330,5 +411,11 @@ export function resolveRuntimeConfig(
     thumbnail: resolveEffectiveThumbnail(cliThumb, userConfig.thumbnail),
     metadata: resolveEffectiveMetadata(cliMetadata, userConfig.metadata),
     cookies: resolveEffectiveCookies(args, userConfig),
+    proxy: resolveEffectiveProxy(args.proxy, process.env, userConfig.proxy),
+    geoBypass: args.geoBypass ?? userConfig.geoBypass,
+    geoCountry: args.geoCountry ?? userConfig.geoCountry,
+    limitRate: args.limitRate ?? userConfig.limitRate,
+    sponsorblock: args.sponsorblock ?? userConfig.sponsorblock ?? (Boolean(userConfig.sponsorblockRemove) ? true : undefined),
+    sponsorblockRemove: args.sponsorblockRemove ?? userConfig.sponsorblockRemove,
   }
 }
