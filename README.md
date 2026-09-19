@@ -124,29 +124,33 @@ Direct scriptable downloads:
 # Download highest resolution video directly
 open-omni <url> --best
 
-# Extract audio to MP3 in a specific directory
+# Extract audio to MP3 or lossless FLAC in a specific directory
 open-omni <url> --mp3 -o ~/Music
-
-# Download with subtitles embedded
-open-omni <url> --embed-subs --subs=en,es
-
-# Extract audio in specific format (flac, opus, aac, mp3, etc.)
 open-omni <url> --audio-format flac -o ~/Music
 
 # Download video in specific container format (mp4, mkv, webm)
 open-omni <url> --video-format mkv
 
+# Download specific time range or clip section
+open-omni <url> --time 01:00-02:30
+
+# Skip items already downloaded and recorded in download ledger
+open-omni <url> --skip-existing
+
+# Download with embedded subtitles
+open-omni <url> --embed-subs --subs=en,es
+
 # Embed metadata tags and chapter markers into media container
 open-omni <url> --metadata --embed-chapters
 
-# Download thumbnail artwork
+# Download thumbnail artwork and embed into file
 open-omni <url> --thumb --embed-thumb
 
 # Download only photos from an Instagram or X gallery
 open-omni <url> --photos-only
 
-# Zero-config: auto-detects browser session (Firefox, Zen, Chrome, Brave, Edge, Safari)
-open-omni <url> --best
+# Zero-config: extract cookies automatically from local browser session
+open-omni <url> --cookies-from-browser auto
 
 # Target a specific browser or profile explicitly
 open-omni <url> --cookies-from-browser firefox
