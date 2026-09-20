@@ -59,3 +59,14 @@ test('renderOutputTemplate sanitizes dangerous path traversal sequences in varia
   // Variable values must not introduce path traversal
   assert.ok(!result.includes('..'))
 })
+
+test('renderOutputTemplate sanitizes dangerous path traversal sequences in the template string itself', () => {
+  const tpl = '../../etc/%(title)s.%(ext)s'
+  const vars = {
+    title: 'test',
+    ext: 'mp4',
+  }
+  const result = renderOutputTemplate(tpl, vars)
+  assert.ok(!result.includes('..'))
+})
+

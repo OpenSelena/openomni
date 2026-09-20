@@ -71,5 +71,6 @@ export function renderOutputTemplate(template: string, vars: TemplateVars): stri
   result = result.replace(/\{index\}/g, paddedIndex)
   result = result.replace(/\{playlist_index\}/g, paddedIndex)
 
-  return result
+  // Prevent directory traversal upwards out of the destination root
+  return result.replace(/\.\./g, '_')
 }
