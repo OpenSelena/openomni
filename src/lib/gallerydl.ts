@@ -638,7 +638,7 @@ export async function probeGalleryDl(
       child = spawn(
         gallerydl,
         args,
-        {signal},
+        {signal, env: {...process.env, PYTHONIOENCODING: 'utf-8'}},
       )
     } catch (err) {
       reject(new Error(maskProxyCredentials(`failed to spawn gallery-dl: ${err instanceof Error ? err.message : String(err)}`)))
@@ -738,7 +738,7 @@ export async function downloadPhotoItem(options: {
     let stderr = ''
 
     try {
-      child = spawn(gallerydl, args, {signal})
+      child = spawn(gallerydl, args, {signal, env: {...process.env, PYTHONIOENCODING: 'utf-8'}})
     } catch (err) {
       reject(new Error(maskProxyCredentials(`failed to spawn gallery-dl for download: ${err instanceof Error ? err.message : String(err)}`)))
       return

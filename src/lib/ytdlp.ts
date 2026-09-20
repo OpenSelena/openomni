@@ -294,7 +294,10 @@ export async function probe(
   probeArgs.push(url)
 
   const stdout = await new Promise<string>((resolve, reject) => {
-    const child = spawn(ytdlp, probeArgs, {signal})
+    const child = spawn(ytdlp, probeArgs, {
+      signal,
+      env: {...process.env, PYTHONIOENCODING: 'utf-8'},
+    })
     let out = ''
     let stderr = ''
     child.stdout.on('data', chunk => (out += chunk))
@@ -590,7 +593,10 @@ export async function download(
   if (opts.ffmpegLocation) args.push('--ffmpeg-location', opts.ffmpegLocation)
 
   return new Promise((resolve, reject) => {
-    const child = spawn(opts.ytdlp, args, {signal})
+    const child = spawn(opts.ytdlp, args, {
+      signal,
+      env: {...process.env, PYTHONIOENCODING: 'utf-8'},
+    })
     activeChild = child
 
     let stderr = ''

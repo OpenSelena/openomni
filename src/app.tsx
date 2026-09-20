@@ -778,6 +778,7 @@ function InnerApp({
     setPlatform(undefined)
     setInfo(undefined)
     setChoices([])
+    infoJsonRef.current = undefined
     setPhase({name: 'input'})
   }, [])
 

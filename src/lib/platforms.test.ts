@@ -35,8 +35,8 @@ test('isProbablyUrl validates URLs with http or https protocol', () => {
   assert.equal(isProbablyUrl(''), false)
 })
 
-test('getRevealCommand formats platform-specific reveal commands correctly', () => {
-  const target = path.resolve('/test/folder/video.mp4')
+test('getRevealCommand formats platform-specific reveal commands correctly for files', () => {
+  const target = path.resolve('/test/folder/video with spaces.mp4')
 
   const macCmd = getRevealCommand(target, 'darwin')
   assert.equal(macCmd.command, 'open')
@@ -44,15 +44,31 @@ test('getRevealCommand formats platform-specific reveal commands correctly', () 
 
   const winCmd = getRevealCommand(target, 'win32')
   assert.equal(winCmd.command, 'explorer.exe')
-  assert.deepEqual(winCmd.args, [`/select,${target}`])
+  assert.deepEqual(winCmd.args, [`/select,"${target}"`])
 
   const linuxCmd = getRevealCommand(target, 'linux')
   assert.equal(linuxCmd.command, 'xdg-open')
-  assert.deepEqual(linuxCmd.args, [target])
+  assert.deepEqual(linuxCmd.args, [path.dirname(target)])
 
   // getRevealInFileManagerCommand alias check
   const aliasCmd = getRevealInFileManagerCommand(target, 'darwin')
   assert.deepEqual(aliasCmd, macCmd)
+})
+
+test('getRevealCommand formats platform-specific reveal commands correctly for directories', () => {
+  const target = path.resolve('/test/folder/Mix - LISA')
+
+  const macCmd = getRevealCommand(target, 'darwin', true)
+  assert.equal(macCmd.command, 'open')
+  assert.deepEqual(macCmd.args, [target])
+
+  const winCmd = getRevealCommand(target, 'win32', true)
+  assert.equal(winCmd.command, 'explorer.exe')
+  assert.deepEqual(winCmd.args, [target])
+
+  const linuxCmd = getRevealCommand(target, 'linux', true)
+  assert.equal(linuxCmd.command, 'xdg-open')
+  assert.deepEqual(linuxCmd.args, [target])
 })
 
 test('revealInFileManager safely executes without throwing on unhandled errors', () => {
