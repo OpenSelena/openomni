@@ -419,3 +419,83 @@ export function resolveRuntimeConfig(
     sponsorblockRemove: args.sponsorblockRemove ?? userConfig.sponsorblockRemove,
   }
 }
+
+export function saveConfig(
+  config: UserConfig,
+  configPath: string = resolveConfigPath(),
+): void {
+  const dir = path.dirname(configPath)
+  fs.mkdirSync(dir, {recursive: true})
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf8')
+}
+
+export function updateConfig(
+  updates: Partial<UserConfig>,
+  configPath: string = resolveConfigPath(),
+): UserConfig {
+  const existing = loadConfig(configPath)
+  const merged: UserConfig = {...existing, ...updates}
+  saveConfig(merged, configPath)
+  return merged
+}
+
+export const VALID_CONFIG_KEYS = [
+  'outputDir',
+  'theme',
+  'format',
+  'audioFormat',
+  'videoFormat',
+  'subtitles',
+  'thumbnail',
+  'metadata',
+  'cookies',
+  'cookiesFromBrowser',
+  'proxy',
+  'geoBypass',
+  'geoCountry',
+  'limitRate',
+  'sponsorblock',
+  'sponsorblockRemove',
+] as const
+
+export function setConfigValue(
+  key: string,
+  rawVal: string,
+  configPath: string = resolveConfigPath(),
+): UserConfig {
+  if (!VALID_CONFIG_KEYS.includes(key as any)) {
+    throw new Error(`Unknown config key: "${key}". Supported keys: ${VALID_CONFIG_KEYS.join(', ')}`)
+  }
+
+  let parsedVal: any = rawVal
+  const trimmed = rawVal.trim()
+
+  if (key === 'theme') {
+    if (!isThemeMode(trimmed)) {
+      throw new Error(`Invalid theme: "${trimmed}". Expected system, dark, light, or a named theme.`)
+    }
+    parsedVal = trimmed
+  } else if (key === 'audioFormat') {
+    if (!SUPPORTED_AUDIO_FORMATS.includes(trimmed as any)) {
+      throw new Error(`Invalid audioFormat: "${trimmed}". Expected one of: ${SUPPORTED_AUDIO_FORMATS.join(', ')}`)
+    }
+    parsedVal = trimmed
+  } else if (key === 'videoFormat') {
+    if (!SUPPORTED_VIDEO_FORMATS.includes(trimmed as any)) {
+      throw new Error(`Invalid videoFormat: "${trimmed}". Expected one of: ${SUPPORTED_VIDEO_FORMATS.join(', ')}`)
+    }
+    parsedVal = trimmed
+  } else if (key === 'format') {
+    if (trimmed !== 'best' && trimmed !== 'mp3') {
+      throw new Error(`Invalid format: "${trimmed}". Expected "best" or "mp3".`)
+    }
+    parsedVal = trimmed
+  } else if (key === 'geoBypass' || key === 'sponsorblock') {
+    if (trimmed === 'true' || trimmed === '1') parsedVal = true
+    else if (trimmed === 'false' || trimmed === '0') parsedVal = false
+    else throw new Error(`Invalid boolean value for ${key}: "${trimmed}". Expected true or false.`)
+  }
+
+  return updateConfig({[key]: parsedVal} as Partial<UserConfig>, configPath)
+}
+

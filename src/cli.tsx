@@ -21,6 +21,8 @@ import {
 } from './lib/playlist.js'
 import {
   loadConfig,
+  resolveConfigPath,
+  setConfigValue,
   resolveRuntimeConfig,
 } from './lib/config.js'
 import {generateCompletion} from './lib/completion.js'
@@ -47,7 +49,7 @@ const resolveVersion = (): string => {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     return require('../package.json').version
   } catch {}
-  return '1.3.0'
+  return '1.4.0'
 }
 const VERSION: string = resolveVersion()
 
@@ -57,11 +59,19 @@ const HELP = `
 
   Usage
     $ open-omni [url] [options]
+    $ open-omni config <path|get|set>
+
+  Commands
+    config path                 print active config file path
+    config get [key]            view saved configuration or specific key
+    config set <key> <value>    permanently save preference (proxy, theme, format, etc.)
 
   Examples
     $ open-omni https://youtu.be/dQw4w9WgXcQ
     $ open-omni https://youtu.be/dQw4w9WgXcQ --best
     $ open-omni https://youtu.be/dQw4w9WgXcQ --mp3 -o ~/Music
+    $ open-omni config set proxy http://127.0.0.1:8080
+    $ open-omni config set audioFormat flac
     $ open-omni -U              (updates bundled download engines)
     $ open-omni                 (prompts for a url)
 
@@ -89,6 +99,7 @@ const HELP = `
     --limit-rate <rate> limit download speed (e.g. 50K, 1.5M, 2G)
     --sponsorblock   remove sponsored segments using SponsorBlock
     --sponsorblock-remove <cats> SponsorBlock categories to remove (default: all)
+    --output-template <t> custom output template pattern
     -o, --output    output directory (default: ~/Downloads, or $OPEN_OMNI_DIR)
     -U, --update    update bundled engines (yt-dlp and gallery-dl) to latest version
     --update-ytdlp  update only bundled yt-dlp binary
@@ -103,7 +114,45 @@ const HELP = `
   Powered by yt-dlp & gallery-dl — YouTube, X, Instagram, Threads, TikTok & 1800+ sites.
 `
 
-const args = parseArgs(process.argv.slice(2))
+const rawCliArgs = process.argv.slice(2)
+if (rawCliArgs[0] === 'config') {
+  const sub = rawCliArgs[1]
+  if (sub === 'path') {
+    console.log(resolveConfigPath())
+    process.exit(0)
+  }
+  if (sub === 'get') {
+    const key = rawCliArgs[2]
+    const cfg = loadConfig()
+    if (!key) {
+      console.log(JSON.stringify(cfg, null, 2))
+    } else {
+      const val = (cfg as Record<string, unknown>)[key]
+      if (val !== undefined) console.log(typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val))
+    }
+    process.exit(0)
+  }
+  if (sub === 'set') {
+    const key = rawCliArgs[2]
+    const val = rawCliArgs[3]
+    if (!key || val === undefined) {
+      console.error('Usage: open-omni config set <key> <value>')
+      process.exit(1)
+    }
+    try {
+      setConfigValue(key, val)
+      console.log(`✓ Config set: ${key} = ${val}`)
+      process.exit(0)
+    } catch (err) {
+      console.error(`open-omni: ${err instanceof Error ? err.message : String(err)}`)
+      process.exit(1)
+    }
+  }
+  console.log('Usage:\n  open-omni config path\n  open-omni config get [key]\n  open-omni config set <key> <value>')
+  process.exit(0)
+}
+
+const args = parseArgs(rawCliArgs)
 
 if (args.error) {
   console.error(`open-omni: ${args.error}\nTry “open-omni --help” for usage.`)

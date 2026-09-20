@@ -13,6 +13,9 @@ import {
   resolveEffectiveMetadata,
   resolveEffectiveProxy,
   resolveRuntimeConfig,
+  saveConfig,
+  updateConfig,
+  setConfigValue,
   type UserConfig,
 } from './config.js'
 import {resolveOutputDir} from './args.js'
@@ -562,6 +565,64 @@ test('loadConfig discards invalid geoBypass and geoCountry with warnings', () =>
   assert.equal(warnings.length, 2)
   assert.ok(warnings.some(w => w.includes('invalid geoBypass')))
   assert.ok(warnings.some(w => w.includes('invalid geoCountry')))
+
+  fs.rmSync(tempDir, {recursive: true, force: true})
+})
+
+test('saveConfig writes JSON configuration cleanly to disk and creates parent directory', () => {
+  const tempDir = path.join(os.tmpdir(), 'open-omni-save-test-' + Date.now())
+  const configPath = path.join(tempDir, 'nested', 'config.json')
+
+  saveConfig({theme: 'dark', proxy: 'http://127.0.0.1:8080', format: 'mp3'}, configPath)
+
+  assert.equal(fs.existsSync(configPath), true)
+  const loaded = loadConfig(configPath)
+  assert.equal(loaded.theme, 'dark')
+  assert.equal(loaded.proxy, 'http://127.0.0.1:8080')
+  assert.equal(loaded.format, 'mp3')
+
+  fs.rmSync(tempDir, {recursive: true, force: true})
+})
+
+test('updateConfig merges updates with existing configuration on disk', () => {
+  const tempDir = path.join(os.tmpdir(), 'open-omni-update-test-' + Date.now())
+  const configPath = path.join(tempDir, 'config.json')
+
+  saveConfig({theme: 'dark', limitRate: '1M'}, configPath)
+  const updated = updateConfig({limitRate: '5M', geoBypass: true}, configPath)
+
+  assert.equal(updated.theme, 'dark')
+  assert.equal(updated.limitRate, '5M')
+  assert.equal(updated.geoBypass, true)
+
+  const reloaded = loadConfig(configPath)
+  assert.equal(reloaded.theme, 'dark')
+  assert.equal(reloaded.limitRate, '5M')
+  assert.equal(reloaded.geoBypass, true)
+
+  fs.rmSync(tempDir, {recursive: true, force: true})
+})
+
+test('setConfigValue parses and sets typed values in config', () => {
+  const tempDir = path.join(os.tmpdir(), 'open-omni-set-test-' + Date.now())
+  const configPath = path.join(tempDir, 'config.json')
+
+  setConfigValue('theme', 'light', configPath)
+  setConfigValue('proxy', 'http://127.0.0.1:1080', configPath)
+  setConfigValue('geoBypass', 'true', configPath)
+  setConfigValue('audioFormat', 'flac', configPath)
+  setConfigValue('limitRate', '2M', configPath)
+
+  const loaded = loadConfig(configPath)
+  assert.equal(loaded.theme, 'light')
+  assert.equal(loaded.proxy, 'http://127.0.0.1:1080')
+  assert.equal(loaded.geoBypass, true)
+  assert.equal(loaded.audioFormat, 'flac')
+  assert.equal(loaded.limitRate, '2M')
+
+  assert.throws(() => setConfigValue('unknownKey', 'val', configPath), /Unknown config key/)
+  assert.throws(() => setConfigValue('theme', 'invalid-theme', configPath), /Invalid theme/)
+  assert.throws(() => setConfigValue('audioFormat', 'wav-invalid', configPath), /Invalid audioFormat/)
 
   fs.rmSync(tempDir, {recursive: true, force: true})
 })
