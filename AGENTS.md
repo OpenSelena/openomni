@@ -25,3 +25,12 @@ Canonical five-role vocabulary. See `docs/agents/triage-labels.md`.
 ### Domain docs
 
 Single-context repository. See `docs/agents/domain.md`.
+
+## Anti-hallucination & verification rules
+
+1. **Evidence before assertions**: Never claim code works, tests pass, or build succeeds without running the verification command and checking the output in the current turn.
+2. **Primary sources only**: Never guess file paths, symbols, types, CLI flags, or configuration options. Check codebase files, types, or documentation first.
+3. **No unilateral assumptions**: If requirements or design choices are ambiguous, stop and clarify with the user. Record agreed terms in `CONTEXT.md` and key decisions in `docs/adr/`.
+4. **Reproduce before fixing**: For bug fixes, produce a reproducing test or failing command before modifying code.
+5. **Context hygiene**: Keep tasks focused and compact or clear context between discrete units of work.
+

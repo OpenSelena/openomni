@@ -13,10 +13,13 @@ import {PickingView, choiceLabel} from './components/views/picking-view.js'
 import {DownloadingView} from './components/views/downloading-view.js'
 import {SingleDoneView, PlaylistDoneView, DONE_LABEL, REVEAL_LABEL} from './components/views/completion-view.js'
 import {ErrorView, ConfirmOverwriteView} from './components/views/error-view.js'
-import {PlaylistScopePicker, type PlaylistScopeChoice} from './components/playlist-scope-picker.js'
-import {PlaylistItemPicker} from './components/playlist-item-picker.js'
-import {PlaylistQualityPicker} from './components/playlist-quality-picker.js'
-import {PlaylistProgress} from './components/playlist-progress.js'
+import {
+  PlaylistScopeView,
+  PlaylistItemsView,
+  PlaylistQualityView,
+  PlaylistDownloadingView,
+} from './components/views/playlist-views.js'
+import type {PlaylistScopeChoice} from './components/playlist-scope-picker.js'
 import {clickTargetAt, findFrameRow, frameRowSpan, type ClickTarget} from './lib/click-map.js'
 import {formatBytes, formatDuration, formatEta, formatSpeed, shortenPath, terminalLink, truncate, wrapText} from './lib/format.js'
 import {addToHistory, loadHistory} from './lib/history.js'
@@ -992,119 +995,109 @@ function InnerApp({
       )}
 
       {phase.name === 'playlist-scope' && (
-        <Box justifyContent="center">
-          <PlaylistScopePicker
-            playlistTitle={phase.playlist.title}
-            totalCount={phase.playlist.validEntries.length}
-            hasSingleVideo={Boolean(phase.singleVideoUrl)}
-            hasPhotos={phase.playlist.validEntries.some(e => e.kind === 'photo')}
-            onSelect={(choice: PlaylistScopeChoice) => {
-              const allPhotos = phase.playlist.validEntries.every(e => e.kind === 'photo')
-              if (choice === 'full') {
-                if (allPhotos) {
-                  executeBatchDownload(phase.playlist, phase.playlist.validEntries, 'best')
-                } else {
-                  setPhase({
-                    name: 'playlist-quality',
-                    playlist: phase.playlist,
-                    selectedEntries: phase.playlist.validEntries,
-                    singleVideoUrl: phase.singleVideoUrl,
-                  })
-                }
-              } else if (choice === 'select') {
-                setPhase({
-                  name: 'playlist-items',
-                  playlist: phase.playlist,
-                  singleVideoUrl: phase.singleVideoUrl,
-                })
-              } else if (choice === 'single' && phase.singleVideoUrl) {
-                setUrl(phase.singleVideoUrl)
-                void startProbe(phase.singleVideoUrl)
-              }
-            }}
-            onBack={resetToInput}
-            width={boxWidth}
-          />
-        </Box>
-      )}
-
-      {phase.name === 'playlist-items' && (
-        <Box justifyContent="center">
-          <PlaylistItemPicker
-            entries={phase.playlist.validEntries}
-            onConfirm={selected => {
-              const allPhotos = selected.every(e => e.kind === 'photo')
+        <PlaylistScopeView
+          playlist={phase.playlist}
+          singleVideoUrl={phase.singleVideoUrl}
+          width={boxWidth}
+          onSelect={(choice: PlaylistScopeChoice) => {
+            const allPhotos = phase.playlist.validEntries.every(e => e.kind === 'photo')
+            if (choice === 'full') {
               if (allPhotos) {
-                executeBatchDownload(phase.playlist, selected, 'best')
+                executeBatchDownload(phase.playlist, phase.playlist.validEntries, 'best')
               } else {
                 setPhase({
                   name: 'playlist-quality',
                   playlist: phase.playlist,
-                  selectedEntries: selected,
+                  selectedEntries: phase.playlist.validEntries,
                   singleVideoUrl: phase.singleVideoUrl,
                 })
               }
-            }}
-            onBack={() => {
-              if (phase.playlist.validEntries.some(e => e.kind === 'photo')) {
-                resetToInput()
-              } else {
-                setPhase({
-                  name: 'playlist-scope',
-                  playlist: phase.playlist,
-                  singleVideoUrl: phase.singleVideoUrl,
-                })
-              }
-            }}
-            width={Math.min(contentWidth, 68)}
-          />
-        </Box>
+            } else if (choice === 'select') {
+              setPhase({
+                name: 'playlist-items',
+                playlist: phase.playlist,
+                singleVideoUrl: phase.singleVideoUrl,
+              })
+            } else if (choice === 'single' && phase.singleVideoUrl) {
+              setUrl(phase.singleVideoUrl)
+              void startProbe(phase.singleVideoUrl)
+            }
+          }}
+          onBack={resetToInput}
+        />
+      )}
+
+      {phase.name === 'playlist-items' && (
+        <PlaylistItemsView
+          entries={phase.playlist.validEntries}
+          width={Math.min(contentWidth, 68)}
+          onConfirm={selected => {
+            const allPhotos = selected.every(e => e.kind === 'photo')
+            if (allPhotos) {
+              executeBatchDownload(phase.playlist, selected, 'best')
+            } else {
+              setPhase({
+                name: 'playlist-quality',
+                playlist: phase.playlist,
+                selectedEntries: selected,
+                singleVideoUrl: phase.singleVideoUrl,
+              })
+            }
+          }}
+          onBack={() => {
+            if (phase.playlist.validEntries.some(e => e.kind === 'photo')) {
+              resetToInput()
+            } else {
+              setPhase({
+                name: 'playlist-scope',
+                playlist: phase.playlist,
+                singleVideoUrl: phase.singleVideoUrl,
+              })
+            }
+          }}
+        />
       )}
 
       {phase.name === 'playlist-quality' && (
-        <Box justifyContent="center">
-          <PlaylistQualityPicker
-            itemCount={phase.selectedEntries.length}
-            hasPhotos={phase.selectedEntries.some(e => e.kind === 'photo')}
-            audioFormat={activeAudioFormat}
-            videoFormat={activeVideoFormat}
-            onSelect={tier => {
-              executeBatchDownload(phase.playlist, phase.selectedEntries, tier)
-            }}
-            onBack={() => {
-              if (phase.playlist.validEntries.some(e => e.kind === 'photo')) {
-                setPhase({
-                  name: 'playlist-items',
-                  playlist: phase.playlist,
-                  singleVideoUrl: phase.singleVideoUrl,
-                })
-              } else {
-                setPhase({
-                  name: 'playlist-scope',
-                  playlist: phase.playlist,
-                  singleVideoUrl: phase.singleVideoUrl,
-                })
-              }
-            }}
-            width={boxWidth}
-          />
-        </Box>
+        <PlaylistQualityView
+          itemCount={phase.selectedEntries.length}
+          hasPhotos={phase.selectedEntries.some(e => e.kind === 'photo')}
+          audioFormat={activeAudioFormat}
+          videoFormat={activeVideoFormat}
+          width={boxWidth}
+          onSelect={tier => {
+            executeBatchDownload(phase.playlist, phase.selectedEntries, tier)
+          }}
+          onBack={() => {
+            if (phase.playlist.validEntries.some(e => e.kind === 'photo')) {
+              setPhase({
+                name: 'playlist-items',
+                playlist: phase.playlist,
+                singleVideoUrl: phase.singleVideoUrl,
+              })
+            } else {
+              setPhase({
+                name: 'playlist-scope',
+                playlist: phase.playlist,
+                singleVideoUrl: phase.singleVideoUrl,
+              })
+            }
+          }}
+        />
       )}
 
       {phase.name === 'playlist-downloading' && (
-        <Box justifyContent="center">
-          <PlaylistProgress
-            playlistTitle={phase.playlist.title}
-            currentTitle={phase.queue[phase.currentIndex]?.title ?? 'Downloading...'}
-            currentIndex={phase.currentIndex}
-            totalCount={phase.queue.length}
-            progress={phase.progress}
-            processing={phase.processing}
-            skippedCount={phase.skippedCount}
-            lastWarning={phase.lastWarning}
-            width={Math.min(contentWidth, 68)}
-          />
-        </Box>
+        <PlaylistDownloadingView
+          playlistTitle={phase.playlist.title}
+          currentTitle={phase.queue[phase.currentIndex]?.title ?? 'Downloading...'}
+          currentIndex={phase.currentIndex}
+          totalCount={phase.queue.length}
+          progress={phase.progress}
+          processing={phase.processing}
+          skippedCount={phase.skippedCount}
+          lastWarning={phase.lastWarning}
+          width={Math.min(contentWidth, 68)}
+        />
       )}
 
       {phase.name === 'playlist-done' && (
