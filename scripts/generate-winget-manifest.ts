@@ -4,7 +4,7 @@ import { generateWingetManifests, validateWingetManifests, type WingetManifestOp
 
 function parseArgs(): { version: string; sha256: string; url?: string; outDir?: string } {
   const args = process.argv.slice(2);
-  let version = '1.0.0';
+  let version = '1.4.0';
   let sha256 = '';
   let url = '';
   let outDir = 'manifests/o/OpenSelena/OpenOmni';
