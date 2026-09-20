@@ -9,6 +9,7 @@ import {parseArgs, resolveOutputDir, toSubtitleOptions, toThumbnailOptions} from
 import {readClipboard} from './lib/clipboard.js'
 import {isProbablyUrl} from './lib/platforms.js'
 import {buildChoices, download, ensureYtDlp, findFfmpeg, maskProxyCredentials, probe, updateYtDlp, type DownloadChoice} from './lib/ytdlp.js'
+import {sanitizeError} from './lib/sanitizer.js'
 import {updateGalleryDl} from './lib/gallerydl.js'
 import {
   buildQualityTierArgs,
@@ -444,7 +445,7 @@ if (isTTY) {
     process.on(event, (error: unknown) => {
       leaveAltScreen()
       cleanupCookieJar(cookieJar)
-      console.error(error)
+      console.error(sanitizeError(error) || error)
       process.exit(1)
     })
   }

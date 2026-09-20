@@ -47,6 +47,8 @@ export const MIXED_OR_PHOTO_DOMAINS = [
   'pixiv.net',
   'bsky.app',
   'threads.net',
+  'tiktok.com',
+  'vt.tiktok.com',
   'tumblr.com',
   'weibo.com',
 ]

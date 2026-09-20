@@ -24,6 +24,8 @@ test('isMixedOrPhotoPlatform recognizes social photo/mixed platforms', () => {
   assert.equal(isMixedOrPhotoPlatform('https://www.reddit.com/r/pics/comments/xyz/'), true)
   assert.equal(isMixedOrPhotoPlatform('https://bsky.app/profile/user/post/123'), true)
   assert.equal(isMixedOrPhotoPlatform('https://www.threads.net/@user/post/xyz'), true)
+  assert.equal(isMixedOrPhotoPlatform('https://www.tiktok.com/@user/photo/123'), true)
+  assert.equal(isMixedOrPhotoPlatform('https://vt.tiktok.com/photo123'), true)
 
   assert.equal(isMixedOrPhotoPlatform('https://www.youtube.com/watch?v=dQw4w9WgXcQ'), false)
   assert.equal(isMixedOrPhotoPlatform('https://youtu.be/dQw4w9WgXcQ'), false)

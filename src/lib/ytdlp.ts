@@ -8,6 +8,7 @@ import {pipeline} from 'node:stream/promises'
 import {formatBytes} from './format.js'
 import {parsePlaylistOutput, type PlaylistMetadata} from './playlist.js'
 import type {AudioFormat, VideoFormat} from './args.js'
+import {sanitizeErrorMessage, sanitizeError} from './sanitizer.js'
 
 const OPEN_OMNI_DIR = path.join(os.homedir(), '.open-omni', 'bin')
 const LEGACY_YOINKS_DIR = path.join(os.homedir(), '.yoinks', 'bin')
@@ -471,13 +472,8 @@ export function buildMetadataArgs(opts?: MetadataOptions): string[] {
   return args
 }
 
-export function maskProxyCredentials(text: string): string {
-  if (!text || typeof text !== 'string') return ''
-  return text.replace(
-    /([a-zA-Z][a-zA-Z0-9+.-]*:\/\/)([^/\s]+)@/g,
-    (_match, proto, userInfo) => (userInfo.includes(':') ? `${proto}***:***@` : `${proto}***@`),
-  )
-}
+export const maskProxyCredentials = sanitizeErrorMessage
+export {sanitizeErrorMessage, sanitizeError}
 
 export function buildProxyArgs(options?: {
   proxy?: string

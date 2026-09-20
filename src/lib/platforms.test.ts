@@ -18,6 +18,7 @@ test('detectPlatform correctly detects supported media platforms', () => {
   assert.equal(detectPlatform('https://www.twitch.tv/videos/123').key, 'twitch')
   assert.equal(detectPlatform('https://www.reddit.com/r/videos/comments/123').key, 'reddit')
   assert.equal(detectPlatform('https://fb.watch/123/').key, 'facebook')
+  assert.equal(detectPlatform('https://bsky.app/profile/user/post/123').key, 'bluesky')
 })
 
 test('detectPlatform falls back to generic hostname or unknown', () => {
