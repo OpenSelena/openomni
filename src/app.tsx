@@ -217,6 +217,8 @@ type AppProps = {
   limitRate?: string
   sponsorblock?: boolean
   sponsorblockRemove?: string
+  outputTemplate?: string
+  concurrency?: number
   onOutcome: (outcome: Outcome) => void
 }
 
@@ -256,6 +258,8 @@ function InnerApp({
   limitRate,
   sponsorblock,
   sponsorblockRemove,
+  outputTemplate,
+  concurrency,
   onOutcome,
   cycleTheme,
 }: {
@@ -281,6 +285,8 @@ function InnerApp({
   limitRate?: string
   sponsorblock?: boolean
   sponsorblockRemove?: string
+  outputTemplate?: string
+  concurrency?: number
   onOutcome: (outcome: Outcome) => void
   cycleTheme: () => void
 }) {
@@ -387,6 +393,7 @@ function InnerApp({
             limitRate,
             sponsorblock,
             sponsorblockRemove,
+            outputTemplate: outputTemplate ? (path.isAbsolute(outputTemplate) ? outputTemplate : path.join(targetDir, outputTemplate)) : undefined,
           }
           let filepath: string
           try {
@@ -495,6 +502,7 @@ function InnerApp({
               await downloadUnifiedItem({
                 item: entry,
                 destDir: playlistDir,
+                outputTemplate,
                 totalCount: queue.length,
                 ytdlp: ytdlpRef.current,
                 gallerydl: gallerydlRef.current,

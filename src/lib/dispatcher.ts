@@ -19,6 +19,7 @@ import {
   type VideoInfo,
 } from './ytdlp.js'
 import {formatTrackFilename, type PlaylistEntry, type PlaylistMetadata} from './playlist.js'
+import {renderOutputTemplate} from './template.js'
 import {
   isInstagramUrl,
   isInstagramCdnUrl,
@@ -540,6 +541,7 @@ export type DownloadUnifiedItemOptions = {
   limitRate?: string
   sponsorblock?: boolean
   sponsorblockRemove?: string
+  outputTemplate?: string
 }
 
 export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): Promise<string> {
@@ -547,6 +549,7 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
     item,
     destDir,
     filename,
+    outputTemplate,
     totalCount,
     ytdlp,
     gallerydl,
@@ -587,7 +590,16 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
   if (item.engine === 'instagram' || isInstagramCdnUrl(item.url)) {
     const finalExt = item.ext || (item.kind === 'video' ? 'mp4' : 'jpg')
     const finalFilename =
-      filename || formatTrackFilename(item.index, totalCount ?? Math.max(item.index, 1), item.title, finalExt)
+      filename ||
+      (outputTemplate
+        ? renderOutputTemplate(outputTemplate, {
+            title: item.title,
+            id: item.id,
+            index: item.index,
+            playlist_index: item.index,
+            ext: finalExt,
+          })
+        : formatTrackFilename(item.index, totalCount ?? Math.max(item.index, 1), item.title, finalExt))
     const outPath = path.join(destDir, finalFilename)
     await fs.mkdir(destDir, {recursive: true})
 
@@ -613,7 +625,16 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
   } else if (item.kind === 'photo') {
     const ext = item.ext || 'jpg'
     const resolvedFilename =
-      filename || formatTrackFilename(item.index, totalCount ?? Math.max(item.index, 1), item.title, ext)
+      filename ||
+      (outputTemplate
+        ? renderOutputTemplate(outputTemplate, {
+            title: item.title,
+            id: item.id,
+            index: item.index,
+            playlist_index: item.index,
+            ext,
+          })
+        : formatTrackFilename(item.index, totalCount ?? Math.max(item.index, 1), item.title, ext))
     const gdl = gallerydl || (options.downloadPhotoFn ? 'gallery-dl' : await ensureGalleryDl(undefined, signal))
     downloadedPath = await runDownloadPhoto({
       url: item.url,
@@ -639,7 +660,10 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
   } else {
     const ext = '%(ext)s'
     const resolvedFilename =
-      filename || formatTrackFilename(item.index, totalCount ?? Math.max(item.index, 1), item.title, ext)
+      filename ||
+      (outputTemplate
+        ? (path.isAbsolute(outputTemplate) ? outputTemplate : path.join(destDir, outputTemplate))
+        : path.join(destDir, formatTrackFilename(item.index, totalCount ?? Math.max(item.index, 1), item.title, ext)))
     const section = time ? normalizeToYtdlpSection(time) ?? undefined : undefined
 
     downloadedPath = await runDownloadVideo(
@@ -649,7 +673,7 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
         url: item.url,
         choice,
         outDir: destDir,
-        outputTemplate: path.join(destDir, resolvedFilename),
+        outputTemplate: resolvedFilename,
         subtitles,
         thumbnail,
         metadata,

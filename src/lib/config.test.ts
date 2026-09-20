@@ -627,6 +627,25 @@ test('setConfigValue parses and sets typed values in config', () => {
   fs.rmSync(tempDir, {recursive: true, force: true})
 })
 
+test('loadConfig and setConfigValue handle outputTemplate and concurrency', () => {
+  const tempDir = path.join(os.tmpdir(), 'open-omni-tpl-test-' + Date.now())
+  const configPath = path.join(tempDir, 'config.json')
+
+  setConfigValue('outputTemplate', '%(uploader)s/%(title)s.%(ext)s', configPath)
+  setConfigValue('concurrency', '4', configPath)
+
+  const loaded = loadConfig(configPath)
+  assert.equal(loaded.outputTemplate, '%(uploader)s/%(title)s.%(ext)s')
+  assert.equal(loaded.concurrency, 4)
+
+  assert.throws(() => setConfigValue('concurrency', '0', configPath), /Invalid concurrency/)
+  assert.throws(() => setConfigValue('concurrency', '-5', configPath), /Invalid concurrency/)
+  assert.throws(() => setConfigValue('concurrency', 'abc', configPath), /Invalid concurrency/)
+
+  fs.rmSync(tempDir, {recursive: true, force: true})
+})
+
+
 
 
 

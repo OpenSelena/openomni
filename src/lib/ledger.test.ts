@@ -182,5 +182,25 @@ describe('Download Ledger', () => {
     const fetched = findInLedger({ mediaId: 'stat-test' })
     assert.equal(fetched?.fileSizeBytes, 'dummy media content'.length)
   })
+
+  it('handles concurrent recordDownloadWithStat calls safely without dropping entries', async () => {
+    const promises = Array.from({ length: 10 }, (_, i) =>
+      recordDownloadWithStat({
+        mediaId: `concurrent-${i}`,
+        platform: 'test',
+        url: `https://example.com/item-${i}`,
+        title: `Item ${i}`,
+        outputPath: dummyMediaFile,
+      })
+    )
+
+    await Promise.all(promises)
+
+    const list = loadLedger()
+    assert.equal(list.length, 10)
+    for (let i = 0; i < 10; i++) {
+      assert.ok(findInLedger({ mediaId: `concurrent-${i}` }), `concurrent-${i} must exist in ledger`)
+    }
+  })
 })
 

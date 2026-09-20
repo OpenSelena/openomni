@@ -621,6 +621,30 @@ test('rejects options when followed immediately by another flag without argument
   )
 })
 
+test('parses --output-template and --template options', () => {
+  const parsed1 = parseArgs(['--output-template', '%(title)s.%(ext)s', 'https://example.com/video'])
+  assert.equal(parsed1.outputTemplate, '%(title)s.%(ext)s')
+
+  const parsed2 = parseArgs(['--template=%(uploader)s/%(title)s.%(ext)s', 'https://example.com/video'])
+  assert.equal(parsed2.outputTemplate, '%(uploader)s/%(title)s.%(ext)s')
+
+  assert.match(parseArgs(['--output-template']).error ?? '', /needs a template string/)
+  assert.match(parseArgs(['--output-template=']).error ?? '', /needs a template string/)
+})
+
+test('parses --concurrency and -c options', () => {
+  const parsed1 = parseArgs(['--concurrency', '4', 'https://example.com/video'])
+  assert.equal(parsed1.concurrency, 4)
+
+  const parsed2 = parseArgs(['-c=8', 'https://example.com/video'])
+  assert.equal(parsed2.concurrency, 8)
+
+  assert.match(parseArgs(['--concurrency']).error ?? '', /needs a number/)
+  assert.match(parseArgs(['--concurrency', '0']).error ?? '', /must be at least 1/)
+  assert.match(parseArgs(['-c', '-2']).error ?? '', /must be at least 1/)
+  assert.match(parseArgs(['--concurrency', 'fast']).error ?? '', /must be a positive integer/)
+})
+
 
 
 

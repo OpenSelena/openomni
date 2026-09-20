@@ -57,6 +57,8 @@ export type CliArgs = {
   limitRate?: string
   sponsorblock?: boolean
   sponsorblockRemove?: string
+  outputTemplate?: string
+  concurrency?: number
   error?: string
 }
 
@@ -158,6 +160,30 @@ export function parseArgs(args: string[]): CliArgs {
       const value = arg.slice('--output='.length)
       if (!value) return {...result, error: '--output needs a directory path'}
       result.outputDir = value
+    } else if (arg === '--output-template' || arg === '--template') {
+      const value = args[++index]
+      if (!value || (value.startsWith('-') && value.length > 1)) return {...result, error: `${arg} needs a template string`}
+      result.outputTemplate = value
+    } else if (arg.startsWith('--output-template=') || arg.startsWith('--template=')) {
+      const prefix = arg.startsWith('--output-template=') ? '--output-template=' : '--template='
+      const value = arg.slice(prefix.length)
+      if (!value) return {...result, error: `${prefix.slice(0, -1)} needs a template string`}
+      result.outputTemplate = value
+    } else if (arg === '--concurrency' || arg === '-c') {
+      const value = args[++index]
+      if (!value || (value.startsWith('-') && !/^-?\d+$/.test(value))) return {...result, error: `${arg} needs a number`}
+      const parsed = Number(value)
+      if (!Number.isInteger(parsed) || isNaN(parsed)) return {...result, error: `${arg} must be a positive integer`}
+      if (parsed < 1) return {...result, error: `${arg} must be at least 1`}
+      result.concurrency = parsed
+    } else if (arg.startsWith('--concurrency=') || arg.startsWith('-c=')) {
+      const prefix = arg.startsWith('--concurrency=') ? '--concurrency=' : '-c='
+      const value = arg.slice(prefix.length)
+      if (!value) return {...result, error: `${prefix.slice(0, -1)} needs a number`}
+      const parsed = Number(value)
+      if (!Number.isInteger(parsed) || isNaN(parsed)) return {...result, error: `${prefix.slice(0, -1)} must be a positive integer`}
+      if (parsed < 1) return {...result, error: `${prefix.slice(0, -1)} must be at least 1`}
+      result.concurrency = parsed
     } else if (arg === '--theme') {
       const value = args[++index]
       if (!value) return {...result, error: '--theme needs a value: auto, light, or dark'}

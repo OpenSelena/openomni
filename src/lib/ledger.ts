@@ -117,8 +117,11 @@ export function getCompletedDownload(query: { url?: string; mediaId?: string }):
   return isCompletedOnDisk(entry) ? entry : undefined
 }
 
+let ledgerWriteQueue: Promise<unknown> = Promise.resolve()
+
 /**
  * Convenience helper to probe file size via fs.promises.stat before recording to the ledger.
+ * Serialized to prevent concurrent writes from interleaving.
  */
 export async function recordDownloadWithStat(
   entry: Omit<LedgerEntry, 'completedAt' | 'fileSizeBytes'> & { fileSizeBytes?: number; completedAt?: string },
@@ -132,5 +135,10 @@ export async function recordDownloadWithStat(
       // If stat fails (e.g. race condition or external delete), proceed with recording metadata
     }
   }
-  return recordDownload({ ...entry, fileSizeBytes: size })
+
+  const result = await (ledgerWriteQueue = ledgerWriteQueue.then(
+    () => recordDownload({ ...entry, fileSizeBytes: size }),
+    () => recordDownload({ ...entry, fileSizeBytes: size }),
+  ))
+  return result as LedgerEntry
 }

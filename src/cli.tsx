@@ -27,6 +27,7 @@ import {
 } from './lib/config.js'
 import {generateCompletion} from './lib/completion.js'
 import {probeUnified, downloadUnifiedItem} from './lib/dispatcher.js'
+import {asyncPool} from './lib/pool.js'
 import {getCompletedDownload, recordDownloadWithStat} from './lib/ledger.js'
 import {detectPlatform} from './lib/platforms.js'
 import {normalizeToYtdlpSection} from './lib/time.js'
@@ -311,6 +312,7 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFor
         },
         destDir: outDir,
         filename,
+        outputTemplate: runtimeConfig.outputTemplate,
         ytdlp,
         cookieFile,
         cookieHeader,
@@ -347,11 +349,16 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFor
       let succeeded = 0
       let skipped = 0
 
-      for (const entry of playlist.validEntries) {
+      const defaultConcurrency =
+        probeResult.kind === 'mixed_post' || playlist.validEntries.every(e => e.kind === 'photo') ? 4 : 1
+      const effectiveConcurrency = runtimeConfig.concurrency ?? defaultConcurrency
+      console.error(`[open-omni] downloading batch (concurrency: ${effectiveConcurrency})…`)
+
+      await asyncPool(effectiveConcurrency, playlist.validEntries, async entry => {
         if (args.skipExisting && !args.force && entry.completed) {
           console.error(`[open-omni] [${entry.index}/${playlist.validEntries.length}] skipping already downloaded “${entry.title}”…`)
           skipped++
-          continue
+          return
         }
         console.error(`[open-omni] [${entry.index}/${playlist.validEntries.length}] downloading “${entry.title}”…`)
 
@@ -359,6 +366,7 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFor
           await downloadUnifiedItem({
             item: entry,
             destDir: playlistDir,
+            outputTemplate: runtimeConfig.outputTemplate,
             totalCount: playlist.validEntries.length,
             ytdlp,
             ffmpegLocation,
@@ -378,23 +386,29 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFor
             sponsorblock: runtimeConfig.sponsorblock,
             sponsorblockRemove: runtimeConfig.sponsorblockRemove,
             onProgress: progress => {
-              if (progress.totalBytes) {
+              if (effectiveConcurrency === 1 && progress.totalBytes) {
                 const pct = Math.round((progress.downloadedBytes / progress.totalBytes) * 100)
                 process.stderr.write(`\r[open-omni] downloading: ${pct}%`)
               }
             },
             onProcessing: () => {
-              process.stderr.write(`\r[open-omni] processing…\n`)
+              if (effectiveConcurrency === 1) {
+                process.stderr.write(`\r[open-omni] processing…\n`)
+              }
             },
           })
-          process.stderr.write('\n')
+          if (effectiveConcurrency === 1) {
+            process.stderr.write('\n')
+          }
           succeeded++
         } catch (err) {
-          process.stderr.write('\n')
+          if (effectiveConcurrency === 1) {
+            process.stderr.write('\n')
+          }
           console.error(`[open-omni] ⚠ skipped “${entry.title}”: ${err instanceof Error ? err.message : String(err)}`)
           skipped++
         }
-      }
+      })
 
       cleanupCookieJar(cookieJar)
       console.log(`✓ downloaded ${succeeded} items to ${playlistDir}${skipped > 0 ? ` (${skipped} skipped)` : ''}`)
@@ -428,6 +442,7 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFor
         url: initialUrl,
         choice,
         outDir,
+        outputTemplate: runtimeConfig.outputTemplate ? (path.isAbsolute(runtimeConfig.outputTemplate) ? runtimeConfig.outputTemplate : path.join(outDir, runtimeConfig.outputTemplate)) : undefined,
         infoJsonPath,
         subtitles,
         thumbnail,
@@ -527,6 +542,8 @@ try {
       limitRate={runtimeConfig.limitRate}
       sponsorblock={runtimeConfig.sponsorblock}
       sponsorblockRemove={runtimeConfig.sponsorblockRemove}
+      outputTemplate={runtimeConfig.outputTemplate}
+      concurrency={runtimeConfig.concurrency}
       onOutcome={result => (outcome = result)}
     />,
     // keep a copy of every frame so clicks can be hit-tested against it

@@ -852,5 +852,65 @@ test('downloadUnifiedItem forwards proxy, rate limit, and sponsorblock options t
   }
 })
 
+test('downloadUnifiedItem applies outputTemplate to filename and video options', async () => {
+  const tmpDir = path.join(os.tmpdir(), `open-omni-test-outtpl-${Date.now()}`)
+  fsSync.mkdirSync(tmpDir, {recursive: true})
+
+  let videoOptsPassed: any
+  let photoOptsPassed: any
+
+  try {
+    await downloadUnifiedItem({
+      item: {
+        id: 'vid-99',
+        title: 'Epic Title',
+        url: 'https://example.com/watch?v=vid-99',
+        index: 2,
+        kind: 'video',
+      },
+      destDir: tmpDir,
+      outputTemplate: '%(id)s_%(title)s.%(ext)s',
+      ytdlp: 'yt-dlp',
+      choice: {label: 'best', kind: 'video', args: []},
+      downloadVideoFn: async opts => {
+        videoOptsPassed = opts
+        const p = path.join(tmpDir, 'dummy.mp4')
+        fsSync.writeFileSync(p, 'dummy')
+        return p
+      },
+    })
+
+    assert.equal(videoOptsPassed.outputTemplate, path.join(tmpDir, '%(id)s_%(title)s.%(ext)s'))
+
+    await downloadUnifiedItem({
+      item: {
+        id: 'img-10',
+        title: 'Sunset Beach',
+        url: 'https://example.com/sunset.jpg',
+        index: 3,
+        kind: 'photo',
+        ext: 'jpg',
+      },
+      destDir: tmpDir,
+      outputTemplate: '{index} - {title}.{ext}',
+      ytdlp: 'yt-dlp',
+      choice: {label: 'original', kind: 'photo', args: []},
+      downloadPhotoFn: async opts => {
+        photoOptsPassed = opts
+        const p = path.join(tmpDir, opts.filename || 'photo.jpg')
+        fsSync.writeFileSync(p, 'dummy')
+        return p
+      },
+    })
+
+    assert.equal(photoOptsPassed.filename, '03 - Sunset Beach.jpg')
+  } finally {
+    try {
+      fsSync.rmSync(tmpDir, {recursive: true, force: true})
+    } catch {}
+  }
+})
+
+
 
 

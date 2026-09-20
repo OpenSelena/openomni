@@ -185,6 +185,12 @@ open-omni <url> --limit-rate 1.5M
 open-omni <url> --sponsorblock
 open-omni <url> --sponsorblock-remove sponsor,intro
 
+# Custom filename template
+open-omni <url> --output-template "%(uploader)s - %(title)s.%(ext)s"
+
+# Parallel batch downloads (e.g. 4 concurrent downloads)
+open-omni <url> --concurrency 4
+
 # Update bundled extraction engines (yt-dlp and gallery-dl)
 open-omni -U
 ```
@@ -234,6 +240,8 @@ open-omni -U
 | `--limit-rate <rate>` | Limit download bandwidth (e.g. `50K`, `1.5M`, `2G`) |
 | `--sponsorblock` | Remove sponsored segments using SponsorBlock |
 | `--sponsorblock-remove <cats>` | SponsorBlock categories to remove (default: `all`) |
+| `--output-template <pattern>` | Custom filename template (e.g. `%(uploader)s/%(title)s.%(ext)s` or `{title}.{ext}`) |
+| `-c, --concurrency <N>` | Maximum parallel download workers for batch queue |
 | `-o, --output <dir>` | Destination folder (default: Downloads or `$OPEN_OMNI_DIR`) |
 | `-U, --update` | Update bundled `yt-dlp` and `gallery-dl` binaries |
 | `--update-ytdlp` | Update only bundled `yt-dlp` binary |

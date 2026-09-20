@@ -50,6 +50,8 @@ export type UserConfig = {
   limitRate?: string
   sponsorblock?: boolean
   sponsorblockRemove?: string
+  outputTemplate?: string
+  concurrency?: number
 }
 
 export type CookieOptions = {
@@ -74,6 +76,8 @@ export type RuntimeConfig = {
   limitRate?: string
   sponsorblock?: boolean
   sponsorblockRemove?: string
+  outputTemplate?: string
+  concurrency?: number
 }
 
 export function resolveConfigPath(env: NodeJS.ProcessEnv = process.env): string {
@@ -233,6 +237,23 @@ export function loadConfig(
         result.sponsorblockRemove = parsed.sponsorblockRemove.trim()
       } else {
         onWarning?.(`[open-omni] warning: invalid sponsorblockRemove setting in ${configPath} (expected string)`)
+      }
+    }
+
+    if (parsed.outputTemplate !== undefined) {
+      if (typeof parsed.outputTemplate === 'string' && parsed.outputTemplate.trim()) {
+        result.outputTemplate = parsed.outputTemplate.trim()
+      } else {
+        onWarning?.(`[open-omni] warning: invalid outputTemplate in ${configPath} (expected string)`)
+      }
+    }
+
+    if (parsed.concurrency !== undefined) {
+      const c = Number(parsed.concurrency)
+      if (Number.isInteger(c) && c >= 1) {
+        result.concurrency = c
+      } else {
+        onWarning?.(`[open-omni] warning: invalid concurrency in ${configPath} (expected positive integer)`)
       }
     }
 
@@ -417,6 +438,8 @@ export function resolveRuntimeConfig(
     limitRate: args.limitRate ?? userConfig.limitRate,
     sponsorblock: args.sponsorblock ?? userConfig.sponsorblock ?? (Boolean(userConfig.sponsorblockRemove) ? true : undefined),
     sponsorblockRemove: args.sponsorblockRemove ?? userConfig.sponsorblockRemove,
+    outputTemplate: args.outputTemplate ?? userConfig.outputTemplate,
+    concurrency: args.concurrency ?? userConfig.concurrency,
   }
 }
 
@@ -456,6 +479,8 @@ export const VALID_CONFIG_KEYS = [
   'limitRate',
   'sponsorblock',
   'sponsorblockRemove',
+  'outputTemplate',
+  'concurrency',
 ] as const
 
 export function setConfigValue(
@@ -494,6 +519,14 @@ export function setConfigValue(
     if (trimmed === 'true' || trimmed === '1') parsedVal = true
     else if (trimmed === 'false' || trimmed === '0') parsedVal = false
     else throw new Error(`Invalid boolean value for ${key}: "${trimmed}". Expected true or false.`)
+  } else if (key === 'concurrency') {
+    const num = Number(trimmed)
+    if (!Number.isInteger(num) || isNaN(num) || num < 1) {
+      throw new Error(`Invalid concurrency: "${trimmed}". Expected positive integer >= 1.`)
+    }
+    parsedVal = num
+  } else if (key === 'outputTemplate') {
+    parsedVal = trimmed
   }
 
   return updateConfig({[key]: parsedVal} as Partial<UserConfig>, configPath)
