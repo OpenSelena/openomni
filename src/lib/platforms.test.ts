@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import path from 'node:path'
-import { detectPlatform, isProbablyUrl, getRevealCommand, getRevealInFileManagerCommand, revealInFileManager } from './platforms.js'
+import { detectPlatform, isProbablyUrl, getRevealCommand, getRevealInFileManagerCommand, revealInFileManager, getOpenBrowserCommand } from './platforms.js'
 
 test('detectPlatform correctly detects supported media platforms', () => {
   assert.equal(detectPlatform('https://www.youtube.com/watch?v=123').key, 'youtube')
@@ -82,5 +82,21 @@ test('revealInFileManager safely executes without throwing on unhandled errors',
   assert.doesNotThrow(() => {
     revealInFileManager('./relative/path/folder')
   })
+})
+
+test('getOpenBrowserCommand formats platform-specific commands safely without shell injection', () => {
+  const url = 'https://example.com/watch?v=123&t=45s'
+
+  const macCmd = getOpenBrowserCommand(url, 'darwin')
+  assert.equal(macCmd.command, 'open')
+  assert.deepEqual(macCmd.args, [url])
+
+  const winCmd = getOpenBrowserCommand(url, 'win32')
+  assert.equal(winCmd.command, 'rundll32.exe')
+  assert.deepEqual(winCmd.args, ['url.dll,FileProtocolHandler', url])
+
+  const linuxCmd = getOpenBrowserCommand(url, 'linux')
+  assert.equal(linuxCmd.command, 'xdg-open')
+  assert.deepEqual(linuxCmd.args, [url])
 })
 

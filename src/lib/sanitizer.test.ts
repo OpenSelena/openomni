@@ -53,3 +53,17 @@ test('sanitizeError handles Error instances and arbitrary objects', () => {
   assert.equal(sanitizeError(null), '')
   assert.equal(sanitizeError(undefined), '')
 })
+
+test('sanitizeError sanitizes error stack and prevents leakage on empty message', () => {
+  const err = new Error('Connection failed to http://admin:secret@127.0.0.1:8080')
+  sanitizeError(err)
+  assert.ok(!err.stack?.includes('admin:secret'))
+  assert.ok(err.stack?.includes('***:***'))
+
+  const emptyErr = new Error('')
+  emptyErr.stack = 'Error at http://admin:secret@127.0.0.1:8080/file.js:10:5'
+  const result = sanitizeError(emptyErr)
+  assert.ok(result.length > 0)
+  assert.ok(!result.includes('admin:secret'))
+  assert.ok(result.includes('***:***'))
+})

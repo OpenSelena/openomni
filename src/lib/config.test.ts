@@ -645,6 +645,47 @@ test('loadConfig and setConfigValue handle outputTemplate and concurrency', () =
   fs.rmSync(tempDir, {recursive: true, force: true})
 })
 
+test('saveConfig writes configuration file with restricted mode 0600 permissions', () => {
+  const tempDir = path.join(os.tmpdir(), 'open-omni-mode-test-' + Date.now())
+  const configPath = path.join(tempDir, 'config.json')
+
+  saveConfig({theme: 'dark', proxy: 'http://user:pass@proxy:8080'}, configPath)
+  assert.ok(fs.existsSync(configPath))
+
+  if (process.platform !== 'win32') {
+    const stat = fs.statSync(configPath)
+    // 0o600 = 384 in decimal (owner read/write only)
+    assert.equal(stat.mode & 0o777, 0o600)
+  }
+
+  const content = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+  assert.equal(content.theme, 'dark')
+  assert.equal(content.proxy, 'http://user:pass@proxy:8080')
+
+  fs.rmSync(tempDir, {recursive: true, force: true})
+})
+
+test('setConfigValue handles booleans, formats, and strings strictly without any casting', () => {
+  const tempDir = path.join(os.tmpdir(), 'open-omni-strict-test-' + Date.now())
+  const configPath = path.join(tempDir, 'config.json')
+
+  setConfigValue('format', 'best', configPath)
+  setConfigValue('sponsorblock', 'false', configPath)
+  setConfigValue('sponsorblockRemove', 'sponsor,intro', configPath)
+  setConfigValue('geoCountry', 'US', configPath)
+
+  const loaded = loadConfig(configPath)
+  assert.equal(loaded.format, 'best')
+  assert.equal(loaded.sponsorblock, false)
+  assert.equal(loaded.sponsorblockRemove, 'sponsor,intro')
+  assert.equal(loaded.geoCountry, 'US')
+
+  assert.throws(() => setConfigValue('format', 'flac', configPath), /Invalid format/)
+  assert.throws(() => setConfigValue('sponsorblock', 'maybe', configPath), /Invalid boolean value/)
+
+  fs.rmSync(tempDir, {recursive: true, force: true})
+})
+
 
 
 

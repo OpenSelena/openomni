@@ -31,45 +31,39 @@ export function sanitizeTemplateTokens(val: string): string {
  * and brace syntax (`{token}`).
  */
 export function renderOutputTemplate(template: string, vars: TemplateVars): string {
-  let result = template
-
-  const uploader = vars.uploader ?? vars.artist ?? ''
-  const title = vars.title ?? 'Untitled'
-  const id = vars.id ?? ''
-  const ext = (vars.ext ?? '').replace(/^\./, '')
-  const uploadDate = vars.upload_date ?? vars.date ?? ''
+  const uploader = sanitizeTemplateTokens(vars.uploader ?? vars.artist ?? '')
+  const title = sanitizeTemplateTokens(vars.title ?? 'Untitled')
+  const id = sanitizeTemplateTokens(vars.id ?? '')
+  const ext = sanitizeTemplateTokens((vars.ext ?? '').replace(/^\./, ''))
+  const uploadDate = sanitizeTemplateTokens(vars.upload_date ?? vars.date ?? '')
   const idx = vars.index ?? vars.playlist_index ?? 1
   const paddedIndex = String(idx).padStart(2, '0')
+  const indexStr = String(idx)
 
-  // yt-dlp style tokens:
-  result = result.replace(/%\(uploader\)s/g, sanitizeTemplateTokens(uploader))
-  result = result.replace(/%\(artist\)s/g, sanitizeTemplateTokens(uploader))
-  result = result.replace(/%\(id\)s/g, sanitizeTemplateTokens(id))
-  result = result.replace(/%\(ext\)s/g, sanitizeTemplateTokens(ext))
-  result = result.replace(/%\(upload_date\)s/g, sanitizeTemplateTokens(uploadDate))
-  result = result.replace(/%\(date\)s/g, sanitizeTemplateTokens(uploadDate))
-  result = result.replace(/%\(playlist_index\)02d/g, paddedIndex)
-  result = result.replace(/%\(playlist_index\)s/g, String(idx))
-  result = result.replace(/%\(index\)02d/g, paddedIndex)
-  result = result.replace(/%\(index\)s/g, String(idx))
+  const tokenMap: Record<string, string> = {
+    uploader,
+    artist: uploader,
+    title,
+    id,
+    ext,
+    upload_date: uploadDate,
+    date: uploadDate,
+    index: paddedIndex,
+    playlist_index: paddedIndex,
+  }
 
-  // Precision slice for title if specified like %(title).60s
-  result = result.replace(/%\(title\)\.(\d+)s/g, (_, len) => {
-    const max = parseInt(len, 10)
-    return sanitizeTemplateTokens(title).slice(0, max)
+  // Handle %(title).<len>s precision slicing
+  let result = template.replace(/%\(title\)\.(\d+)s/g, (_, len) => {
+    return title.slice(0, parseInt(len, 10))
   })
-  result = result.replace(/%\(title\)s/g, sanitizeTemplateTokens(title))
 
-  // Friendly brace tokens:
-  result = result.replace(/\{uploader\}/g, sanitizeTemplateTokens(uploader))
-  result = result.replace(/\{artist\}/g, sanitizeTemplateTokens(uploader))
-  result = result.replace(/\{title\}/g, sanitizeTemplateTokens(title))
-  result = result.replace(/\{id\}/g, sanitizeTemplateTokens(id))
-  result = result.replace(/\{ext\}/g, sanitizeTemplateTokens(ext))
-  result = result.replace(/\{date\}/g, sanitizeTemplateTokens(uploadDate))
-  result = result.replace(/\{upload_date\}/g, sanitizeTemplateTokens(uploadDate))
-  result = result.replace(/\{index\}/g, paddedIndex)
-  result = result.replace(/\{playlist_index\}/g, paddedIndex)
+  // Handle yt-dlp style tokens:
+  result = result.replace(/%\((playlist_index|index)\)02d/g, paddedIndex)
+  result = result.replace(/%\((playlist_index|index)\)s/g, indexStr)
+  result = result.replace(/%\((\w+)\)s/g, (_, key) => tokenMap[key] ?? '')
+
+  // Handle brace style tokens:
+  result = result.replace(/\{(\w+)\}/g, (_, key) => tokenMap[key] ?? '')
 
   // Prevent directory traversal upwards out of the destination root
   return result.replace(/\.\./g, '_')

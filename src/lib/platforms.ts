@@ -46,15 +46,23 @@ export function isProbablyUrl(input: string): boolean {
   }
 }
 
+export function getOpenBrowserCommand(
+  url: string,
+  platform: NodeJS.Platform = process.platform,
+): {command: string; args: string[]} {
+  if (platform === 'darwin') {
+    return {command: 'open', args: [url]}
+  }
+  if (platform === 'win32') {
+    return {command: 'rundll32.exe', args: ['url.dll,FileProtocolHandler', url]}
+  }
+  return {command: 'xdg-open', args: [url]}
+}
+
 export function openBrowser(url: string): void {
   try {
-    if (process.platform === 'darwin') {
-      spawn('open', [url], {detached: true, stdio: 'ignore'}).unref()
-    } else if (process.platform === 'win32') {
-      spawn('cmd.exe', ['/c', 'start', '', url], {detached: true, stdio: 'ignore'}).unref()
-    } else {
-      spawn('xdg-open', [url], {detached: true, stdio: 'ignore'}).unref()
-    }
+    const {command, args} = getOpenBrowserCommand(url)
+    spawn(command, args, {detached: true, stdio: 'ignore'}).unref()
   } catch {
     // ignore if browser cannot open
   }

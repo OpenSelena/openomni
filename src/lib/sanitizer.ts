@@ -21,11 +21,18 @@ export function sanitizeErrorMessage(text: string): string {
 
 /**
  * Sanitizes any error instance, object, or string to guarantee zero credential leakage.
+ * If an Error instance is provided, both its message and stack are sanitized in place.
  */
 export function sanitizeError(err: unknown): string {
   if (!err) return ''
   if (err instanceof Error) {
-    return sanitizeErrorMessage(err.message)
+    if (typeof err.message === 'string') {
+      err.message = sanitizeErrorMessage(err.message)
+    }
+    if (typeof err.stack === 'string') {
+      err.stack = sanitizeErrorMessage(err.stack)
+    }
+    return err.message || (err.stack ? sanitizeErrorMessage(err.stack) : 'Error')
   }
   return sanitizeErrorMessage(String(err))
 }

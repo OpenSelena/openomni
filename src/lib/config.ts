@@ -449,7 +449,10 @@ export function saveConfig(
 ): void {
   const dir = path.dirname(configPath)
   fs.mkdirSync(dir, {recursive: true})
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf8')
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', {
+    encoding: 'utf8',
+    mode: 0o600,
+  })
 }
 
 export function updateConfig(
@@ -483,52 +486,91 @@ export const VALID_CONFIG_KEYS = [
   'concurrency',
 ] as const
 
+export type ValidConfigKey = (typeof VALID_CONFIG_KEYS)[number]
+
+export function isValidConfigKey(key: string): key is ValidConfigKey {
+  return (VALID_CONFIG_KEYS as readonly string[]).includes(key)
+}
+
 export function setConfigValue(
   key: string,
   rawVal: string,
   configPath: string = resolveConfigPath(),
 ): UserConfig {
-  if (!VALID_CONFIG_KEYS.includes(key as any)) {
+  if (!isValidConfigKey(key)) {
     throw new Error(`Unknown config key: "${key}". Supported keys: ${VALID_CONFIG_KEYS.join(', ')}`)
   }
 
-  let parsedVal: any = rawVal
   const trimmed = rawVal.trim()
+  const updates: Partial<UserConfig> = {}
 
-  if (key === 'theme') {
-    if (!isThemeMode(trimmed)) {
-      throw new Error(`Invalid theme: "${trimmed}". Expected system, dark, light, or a named theme.`)
+  switch (key) {
+    case 'theme': {
+      if (!isThemeMode(trimmed)) {
+        throw new Error(`Invalid theme: "${trimmed}". Expected system, dark, light, or a named theme.`)
+      }
+      updates.theme = trimmed
+      break
     }
-    parsedVal = trimmed
-  } else if (key === 'audioFormat') {
-    if (!SUPPORTED_AUDIO_FORMATS.includes(trimmed as any)) {
-      throw new Error(`Invalid audioFormat: "${trimmed}". Expected one of: ${SUPPORTED_AUDIO_FORMATS.join(', ')}`)
+    case 'audioFormat': {
+      if (!(SUPPORTED_AUDIO_FORMATS as readonly string[]).includes(trimmed)) {
+        throw new Error(`Invalid audioFormat: "${trimmed}". Expected one of: ${SUPPORTED_AUDIO_FORMATS.join(', ')}`)
+      }
+      updates.audioFormat = trimmed as AudioFormat
+      break
     }
-    parsedVal = trimmed
-  } else if (key === 'videoFormat') {
-    if (!SUPPORTED_VIDEO_FORMATS.includes(trimmed as any)) {
-      throw new Error(`Invalid videoFormat: "${trimmed}". Expected one of: ${SUPPORTED_VIDEO_FORMATS.join(', ')}`)
+    case 'videoFormat': {
+      if (!(SUPPORTED_VIDEO_FORMATS as readonly string[]).includes(trimmed)) {
+        throw new Error(`Invalid videoFormat: "${trimmed}". Expected one of: ${SUPPORTED_VIDEO_FORMATS.join(', ')}`)
+      }
+      updates.videoFormat = trimmed as VideoFormat
+      break
     }
-    parsedVal = trimmed
-  } else if (key === 'format') {
-    if (trimmed !== 'best' && trimmed !== 'mp3') {
-      throw new Error(`Invalid format: "${trimmed}". Expected "best" or "mp3".`)
+    case 'format': {
+      if (trimmed !== 'best' && trimmed !== 'mp3') {
+        throw new Error(`Invalid format: "${trimmed}". Expected "best" or "mp3".`)
+      }
+      updates.format = trimmed
+      break
     }
-    parsedVal = trimmed
-  } else if (key === 'geoBypass' || key === 'sponsorblock') {
-    if (trimmed === 'true' || trimmed === '1') parsedVal = true
-    else if (trimmed === 'false' || trimmed === '0') parsedVal = false
-    else throw new Error(`Invalid boolean value for ${key}: "${trimmed}". Expected true or false.`)
-  } else if (key === 'concurrency') {
-    const num = Number(trimmed)
-    if (!Number.isInteger(num) || isNaN(num) || num < 1) {
-      throw new Error(`Invalid concurrency: "${trimmed}". Expected positive integer >= 1.`)
+    case 'geoBypass':
+    case 'sponsorblock': {
+      if (trimmed === 'true' || trimmed === '1') {
+        updates[key] = true
+      } else if (trimmed === 'false' || trimmed === '0') {
+        updates[key] = false
+      } else {
+        throw new Error(`Invalid boolean value for ${key}: "${trimmed}". Expected true or false.`)
+      }
+      break
     }
-    parsedVal = num
-  } else if (key === 'outputTemplate') {
-    parsedVal = trimmed
+    case 'concurrency': {
+      const num = Number(trimmed)
+      if (!Number.isInteger(num) || isNaN(num) || num < 1) {
+        throw new Error(`Invalid concurrency: "${trimmed}". Expected positive integer >= 1.`)
+      }
+      updates.concurrency = num
+      break
+    }
+    case 'outputTemplate': {
+      updates.outputTemplate = trimmed
+      break
+    }
+    case 'outputDir':
+    case 'cookies':
+    case 'cookiesFromBrowser':
+    case 'proxy':
+    case 'geoCountry':
+    case 'limitRate':
+    case 'sponsorblockRemove': {
+      updates[key] = trimmed
+      break
+    }
+    default: {
+      throw new Error(`Config key "${key}" cannot be set directly via CLI`)
+    }
   }
 
-  return updateConfig({[key]: parsedVal} as Partial<UserConfig>, configPath)
+  return updateConfig(updates, configPath)
 }
 

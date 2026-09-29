@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 const args = process.argv.slice(2);
 let version = '1.4.0';
@@ -17,20 +17,29 @@ const VERSION = version;
 const BRANCH = `update-openselena-openomni-${VERSION}`;
 const MANIFEST_DIR = `manifests/o/OpenSelena/OpenOmni/${VERSION}`;
 
-function run(cmd: string): string {
-  return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+function runGh(ghArgs: string[]): string {
+  return execFileSync('gh', ghArgs, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
 }
 
 console.log(`1. Checking master ref on ${FORK_OWNER}/${REPO}...`);
-const masterSha = run(`gh api repos/${FORK_OWNER}/${REPO}/git/ref/heads/master --jq .object.sha`);
+const masterSha = runGh(['api', `repos/${FORK_OWNER}/${REPO}/git/ref/heads/master`, '--jq', '.object.sha']);
 console.log(`   Master SHA: ${masterSha}`);
 
 console.log(`2. Creating or updating branch ${BRANCH}...`);
 try {
-  run(`gh api repos/${FORK_OWNER}/${REPO}/git/ref/heads/${BRANCH} --jq .object.sha`);
+  runGh(['api', `repos/${FORK_OWNER}/${REPO}/git/ref/heads/${BRANCH}`, '--jq', '.object.sha']);
   console.log(`   Branch ${BRANCH} already exists`);
 } catch {
-  run(`gh api --method POST repos/${FORK_OWNER}/${REPO}/git/refs -f ref="refs/heads/${BRANCH}" -f sha="${masterSha}"`);
+  runGh([
+    'api',
+    '--method',
+    'POST',
+    `repos/${FORK_OWNER}/${REPO}/git/refs`,
+    '-f',
+    `ref=refs/heads/${BRANCH}`,
+    '-f',
+    `sha=${masterSha}`,
+  ]);
   console.log(`   Created branch ${BRANCH}`);
 }
 
@@ -49,17 +58,25 @@ for (const filename of files) {
 
   let existingSha: string | undefined;
   try {
-    existingSha = run(`gh api repos/${FORK_OWNER}/${REPO}/contents/${remotePath}?ref=${BRANCH} --jq .sha`);
+    existingSha = runGh(['api', `repos/${FORK_OWNER}/${REPO}/contents/${remotePath}?ref=${BRANCH}`, '--jq', '.sha']);
   } catch {}
 
-  const shaFlag = existingSha ? `-f sha="${existingSha}"` : '';
-  run(
-    `gh api --method PUT repos/${FORK_OWNER}/${REPO}/contents/${remotePath} ` +
-      `-f message="Add ${filename} for OpenSelena.OpenOmni version ${VERSION}" ` +
-      `-f content="${base64}" ` +
-      `-f branch="${BRANCH}" ` +
-      shaFlag
-  );
+  const putArgs = [
+    'api',
+    '--method',
+    'PUT',
+    `repos/${FORK_OWNER}/${REPO}/contents/${remotePath}`,
+    '-f',
+    `message=Add ${filename} for OpenSelena.OpenOmni version ${VERSION}`,
+    '-f',
+    `content=${base64}`,
+    '-f',
+    `branch=${BRANCH}`,
+  ];
+  if (existingSha) {
+    putArgs.push('-f', `sha=${existingSha}`);
+  }
+  runGh(putArgs);
   console.log(`   ✓ Committed ${filename}`);
 }
 
@@ -85,15 +102,35 @@ Fast terminal media downloader and TUI for 1,800+ sites powered by yt-dlp and ga
 
 let prUrl: string;
 try {
-  prUrl = run(
-    `gh pr create --repo ${UPSTREAM_OWNER}/${REPO} --head ${FORK_OWNER}:${BRANCH} --base master --title "${title}" --body "${body.replace(/"/g, '\\"')}"`
-  );
+  prUrl = runGh([
+    'pr',
+    'create',
+    '--repo',
+    `${UPSTREAM_OWNER}/${REPO}`,
+    '--head',
+    `${FORK_OWNER}:${BRANCH}`,
+    '--base',
+    'master',
+    '--title',
+    title,
+    '--body',
+    body,
+  ]);
   console.log(`\n🎉 Winget PR successfully created:`);
   console.log(prUrl);
 } catch (err) {
-  const existing = run(
-    `gh pr list --repo ${UPSTREAM_OWNER}/${REPO} --head ${FORK_OWNER}:${BRANCH} --json url --jq ".[0].url"`
-  );
+  const existing = runGh([
+    'pr',
+    'list',
+    '--repo',
+    `${UPSTREAM_OWNER}/${REPO}`,
+    '--head',
+    `${FORK_OWNER}:${BRANCH}`,
+    '--json',
+    'url',
+    '--jq',
+    '.[0].url',
+  ]);
   if (existing) {
     console.log(`\n✓ Branch updated and existing PR found:`);
     console.log(existing);
@@ -101,3 +138,4 @@ try {
     throw err;
   }
 }
+
