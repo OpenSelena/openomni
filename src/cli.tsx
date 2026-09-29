@@ -50,7 +50,7 @@ const resolveVersion = (): string => {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     return require('../package.json').version
   } catch {}
-  return '1.4.0'
+  return '1.4.1'
 }
 const VERSION: string = resolveVersion()
 

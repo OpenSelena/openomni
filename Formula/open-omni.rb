@@ -3,8 +3,8 @@ require "language/node"
 class OpenOmni < Formula
   desc "Fast terminal media downloader and TUI for 1,800+ sites"
   homepage "https://github.com/OpenSelena/openomni"
-  url "https://registry.npmjs.org/open-omni/-/open-omni-1.4.0.tgz"
-  sha256 "aacb2f528d49a9257a68ed4b3cab7474db59ddcb7f6e1eadb64fc44b58915e34"
+  url "https://registry.npmjs.org/open-omni/-/open-omni-1.4.1.tgz"
+  sha256 "4bfb48e912ae2dfb843a18d8327fc0171288834f465f6bde0ce484d1b3e2520d"
   license "MIT"
 
   livecheck do
