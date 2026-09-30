@@ -23,6 +23,6 @@ Commands:
 Installers:
   - Architecture: x64
     InstallerUrl: https://github.com/OpenSelena/openomni/releases/download/v1.4.1/open-omni-windows-x64.zip
-    InstallerSha256: 840D13BFCB56322691EE5F97E3C803A8B22359BF07E98ED583B1C8E079426662
+    InstallerSha256: 35EB3DD04D15A762103D05BF0728CDAF738256590560544C4308E7EC6BC28D22
 ManifestType: installer
 ManifestVersion: 1.6.0
