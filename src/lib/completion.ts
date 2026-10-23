@@ -28,7 +28,7 @@ _open_omni_completions() {
     cur="\${COMP_WORDS[COMP_CWORD]}"
     prev="\${COMP_WORDS[COMP_CWORD-1]}"
 
-    local options="--help -h --version -v --best --mp3 --output -o --theme --update --update-ytdlp --update-gallerydl -U --force --subs --embed-subs --thumb --embed-thumb --metadata --add-metadata --embed-chapters --audio-format --video-format --photos-only --videos-only --completion"
+    local options="--help -h --version -v --best --mp3 --output -o --watch -w --theme --update --update-ytdlp --update-gallerydl -U --force --subs --embed-subs --thumb --embed-thumb --metadata --add-metadata --embed-chapters --audio-format --video-format --photos-only --videos-only --completion"
 
     case "$prev" in
         --theme)
@@ -86,6 +86,7 @@ _open_omni() {
         '--add-metadata[Embed metadata into media container tags]' \\
         '--embed-chapters[Embed chapter markers into media container]' \\
         '(-o --output)'{-o,--output}'[Specify download destination directory]:output directory:_files -/' \\
+        '(-w --watch)'{-w,--watch}'[Watch clipboard and automatically download copied links]' \\
         '--theme[Set color theme]:theme:(auto light dark)' \\
         '(-U --update)'{-U,--update}'[Update bundled download engines (yt-dlp and gallery-dl)]' \\
         '--update-ytdlp[Update bundled yt-dlp binary to latest release]' \\
@@ -123,6 +124,7 @@ complete -c open-omni -s v -l version -d "Show version information"
 complete -c open-omni -l best -d "Download highest quality video stream"
 complete -c open-omni -l mp3 -d "Extract audio to MP3"
 complete -c open-omni -s o -l output -r -a "(__fish_complete_directories)" -d "Download destination directory"
+complete -c open-omni -s w -l watch -d "Watch clipboard and automatically download copied links"
 complete -c open-omni -l theme -x -a "auto light dark" -d "Set color theme"
 complete -c open-omni -s U -l update -d "Update bundled download engines"
 complete -c open-omni -l update-ytdlp -d "Update bundled yt-dlp binary"
@@ -217,6 +219,8 @@ $completer = {
         [System.Management.Automation.CompletionResult]::new('--embed-chapters', '--embed-chapters', 'ParameterName', 'Embed chapter markers into container'),
         [System.Management.Automation.CompletionResult]::new('--output', '--output', 'ParameterName', 'Specify download destination directory'),
         [System.Management.Automation.CompletionResult]::new('-o', '-o', 'ParameterName', 'Specify download destination directory'),
+        [System.Management.Automation.CompletionResult]::new('--watch', '--watch', 'ParameterName', 'Watch clipboard and automatically download copied links'),
+        [System.Management.Automation.CompletionResult]::new('-w', '-w', 'ParameterName', 'Watch clipboard and automatically download copied links'),
         [System.Management.Automation.CompletionResult]::new('--theme', '--theme', 'ParameterName', 'Set color theme (auto, light, dark)'),
         [System.Management.Automation.CompletionResult]::new('--update', '--update', 'ParameterName', 'Update bundled download engines to latest release'),
         [System.Management.Automation.CompletionResult]::new('-U', '-U', 'ParameterName', 'Update bundled download engines to latest release'),

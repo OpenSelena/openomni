@@ -137,6 +137,10 @@ Direct scriptable downloads:
 # Download highest resolution video directly
 open-omni <url> --best
 
+# Watch clipboard and auto-download copied links
+open-omni --watch
+open-omni -w --best
+
 # Extract audio to MP3 or lossless FLAC in a specific directory
 open-omni <url> --mp3 -o ~/Music
 open-omni <url> --audio-format flac -o ~/Music

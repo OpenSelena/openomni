@@ -1,7 +1,4 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react'
-import fs from 'node:fs/promises'
-import os from 'node:os'
-import path from 'node:path'
 import {Box, Text, useApp, useInput, useStdout} from 'ink'
 import Spinner from 'ink-spinner'
 import {FullScreen} from './components/fullscreen.js'
@@ -28,13 +25,6 @@ import {useMouseClick} from './lib/use-mouse-click.js'
 import {BRAND_COLOR, nextThemeMode, ThemeProvider, type ThemeMode, useTheme} from './theme.js'
 import {
   buildChoices,
-  buildSubtitleArgs,
-  download,
-  ensureYtDlp,
-  findFfmpeg,
-  isExtractorError,
-  maskProxyCredentials,
-  probe,
   type DownloadChoice,
   type DownloadProgress,
   type SubtitleOptions,
@@ -43,22 +33,20 @@ import {
   type VideoInfo,
 } from './lib/ytdlp.js'
 import {
-  buildQualityTierArgs,
-  formatTrackFilename,
-  getQualityTierExt,
-  resolvePlaylistDir,
-  sanitizeFilename,
   type PlaylistEntry,
   type PlaylistMetadata,
   type QualityTier,
 } from './lib/playlist.js'
-import {downloadUnifiedItem, probeUnified} from './lib/dispatcher.js'
-import {getCompletedDownload, recordDownloadWithStat} from './lib/ledger.js'
-import {normalizeToYtdlpSection} from './lib/time.js'
 import type {AudioFormat, VideoFormat} from './lib/args.js'
 import {getNextAudioFormat, getNextVideoFormat} from './lib/format-cycle.js'
+import {getCompletedDownload} from './lib/ledger.js'
+import type {Outcome, Phase} from './hooks/types.js'
+import {useSingleDownload} from './hooks/use-single-download.js'
+import {useBatchQueue} from './hooks/use-batch-queue.js'
+import {useEngineProbe} from './hooks/use-engine-probe.js'
 
-const OUT_DIR = path.join(os.homedir(), 'Downloads')
+export type {Outcome, Phase}
+
 const DOWNLOAD_BUTTON = 'download'
 const TAGLINE = 'grab any video. paste. download. done.'
 
@@ -69,63 +57,6 @@ const Gap = ({lines = 1}: {lines?: number}) => (
     ))}
   </Box>
 )
-
-export type Outcome = {filepath?: string}
-
-type Phase =
-  | {name: 'input'; warning?: string}
-  | {name: 'probing'; status: string}
-  | {name: 'picking'}
-  | {
-      name: 'downloading'
-      choice: DownloadChoice
-      title?: string
-      progress?: DownloadProgress
-      processing: boolean
-      refreshing?: boolean
-    }
-  | {
-      name: 'playlist-scope'
-      playlist: PlaylistMetadata
-      singleVideoUrl?: string
-    }
-  | {
-      name: 'playlist-items'
-      playlist: PlaylistMetadata
-      singleVideoUrl?: string
-    }
-  | {
-      name: 'playlist-quality'
-      playlist: PlaylistMetadata
-      selectedEntries: PlaylistEntry[]
-      singleVideoUrl?: string
-    }
-  | {
-      name: 'playlist-downloading'
-      playlist: PlaylistMetadata
-      queue: PlaylistEntry[]
-      tier: QualityTier
-      currentIndex: number
-      skippedCount: number
-      lastWarning?: string
-      progress?: DownloadProgress
-      processing: boolean
-    }
-  | {
-      name: 'playlist-done'
-      playlistTitle: string
-      downloadCount: number
-      skippedCount: number
-      targetDir: string
-      hasPhotos?: boolean
-    }
-  | {
-      name: 'confirm-overwrite'
-      existingPath: string
-      choice: DownloadChoice
-    }
-  | {name: 'done'; filepath: string}
-  | {name: 'error'; message: string}
 
 const HINTS: Record<Phase['name'], Array<[string, string]>> = {
   input: [
@@ -347,437 +278,90 @@ function InnerApp({
   const boxWidth = Math.max(14, Math.min(64, columns - 6))
   const contentWidth = Math.max(10, Math.min(columns - 4, 78))
 
-  const executeDownload = useCallback(
-    (choice: DownloadChoice, targetUrl: string, cachedInfoJsonPath?: string) => {
-      const controller = new AbortController()
-      abortRef.current = controller
-      setPhase({name: 'downloading', choice, processing: false})
-      void (async () => {
-        const handlers = {
-          onProgress: (progress: DownloadProgress) =>
-            setPhase(prev => (prev.name === 'downloading' ? {...prev, progress, processing: false} : prev)),
-          onProcessing: () =>
-            setPhase(prev => (prev.name === 'downloading' ? {...prev, processing: true} : prev)),
-        }
-        try {
-          if (skipExisting && !force) {
-            const existing = getCompletedDownload({url: targetUrl, mediaId: info?.id})
-            if (existing) {
-              onOutcome({filepath: existing.outputPath})
-              setPhase({name: 'done', filepath: existing.outputPath})
-              if (autoSelect) {
-                exit()
-              }
-              return
-            }
-          }
+  const {executeDownload} = useSingleDownload({
+    outDir,
+    subtitles,
+    thumbnail,
+    metadata,
+    cookieFile,
+    skipExisting,
+    force,
+    time,
+    proxy,
+    geoBypass,
+    geoCountry,
+    limitRate,
+    sponsorblock,
+    sponsorblockRemove,
+    outputTemplate,
+    autoSelect,
+    info,
+    ytdlpRef,
+    infoJsonRef,
+    abortRef,
+    onOutcome,
+    exit,
+    setPhase,
+    setHistory,
+  })
 
-          const targetDir = outDir ?? OUT_DIR
-          await fs.mkdir(targetDir, {recursive: true})
-          const ffmpegLocation = await findFfmpeg()
-          const section = time ? normalizeToYtdlpSection(time) ?? undefined : undefined
-          const base = {
-            ytdlp: ytdlpRef.current,
-            ffmpegLocation,
-            url: targetUrl,
-            choice,
-            outDir: targetDir,
-            subtitles,
-            thumbnail,
-            metadata,
-            cookieFile,
-            section,
-            proxy,
-            geoBypass,
-            geoCountry,
-            limitRate,
-            sponsorblock,
-            sponsorblockRemove,
-            outputTemplate: outputTemplate ? (path.isAbsolute(outputTemplate) ? outputTemplate : path.join(targetDir, outputTemplate)) : undefined,
-          }
-          let filepath: string
-          try {
-            filepath = await download(
-              {...base, infoJsonPath: cachedInfoJsonPath ?? infoJsonRef.current},
-              handlers,
-              controller.signal,
-            )
-          } catch (error) {
-            if (controller.signal.aborted) throw error
-            setPhase(prev =>
-              prev.name === 'downloading' ? {...prev, progress: undefined, refreshing: true} : prev,
-            )
-            filepath = await download(base, handlers, controller.signal)
-          }
+  const {executeBatchDownload} = useBatchQueue({
+    outDir,
+    subtitles,
+    thumbnail,
+    metadata,
+    activeAudioFormat,
+    activeVideoFormat,
+    cookieFile,
+    cookieHeader,
+    skipExisting,
+    force,
+    time,
+    proxy,
+    geoBypass,
+    geoCountry,
+    limitRate,
+    sponsorblock,
+    sponsorblockRemove,
+    outputTemplate,
+    autoSelect,
+    ytdlpRef,
+    gallerydlRef,
+    abortRef,
+    onOutcome,
+    exit,
+    setPhase,
+  })
 
-          const platform = detectPlatform(targetUrl).key || info?.extractor || 'yt-dlp'
-          await recordDownloadWithStat({
-            mediaId: info?.id || path.basename(filepath),
-            platform,
-            url: targetUrl,
-            title: info?.title || path.basename(filepath),
-            outputPath: filepath,
-            format: choice.label,
-          })
-
-          onOutcome({filepath})
-          setHistory(addToHistory(targetUrl))
-          setPhase({name: 'done', filepath})
-          if (autoSelect) {
-            exit()
-          }
-        } catch (error) {
-          if (controller.signal.aborted) return
-          setPhase({name: 'error', message: maskProxyCredentials(error instanceof Error ? error.message : String(error))})
-          if (autoSelect) {
-            exit(error instanceof Error ? error : new Error(String(error)))
-          }
-        }
-      })()
-    },
-    [
-      outDir,
-      onOutcome,
-      autoSelect,
-      exit,
-      subtitles,
-      thumbnail,
-      metadata,
-      cookieFile,
-      skipExisting,
-      force,
-      time,
-      info,
-      proxy,
-      geoBypass,
-      geoCountry,
-      limitRate,
-      sponsorblock,
-      sponsorblockRemove,
-    ],
-  )
-
-  const executeBatchDownload = useCallback(
-    (playlist: PlaylistMetadata, queue: PlaylistEntry[], tier: QualityTier) => {
-      const controller = new AbortController()
-      abortRef.current = controller
-      setPhase({
-        name: 'playlist-downloading',
-        playlist,
-        queue,
-        tier,
-        currentIndex: 0,
-        skippedCount: 0,
-        processing: false,
-      })
-
-      void (async () => {
-        try {
-          const baseDir = outDir ?? OUT_DIR
-          const playlistDir = resolvePlaylistDir(baseDir, playlist.title)
-          await fs.mkdir(playlistDir, {recursive: true})
-          const ffmpegLocation = await findFfmpeg()
-          const choice: DownloadChoice = {
-            label: tier === 'mp3' && activeAudioFormat ? `audio (${activeAudioFormat})` : tier,
-            kind: tier === 'mp3' ? 'audio' : 'video',
-            args: buildQualityTierArgs(tier, activeAudioFormat, activeVideoFormat),
-          }
-          const ext = getQualityTierExt(tier, activeAudioFormat, activeVideoFormat)
-
-          let succeeded = 0
-          let skipped = 0
-
-          for (let i = 0; i < queue.length; i++) {
-            if (controller.signal.aborted) break
-            const entry = queue[i]!
-
-            setPhase(prev =>
-              prev.name === 'playlist-downloading'
-                ? {...prev, currentIndex: i, skippedCount: skipped, progress: undefined, processing: false}
-                : prev,
-            )
-
-            let itemSkipped = false
-            try {
-              await downloadUnifiedItem({
-                item: entry,
-                destDir: playlistDir,
-                outputTemplate,
-                totalCount: queue.length,
-                ytdlp: ytdlpRef.current,
-                gallerydl: gallerydlRef.current,
-                ffmpegLocation,
-                choice,
-                subtitles: subtitles?.enabled ? subtitles : undefined,
-                thumbnail: thumbnail?.enabled ? thumbnail : undefined,
-                metadata,
-                signal: controller.signal,
-                cookieFile,
-                cookieHeader,
-                skipExisting,
-                force,
-                time,
-                proxy,
-                geoBypass,
-                geoCountry,
-                limitRate,
-                sponsorblock,
-                sponsorblockRemove,
-                onSkip: () => {
-                  itemSkipped = true
-                },
-                onProgress: progress =>
-                  setPhase(prev =>
-                    prev.name === 'playlist-downloading'
-                      ? {
-                          ...prev,
-                          progress,
-                          processing: false,
-                        }
-                      : prev,
-                  ),
-                onProcessing: () =>
-                  setPhase(prev =>
-                    prev.name === 'playlist-downloading' ? {...prev, processing: true} : prev,
-                  ),
-              })
-              if (itemSkipped) {
-                skipped++
-              } else {
-                succeeded++
-              }
-            } catch (err) {
-              if (controller.signal.aborted) throw err
-              skipped++
-              const errMsg = err instanceof Error ? err.message : String(err)
-              setPhase(prev =>
-                prev.name === 'playlist-downloading'
-                  ? {...prev, skippedCount: skipped, lastWarning: `${entry.title}: ${maskProxyCredentials(errMsg)}`}
-                  : prev,
-              )
-            }
-          }
-
-          onOutcome({filepath: playlistDir})
-          setPhase({
-            name: 'playlist-done',
-            playlistTitle: playlist.title,
-            downloadCount: succeeded,
-            skippedCount: skipped,
-            targetDir: playlistDir,
-            hasPhotos: queue.some(e => e.kind === 'photo'),
-          })
-          if (autoSelect) {
-            exit()
-          }
-        } catch (error) {
-          if (controller.signal.aborted) return
-          setPhase({name: 'error', message: maskProxyCredentials(error instanceof Error ? error.message : String(error))})
-          if (autoSelect) {
-            exit(error instanceof Error ? error : new Error(String(error)))
-          }
-        }
-      })()
-    },
-    [
-      outDir,
-      onOutcome,
-      autoSelect,
-      exit,
-      subtitles,
-      thumbnail,
-      metadata,
-      activeAudioFormat,
-      activeVideoFormat,
-      cookieFile,
-      cookieHeader,
-      skipExisting,
-      force,
-      time,
-      proxy,
-      geoBypass,
-      geoCountry,
-      limitRate,
-      sponsorblock,
-      sponsorblockRemove,
-    ],
-  )
-
-  const startProbe = useCallback(
-    async (targetUrl: string) => {
-      const controller = new AbortController()
-      abortRef.current = controller
-      setPlatform(detectPlatform(targetUrl))
-      setPhase({name: 'probing', status: 'warming up…'})
-      try {
-        const ytdlp =
-          ytdlpRef.current ||
-          (await ensureYtDlp(status => setPhase({name: 'probing', status}), controller.signal))
-        ytdlpRef.current = ytdlp
-        if (controller.signal.aborted) return
-
-        const gallerydl = gallerydlRef.current || undefined
-
-        setPhase({name: 'probing', status: 'fetching media info…'})
-        const probeResult = await probeUnified({
-          url: targetUrl,
-          ytdlp,
-          gallerydl,
-          mediaFilter,
-          cookieFile,
-          cookieHeader,
-          proxy,
-          geoBypass,
-          geoCountry,
-          limitRate,
-          signal: controller.signal,
-          onStatus: status => setPhase({name: 'probing', status}),
-        })
-        if (controller.signal.aborted) return
-
-        if (probeResult.kind === 'single_photo') {
-          const item = probeResult.item
-          const postTitle = probeResult.postTitle
-          const baseDir = outDir ?? OUT_DIR
-          await fs.mkdir(baseDir, {recursive: true})
-          const ext = item.ext || 'jpg'
-          const filename = `${sanitizeFilename(postTitle)}.${ext}`
-          setPhase({
-            name: 'downloading',
-            choice: {
-              label: 'original photo',
-              kind: 'photo',
-              args: [],
-            },
-            title: postTitle,
-            processing: false,
-          })
-          try {
-            const filepath = await downloadUnifiedItem({
-              item: {
-                id: item.id,
-                title: postTitle,
-                url: item.url,
-                index: 1,
-                kind: 'photo',
-                ext,
-              },
-              destDir: baseDir,
-              filename,
-              ytdlp,
-              gallerydl: gallerydlRef.current,
-              cookieFile,
-              cookieHeader,
-              choice: {
-                label: 'original photo',
-                kind: 'photo',
-                args: [],
-              },
-              signal: controller.signal,
-              skipExisting,
-              force,
-              time,
-              proxy,
-              limitRate,
-              onProgress: progress => {
-                setPhase(prev =>
-                  prev.name === 'downloading'
-                    ? {
-                        ...prev,
-                        progress,
-                        processing: false,
-                      }
-                    : prev,
-                )
-              },
-            })
-            onOutcome({filepath})
-            setPhase({name: 'done', filepath})
-            if (autoSelect) {
-              exit()
-            }
-          } catch (err) {
-            if (controller.signal.aborted) return
-            setPhase({name: 'error', message: maskProxyCredentials(err instanceof Error ? err.message : String(err))})
-            if (autoSelect) {
-              exit(err instanceof Error ? err : new Error(String(err)))
-            }
-          }
-          return
-        }
-
-        if (probeResult.kind === 'mixed_post') {
-          if (autoSelect) {
-            executeBatchDownload(probeResult.playlist, probeResult.playlist.validEntries, 'best')
-          } else {
-            setPhase({
-              name: 'playlist-items',
-              playlist: probeResult.playlist,
-            })
-          }
-          return
-        }
-
-        if (probeResult.kind === 'playlist') {
-          if (autoSelect) {
-            executeBatchDownload(probeResult.playlist, probeResult.playlist.validEntries, autoSelect)
-          } else {
-            setPhase({
-              name: 'playlist-scope',
-              playlist: probeResult.playlist,
-              singleVideoUrl: probeResult.singleVideoUrl,
-            })
-          }
-          return
-        }
-
-        const videoInfo = probeResult.info
-        infoJsonRef.current = probeResult.infoJsonPath
-        setInfo(videoInfo)
-        const availableChoices = buildChoices(videoInfo, {
-          audioFormat: activeAudioFormat,
-          videoFormat: activeVideoFormat,
-        })
-        setChoices(availableChoices)
-        highlightRef.current = 0
-        if (autoSelect) {
-          const picked =
-            autoSelect === 'mp3'
-              ? (availableChoices.find(c => c.kind === 'audio') ?? availableChoices[availableChoices.length - 1]!)
-              : (availableChoices.find(c => c.kind === 'video') ?? availableChoices[0]!)
-          executeDownload(picked, targetUrl, probeResult.infoJsonPath)
-        } else {
-          setPhase({name: 'picking'})
-        }
-      } catch (error) {
-        if (controller.signal.aborted) return
-        setPhase({name: 'error', message: maskProxyCredentials(error instanceof Error ? error.message : String(error))})
-        if (autoSelect) {
-          exit(error instanceof Error ? error : new Error(String(error)))
-        }
-      }
-    },
-    [
-      autoSelect,
-      executeDownload,
-      executeBatchDownload,
-      exit,
-      mediaFilter,
-      onOutcome,
-      outDir,
-      cookieFile,
-      cookieHeader,
-      skipExisting,
-      force,
-      time,
-      activeAudioFormat,
-      activeVideoFormat,
-      proxy,
-      geoBypass,
-      geoCountry,
-      limitRate,
-    ],
-  )
+  const {startProbe} = useEngineProbe({
+    outDir,
+    mediaFilter,
+    cookieFile,
+    cookieHeader,
+    proxy,
+    geoBypass,
+    geoCountry,
+    limitRate,
+    skipExisting,
+    force,
+    time,
+    autoSelect,
+    activeAudioFormat,
+    activeVideoFormat,
+    ytdlpRef,
+    gallerydlRef,
+    infoJsonRef,
+    highlightRef,
+    abortRef,
+    onOutcome,
+    exit,
+    setPhase,
+    setPlatform,
+    setInfo,
+    setChoices,
+    executeDownload,
+    executeBatchDownload,
+  })
 
   useEffect(() => {
     if (initialUrl) void startProbe(initialUrl)

@@ -26,6 +26,12 @@ import {
   resolveInstagramMedia,
   downloadInstagramItem,
 } from './instagram.js'
+import {
+  isBlueskyUrl,
+  isBlueskyCdnUrl,
+  resolveBlueskyMedia,
+  downloadBlueskyItem,
+} from './bluesky.js'
 import {parseNetscapeCookieFile, resolveCookieJar} from './cookies.js'
 import {recordDownloadWithStat, getCompletedDownload} from './ledger.js'
 import {detectPlatform} from './platforms.js'
@@ -71,7 +77,7 @@ export type UnifiedMediaItem = {
   index: number
   title: string
   kind: MediaKind
-  engine: 'ytdlp' | 'gallerydl' | 'instagram'
+  engine: 'ytdlp' | 'gallerydl' | 'instagram' | 'bluesky'
   url: string
   ext: string
   width?: number
@@ -247,6 +253,7 @@ export type ProbeUnifiedOptions = {
   probeGalleryDlFn?: typeof probeGalleryDl
   probeYtDlpFn?: typeof probe
   resolveInstagramFn?: typeof resolveInstagramMedia
+  resolveBlueskyFn?: typeof resolveBlueskyMedia
   cookieFile?: string
   cookieHeader?: string
   onStatus?: (status: string) => void
@@ -273,6 +280,7 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
   const runProbeGalleryDl = options.probeGalleryDlFn || probeGalleryDl
   const runProbeYtDlp = options.probeYtDlpFn || probe
   const runResolveInstagram = options.resolveInstagramFn || resolveInstagramMedia
+  const runResolveBluesky = options.resolveBlueskyFn || resolveBlueskyMedia
 
   let galleryDlErr: Error | undefined
 
@@ -327,6 +335,59 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
         throw igErr
       }
       // Fall through to gallery-dl / yt-dlp
+    }
+  }
+
+  if (isBlueskyUrl(url)) {
+    try {
+      onStatus?.('Probing Bluesky post via AT Protocol resolver…')
+      const bskyResult = await runResolveBluesky(url)
+      const unifiedItems: UnifiedMediaItem[] = bskyResult.items.map((it, idx) => ({
+        id: `${bskyResult.rkey}_${idx + 1}`,
+        index: idx + 1,
+        title: bskyResult.title ? `${bskyResult.title} (${idx + 1})` : `Media ${idx + 1}`,
+        kind: it.kind,
+        engine: 'bluesky',
+        url: it.url,
+        ext: it.ext,
+        width: it.width,
+        height: it.height,
+      }))
+
+      const filteredItems = filterMediaItems(unifiedItems, mediaFilter)
+      if (filteredItems.length === 0) {
+        throw new Error(`No media items found matching the specified filter (${mediaFilter})`)
+      }
+
+      if (filteredItems.length === 1 && filteredItems[0].kind === 'photo') {
+        return {
+          kind: 'single_photo',
+          item: filteredItems[0],
+          postTitle: bskyResult.title,
+          uploader: bskyResult.author,
+        }
+      }
+
+      const post: UnifiedPostResult = {
+        id: bskyResult.rkey,
+        title: bskyResult.title,
+        uploader: bskyResult.author,
+        webpageUrl: url,
+        isSingle: filteredItems.length === 1,
+        items: filteredItems,
+      }
+
+      return {
+        kind: 'mixed_post',
+        post,
+        playlist: postToPlaylistMetadata(post),
+      }
+    } catch (bskyErr) {
+      if (signal?.aborted) throw bskyErr
+      if (bskyErr instanceof Error && bskyErr.message.includes('No media items found matching')) {
+        throw bskyErr
+      }
+      // Fall through to gallery-dl / yt-dlp if public API fails
     }
   }
 
@@ -529,6 +590,7 @@ export type DownloadUnifiedItemOptions = {
   downloadPhotoFn?: typeof downloadPhotoItem
   downloadVideoFn?: typeof download
   downloadInstagramFn?: typeof downloadInstagramItem
+  downloadBlueskyFn?: typeof downloadBlueskyItem
   cookieFile?: string
   cookieHeader?: string
   skipExisting?: boolean
@@ -576,6 +638,7 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
   const runDownloadPhoto = options.downloadPhotoFn || downloadPhotoItem
   const runDownloadVideo = options.downloadVideoFn || download
   const runDownloadInstagram = options.downloadInstagramFn || downloadInstagramItem
+  const runDownloadBluesky = options.downloadBlueskyFn || downloadBlueskyItem
 
   if (!force) {
     const existing = getCompletedDownload({url: item.url, mediaId: item.id})
@@ -620,6 +683,41 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
       },
       undefined,
       igCookies,
+    )
+    downloadedPath = outPath
+  } else if (item.engine === 'bluesky' || isBlueskyCdnUrl(item.url)) {
+    const finalExt = item.ext || (item.kind === 'video' ? 'mp4' : 'jpg')
+    const finalFilename =
+      filename ||
+      (outputTemplate
+        ? renderOutputTemplate(outputTemplate, {
+            title: item.title,
+            id: item.id,
+            index: item.index,
+            playlist_index: item.index,
+            ext: finalExt,
+          })
+        : formatTrackFilename(item.index, totalCount ?? Math.max(item.index, 1), item.title, finalExt))
+    const outPath = path.join(destDir, finalFilename)
+    await fs.mkdir(destDir, {recursive: true})
+
+    await runDownloadBluesky(
+      {
+        url: item.url,
+        kind: item.kind === 'video' ? 'video' : 'photo',
+        ext: finalExt,
+      },
+      outPath,
+      (downloadedBytes, totalBytes) => {
+        onProgress?.({
+          downloadedBytes,
+          totalBytes,
+          part: item.index,
+          totalParts: totalCount ?? 1,
+        })
+      },
+      undefined,
+      ffmpegLocation,
     )
     downloadedPath = outPath
   } else if (item.kind === 'photo') {

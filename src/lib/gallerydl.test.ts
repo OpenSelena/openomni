@@ -368,7 +368,7 @@ test('updateGalleryDl installs if missing on darwin', async () => {
 test('buildGalleryDlProbeArgs formats probe arguments with proxy, limit-rate, and cookies', () => {
   assert.deepEqual(
     buildGalleryDlProbeArgs('https://example.com/gallery'),
-    ['-j', '--no-part', 'https://example.com/gallery']
+    ['-J', '--no-part', 'https://example.com/gallery']
   )
 
   assert.deepEqual(
@@ -377,7 +377,7 @@ test('buildGalleryDlProbeArgs formats probe arguments with proxy, limit-rate, an
       limitRate: '1.5M',
     }),
     [
-      '-j',
+      '-J',
       '--no-part',
       '--cookies',
       '/path/cookies.txt',
@@ -418,3 +418,26 @@ test('buildGalleryDlDownloadArgs formats download arguments with destination, pr
 })
 
 
+
+test('parseGalleryDlOutput ignores directory metadata (type 1) and queue dispatch redirects (type 6)', () => {
+  const raw = JSON.stringify([
+    [1, {category: 'instagram', subcategory: 'posts'}],
+    [6, 'https://www.instagram.com/user/posts/', {category: 'instagram', subcategory: 'user'}],
+    [
+      2,
+      'https://scontent.cdninstagram.com/v/photo1.jpg',
+      {
+        filename: 'photo1.jpg',
+        extension: 'jpg',
+        title: 'Post 1',
+        uploader: 'user',
+      },
+    ],
+  ])
+
+  const items = parseGalleryDlOutput(raw)
+  assert.equal(items.length, 1)
+  assert.equal(items[0].url, 'https://scontent.cdninstagram.com/v/photo1.jpg')
+  assert.equal(items[0].filename, 'photo1.jpg')
+  assert.equal(items[0].index, 1)
+})

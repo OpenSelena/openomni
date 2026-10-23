@@ -99,6 +99,11 @@ export function parseGalleryDlOutput(rawJson: string): GalleryDlItem[] {
           continue
         }
 
+        // Ignore directory metadata (type 1) and unresolved dispatch / queue messages (type 6)
+        if (itemType === 1 || itemType === 6) {
+          continue
+        }
+
         if (typeof mediaUrl === 'string' && mediaUrl.startsWith('http')) {
           const rawExt = (typeof meta.extension === 'string' ? meta.extension : '') || ''
           const rawFilename = (typeof meta.filename === 'string' ? meta.filename : '') || ''
@@ -603,7 +608,7 @@ export function buildGalleryDlProbeArgs(
   cookieFile?: string,
   options?: {proxy?: string; limitRate?: string},
 ): string[] {
-  const args = ['-j', '--no-part']
+  const args = ['-J', '--no-part']
   if (cookieFile) {
     args.push('--cookies', cookieFile)
   }

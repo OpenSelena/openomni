@@ -210,3 +210,25 @@ _Avoid_: Queue restart, pickup, retry pool
 **Section Slicing**:
 The remote time-bounded extraction of video or audio segments via engine section directives without downloading full media containers.
 _Avoid_: Trimming, cutting, snippet, clip extraction
+
+
+### Automation & Terminal UX
+
+**Clipboard Watcher Daemon**:
+The continuous background monitoring routine (`open-omni --watch`) that polls the operating system clipboard for media URLs and triggers automated downloads without user interaction.
+_Avoid_: Clipboard listener, auto-fetcher, copy bot
+
+**Pre-Seed Cache**:
+The initialization step of the Clipboard Watcher Daemon that ingests existing clipboard contents into the seen URL buffer to prevent downloading pre-existing text on boot.
+_Avoid_: Warmup cache, history prime, seed buffer
+
+
+### AT Protocol & Bluesky Media
+
+**Native Bluesky Resolver**:
+The high-speed unauthenticated resolver that queries the Bluesky AppView REST endpoint to directly extract original image CIDs and video stream manifests.
+_Avoid_: Bsky scraper, AT bot, Bluesky crawler
+
+**AppView Endpoint**:
+The public AT Protocol service endpoint (`public.api.bsky.app`) providing structured thread, author, and media metadata without authentication.
+_Avoid_: Public gateway, Bluesky proxy, external hook

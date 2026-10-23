@@ -59,6 +59,7 @@ export type CliArgs = {
   sponsorblockRemove?: string
   outputTemplate?: string
   concurrency?: number
+  watch?: boolean
   error?: string
 }
 
@@ -184,6 +185,8 @@ export function parseArgs(args: string[]): CliArgs {
       if (!Number.isInteger(parsed) || isNaN(parsed)) return {...result, error: `${prefix.slice(0, -1)} must be a positive integer`}
       if (parsed < 1) return {...result, error: `${prefix.slice(0, -1)} must be at least 1`}
       result.concurrency = parsed
+    } else if (arg === '-w' || arg === '--watch') {
+      result.watch = true
     } else if (arg === '--theme') {
       const value = args[++index]
       if (!value) return {...result, error: '--theme needs a value: auto, light, or dark'}
@@ -290,11 +293,15 @@ export function parseArgs(args: string[]): CliArgs {
   if (positional.length > 1) return {...result, error: 'expected a single url'}
   if (positional.length === 1) result.initialUrl = positional[0]
 
+  if (result.watch && result.initialUrl) {
+    return {...result, error: 'cannot combine --watch with a direct URL'}
+  }
+
   if (result.photosOnly && result.videosOnly) {
     return {...result, error: 'cannot use both --photos-only and --videos-only'}
   }
 
-  if (result.format && !result.initialUrl && !result.help && !result.version && !result.completion) {
+  if (result.format && !result.initialUrl && !result.help && !result.version && !result.completion && !result.watch) {
     return {...result, error: `--${result.format} requires a url`}
   }
 

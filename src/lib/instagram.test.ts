@@ -1,3 +1,6 @@
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -6,6 +9,7 @@ import {
   buildInstagramEmbedUrl,
   parseInstagramEmbed,
   resolveInstagramMedia,
+  downloadInstagramItem,
 } from './instagram.js';
 
 describe('instagram url normalization', () => {
@@ -196,3 +200,88 @@ describe('instagram resolver', () => {
   });
 });
 
+
+describe('downloadInstagramItem', () => {
+  it('does not include Cookie header when fetching from Meta CDN', async () => {
+    let capturedHeaders: Record<string, string> = {};
+
+    const mockFetch = (async (_url: RequestInfo | URL, init?: RequestInit) => {
+      capturedHeaders = (init?.headers as Record<string, string>) || {};
+      return {
+        ok: true,
+        status: 200,
+        headers: new Map([['content-length', '100']]),
+        body: new ReadableStream({
+          start(controller) {
+            controller.enqueue(Buffer.from('test data'));
+            controller.close();
+          },
+        }),
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+
+    const tmpPath = path.join(os.tmpdir(), `open-omni-test-${Date.now()}.jpg`);
+
+    await downloadInstagramItem(
+      {
+        url: 'https://scontent.cdninstagram.com/v/test.jpg',
+        kind: 'photo',
+      },
+      tmpPath,
+      undefined,
+      mockFetch,
+      'sessionid=secret_cookie_123',
+    );
+
+    assert.equal(capturedHeaders['Cookie'], undefined);
+
+    try {
+      await fs.promises.unlink(tmpPath);
+    } catch {}
+  });
+
+  it('retries on transient HTTP 429 status', async () => {
+    let callCount = 0;
+
+    const mockFetch = (async () => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          ok: false,
+          status: 429,
+          headers: new Map(),
+          body: null,
+        } as unknown as Response;
+      }
+      return {
+        ok: true,
+        status: 200,
+        headers: new Map([['content-length', '100']]),
+        body: new ReadableStream({
+          start(controller) {
+            controller.enqueue(Buffer.from('retry success'));
+            controller.close();
+          },
+        }),
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+
+    const tmpPath = path.join(os.tmpdir(), `open-omni-test-retry-${Date.now()}.jpg`);
+
+    await downloadInstagramItem(
+      {
+        url: 'https://scontent.cdninstagram.com/v/retry.jpg',
+        kind: 'photo',
+      },
+      tmpPath,
+      undefined,
+      mockFetch,
+    );
+
+    assert.equal(callCount, 2);
+
+    try {
+      await fs.promises.unlink(tmpPath);
+    } catch {}
+  });
+});

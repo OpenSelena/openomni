@@ -291,11 +291,18 @@ export async function downloadInstagramItem(
     'Sec-Fetch-Dest': item.kind === 'video' ? 'video' : 'image',
   };
 
-  if (cookieHeader) {
+  // Only forward Cookie header to instagram.com, NEVER to static CDN hosts (*.cdninstagram.com, *.fbcdn.net)
+  if (cookieHeader && !isInstagramCdnUrl(item.url)) {
     headers['Cookie'] = cookieHeader;
   }
 
-  const response = await fetchImpl(item.url, {headers});
+  let response = await fetchImpl(item.url, {headers});
+
+  // Retry once with backoff on transient 429 (rate limit) or 5xx server errors
+  if (!response.ok && (response.status === 429 || response.status >= 500)) {
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    response = await fetchImpl(item.url, {headers});
+  }
 
   if (!response.ok || !response.body) {
     throw new Error(

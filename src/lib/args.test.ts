@@ -645,6 +645,29 @@ test('parses --concurrency and -c options', () => {
   assert.match(parseArgs(['--concurrency', 'fast']).error ?? '', /must be a positive integer/)
 })
 
+test('parses --watch and -w flags without requiring a direct url', () => {
+  const parsed1 = parseArgs(['--watch'])
+  assert.equal(parsed1.watch, true)
+  assert.equal(parsed1.error, undefined)
+
+  const parsed2 = parseArgs(['-w', '--best'])
+  assert.equal(parsed2.watch, true)
+  assert.equal(parsed2.format, 'best')
+  assert.equal(parsed2.error, undefined)
+
+  const parsed3 = parseArgs(['--watch', '--mp3', '-o', './Music'])
+  assert.equal(parsed3.watch, true)
+  assert.equal(parsed3.format, 'mp3')
+  assert.equal(parsed3.outputDir, './Music')
+  assert.equal(parsed3.error, undefined)
+
+  assert.match(
+    parseArgs(['--watch', 'https://example.com/video']).error ?? '',
+    /cannot combine --watch with a direct URL/
+  )
+})
+
+
 
 
 

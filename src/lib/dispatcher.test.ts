@@ -911,6 +911,78 @@ test('downloadUnifiedItem applies outputTemplate to filename and video options',
   }
 })
 
+test('probeUnified delegates Bluesky URLs to resolveBlueskyFn', async () => {
+  const bskyUrl = 'https://bsky.app/profile/alice.bsky.social/post/3lbtgfe45sk2a'
+  const mockResolveBluesky = async () => ({
+    rkey: '3lbtgfe45sk2a',
+    author: 'Alice',
+    handle: 'alice.bsky.social',
+    title: 'Blue sky scenery',
+    caption: 'Blue sky scenery',
+    items: [
+      {
+        url: 'https://cdn.bsky.app/photo1@jpeg',
+        kind: 'photo' as const,
+        ext: 'jpg',
+      },
+      {
+        url: 'https://cdn.bsky.app/photo2@png',
+        kind: 'photo' as const,
+        ext: 'png',
+      },
+    ],
+  })
+
+  const result = await probeUnified({
+    url: bskyUrl,
+    ytdlp: 'yt-dlp',
+    resolveBlueskyFn: mockResolveBluesky as never,
+  })
+
+  assert.equal(result.kind, 'mixed_post')
+  if (result.kind === 'mixed_post') {
+    assert.equal(result.post.uploader, 'Alice')
+    assert.equal(result.post.items.length, 2)
+    assert.equal(result.post.items[0]?.engine, 'bluesky')
+    assert.equal(result.post.items[1]?.ext, 'png')
+  }
+})
+
+test('downloadUnifiedItem downloads Bluesky item using downloadBlueskyFn', async () => {
+  let downloadCalledWith: any = null
+  const mockDownloadBluesky = async (item: any, outPath: string) => {
+    downloadCalledWith = {item, outPath}
+  }
+
+  const tmpDir = path.join(os.tmpdir(), `open-omni-bsky-${Date.now()}`)
+  try {
+    const downloadedPath = await downloadUnifiedItem({
+      item: {
+        id: '3lbtgfe45sk2a_1',
+        title: 'Blue sky scenery',
+        url: 'https://cdn.bsky.app/photo1@jpeg',
+        index: 1,
+        kind: 'photo',
+        ext: 'jpg',
+        engine: 'bluesky',
+      },
+      destDir: tmpDir,
+      ytdlp: 'yt-dlp',
+      choice: {label: 'original', kind: 'photo', args: []},
+      downloadBlueskyFn: mockDownloadBluesky as never,
+    })
+
+    assert.ok(downloadCalledWith)
+    assert.equal(downloadCalledWith.item.url, 'https://cdn.bsky.app/photo1@jpeg')
+    assert.equal(downloadedPath, downloadCalledWith.outPath)
+  } finally {
+    try {
+      fsSync.rmSync(tmpDir, {recursive: true, force: true})
+    } catch {}
+  }
+})
+
+
 
 
 

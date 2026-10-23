@@ -59,6 +59,8 @@ test('README documentation parity with CLI options', () => {
     ['https://youtu.be/dQw4w9WgXcQ', '--output-template', '%(title)s.%(ext)s'],
     ['https://youtu.be/dQw4w9WgXcQ', '--concurrency', '4'],
     ['https://youtu.be/dQw4w9WgXcQ', '-c', '4'],
+    ['--watch'],
+    ['-w', '--best'],
     ['-h'],
     ['--help'],
     ['-v'],
@@ -103,6 +105,7 @@ test('README documentation parity with CLI options', () => {
   assert.match(readme, /--sponsorblock-remove/, 'README should document --sponsorblock-remove')
   assert.match(readme, /--output-template/, 'README should document --output-template')
   assert.match(readme, /--concurrency/, 'README should document --concurrency')
+  assert.match(readme, /--watch/, 'README should document --watch')
 
   // Ensure README includes one-line installer domain mint.dev.cv
   assert.match(readme, /mint\.dev\.cv/, 'README should link to mint.dev.cv installer')

@@ -27,10 +27,12 @@ import {
 } from './lib/config.js'
 import {generateCompletion} from './lib/completion.js'
 import {probeUnified, downloadUnifiedItem} from './lib/dispatcher.js'
+import {isInstagramCdnUrl} from './lib/instagram.js'
 import {asyncPool} from './lib/pool.js'
 import {getCompletedDownload, recordDownloadWithStat} from './lib/ledger.js'
 import {detectPlatform} from './lib/platforms.js'
 import {normalizeToYtdlpSection} from './lib/time.js'
+import {startClipboardWatcher} from './lib/watcher.js'
 import {
   resolveCookieJar,
   parseNetscapeCookieFile,
@@ -71,6 +73,7 @@ const HELP = `
     $ open-omni https://youtu.be/dQw4w9WgXcQ
     $ open-omni https://youtu.be/dQw4w9WgXcQ --best
     $ open-omni https://youtu.be/dQw4w9WgXcQ --mp3 -o ~/Music
+    $ open-omni --watch --best  (monitors clipboard and auto-downloads copied links)
     $ open-omni config set proxy http://127.0.0.1:8080
     $ open-omni config set audioFormat flac
     $ open-omni -U              (updates bundled download engines)
@@ -81,6 +84,7 @@ const HELP = `
     --mp3           skip picker and extract audio as mp3
     --audio-format <f> extract audio with format (best, aac, flac, mp3, m4a, opus, etc.)
     --video-format <f> merge video into container format (mp4, mkv, webm)
+    -w, --watch     watch system clipboard and automatically download copied links
     --metadata      embed metadata (artist, title, date) into container
     --embed-chapters embed chapter markers into media container
     --subs [langs]  download subtitles (default: English, or e.g. --subs es,en)
@@ -271,6 +275,73 @@ try {
   // If auto-mode failed, silently proceed in unauthenticated guest mode
 }
 
+if (args.watch) {
+  const formatLabel = effectiveFormat ?? (audioFormat ? `audio (${audioFormat})` : 'best')
+  console.log(`\x1b[36mOpen Omni Clipboard Watcher\x1b[0m (v${VERSION})`)
+  console.log(`  Watching clipboard for copied media links...`)
+  console.log(`  Destination: ${outDir}`)
+  console.log(`  Format:      ${formatLabel}`)
+  console.log(`  Press \x1b[1mCtrl+C\x1b[0m to stop.\n`)
+
+  const abortController = new AbortController()
+  const handleExit = () => {
+    console.log(`\n[watch] stopping clipboard watcher…`)
+    abortController.abort()
+    cleanupCookieJar(cookieJar)
+    process.exit(0)
+  }
+  process.on('SIGINT', handleExit)
+  process.on('SIGTERM', handleExit)
+
+  startClipboardWatcher({
+    outDir,
+    format: effectiveFormat,
+    audioFormat,
+    videoFormat,
+    subtitles,
+    thumbnail,
+    metadata,
+    photosOnly: args.photosOnly,
+    videosOnly: args.videosOnly,
+    proxy: runtimeConfig.proxy,
+    geoBypass: runtimeConfig.geoBypass,
+    geoCountry: runtimeConfig.geoCountry,
+    limitRate: runtimeConfig.limitRate,
+    sponsorblock: runtimeConfig.sponsorblock,
+    sponsorblockRemove: runtimeConfig.sponsorblockRemove,
+    outputTemplate: runtimeConfig.outputTemplate,
+    concurrency: runtimeConfig.concurrency,
+    skipExisting: args.skipExisting ?? true,
+    force: args.force,
+    time: args.time,
+    cookieFile,
+    cookieHeader,
+    signal: abortController.signal,
+    onUrlDetected: url => {
+      const now = new Date().toLocaleTimeString()
+      console.log(`\x1b[90m[${now}]\x1b[0m \x1b[33mDetected link:\x1b[0m ${url}`)
+    },
+    onDownloadStart: () => {
+      console.log(`  → downloading…`)
+    },
+    onDownloadComplete: (_url, filepath) => {
+      console.log(`  \x1b[32m✓ Downloaded\x1b[0m → ${filepath}\n`)
+    },
+    onDownloadError: (_url, err) => {
+      console.error(`  \x1b[31m✗ Download failed:\x1b[0m ${err}\n`)
+    },
+    onSkip: (_url, reason) => {
+      console.log(`  \x1b[90m→ Skipped (${reason})\x1b[0m\n`)
+    },
+    onLog: msg => {
+      console.error(`  ${msg}`)
+    },
+  })
+
+  // Prevent event loop from terminating while watching
+  await new Promise(() => {})
+}
+
 if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFormat || videoFormat) && initialUrl) {
   try {
     await fs.mkdir(outDir, {recursive: true})
@@ -349,8 +420,12 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFor
       let succeeded = 0
       let skipped = 0
 
-      const defaultConcurrency =
-        probeResult.kind === 'mixed_post' || playlist.validEntries.every(e => e.kind === 'photo') ? 4 : 1
+      const isInstagramBatch = playlist.validEntries.some(
+        e => e.engine === 'instagram' || isInstagramCdnUrl(e.url),
+      )
+      const defaultConcurrency = isInstagramBatch
+        ? 2
+        : (probeResult.kind === 'mixed_post' || playlist.validEntries.every(e => e.kind === 'photo') ? 4 : 1)
       const effectiveConcurrency = runtimeConfig.concurrency ?? defaultConcurrency
       console.error(`[open-omni] downloading batch (concurrency: ${effectiveConcurrency})…`)
 
