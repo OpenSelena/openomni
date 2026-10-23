@@ -84,6 +84,7 @@ jobs:
           Copy-Item oo.exe "$pkgDir\oo.exe"
           Copy-Item (Get-Command node).Source "$pkgDir\node.exe"
           Copy-Item -Recurse dist "$pkgDir\dist"
+          Copy-Item -Recurse node_modules "$pkgDir\node_modules"
           Copy-Item package.json "$pkgDir\package.json"
           Copy-Item LICENSE "$pkgDir\LICENSE"
           Copy-Item README.md "$pkgDir\README.md"
