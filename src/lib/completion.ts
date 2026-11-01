@@ -28,7 +28,7 @@ _open_omni_completions() {
     cur="\${COMP_WORDS[COMP_CWORD]}"
     prev="\${COMP_WORDS[COMP_CWORD-1]}"
 
-    local options="--help -h --version -v --best --mp3 --output -o --watch -w --theme --update --update-ytdlp --update-gallerydl -U --force --subs --embed-subs --thumb --embed-thumb --metadata --add-metadata --embed-chapters --audio-format --video-format --photos-only --videos-only --completion"
+    local options="--help -h --version -v --best --mp3 --output -o --watch -w --theme --update --update-ytdlp --update-gallerydl -U --force --subs --embed-subs --thumb --embed-thumb --metadata --add-metadata --embed-chapters --audio-format --video-format --photos-only --videos-only --skip-existing --time --section --cookies --cookies-from-browser --proxy --geo-bypass --geo-country --limit-rate --sponsorblock --sponsorblock-remove --output-template --template --concurrency -c --completion"
 
     case "$prev" in
         --theme)
@@ -47,8 +47,16 @@ _open_omni_completions() {
             COMPREPLY=($(compgen -W "bash zsh fish powershell" -- "$cur"))
             return 0
             ;;
+        --cookies-from-browser)
+            COMPREPLY=($(compgen -W "chrome firefox brave edge opera vivaldi safari chromium" -- "$cur"))
+            return 0
+            ;;
         -o|--output)
             COMPREPLY=($(compgen -d -- "$cur"))
+            return 0
+            ;;
+        --cookies)
+            COMPREPLY=($(compgen -f -- "$cur"))
             return 0
             ;;
     esac
@@ -98,6 +106,19 @@ _open_omni() {
         '--embed-thumb[Embed thumbnail cover art directly into media tags]' \\
         '--photos-only[Download only photos from post or carousel]' \\
         '--videos-only[Download only videos from post or carousel]' \\
+        '--skip-existing[Skip media if already recorded in download ledger]' \\
+        '--time[Extract a specific time section]:time range:' \\
+        '--section[Extract a specific time section]:time range:' \\
+        '--cookies[Path to Netscape formatted cookie file]:cookie file:_files' \\
+        '--cookies-from-browser[Extract cookies from browser]:browser:(chrome firefox brave edge opera vivaldi safari chromium)' \\
+        '--proxy[Use specified HTTP/HTTPS/SOCKS proxy]:proxy URL:' \\
+        '--geo-bypass[Bypass geographic restriction via fake X-Forwarded-For]' \\
+        '--geo-country[Simulate client IP from 2-letter ISO country code]:country code:' \\
+        '--limit-rate[Maximum download rate limit]:rate limit:' \\
+        '--sponsorblock[Mark and handle sponsor segments via SponsorBlock API]' \\
+        '--sponsorblock-remove[Remove sponsor segments with specified categories]:categories:(all default sponsor intro outro preview interaction selfpromo music_offtopic)' \\
+        '(--output-template --template)'{--output-template,--template}'[Custom output filename template string]:template string:' \\
+        '(-c --concurrency)'{-c,--concurrency}'[Maximum concurrent downloads for playlists]:number:' \\
         '--completion[Generate shell autocompletion script]:shell:(bash zsh fish powershell)'
 }
 
@@ -141,6 +162,20 @@ complete -c open-omni -l video-format -x -a "mp4 mkv webm" -d "Merge video into 
 complete -c open-omni -l metadata -d "Embed metadata into media container"
 complete -c open-omni -l add-metadata -d "Embed metadata into media container"
 complete -c open-omni -l embed-chapters -d "Embed chapter markers into media container"
+complete -c open-omni -l skip-existing -d "Skip media if already in download ledger"
+complete -c open-omni -l time -d "Extract specific time range"
+complete -c open-omni -l section -d "Extract specific time range"
+complete -c open-omni -l cookies -r -a "(__fish_complete_files)" -d "Path to cookie file"
+complete -c open-omni -l cookies-from-browser -x -a "chrome firefox brave edge opera vivaldi safari chromium" -d "Extract cookies from browser"
+complete -c open-omni -l proxy -d "HTTP/SOCKS proxy URL"
+complete -c open-omni -l geo-bypass -d "Bypass geographic restriction"
+complete -c open-omni -l geo-country -d "2-letter ISO country code"
+complete -c open-omni -l limit-rate -d "Maximum download rate limit"
+complete -c open-omni -l sponsorblock -d "Handle sponsor segments via SponsorBlock"
+complete -c open-omni -l sponsorblock-remove -d "Categories of sponsor segments to remove"
+complete -c open-omni -l output-template -d "Output filename template string"
+complete -c open-omni -l template -d "Output filename template string"
+complete -c open-omni -s c -l concurrency -d "Maximum concurrent playlist downloads"
 complete -c open-omni -l completion -x -a "bash zsh fish powershell" -d "Generate shell autocompletion script"
 
 for cmd in openomni omni oo
@@ -198,6 +233,14 @@ $completer = {
         return
     }
 
+    if ($prev -eq '--cookies-from-browser') {
+        $browsers = @('chrome', 'firefox', 'brave', 'edge', 'opera', 'vivaldi', 'safari', 'chromium')
+        $browsers | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+            [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', "Browser: $_")
+        }
+        return
+    }
+
     if ($prev -in @('-o', '--output')) {
         Get-ChildItem -Directory -Filter "$wordToComplete*" -ErrorAction SilentlyContinue | ForEach-Object {
             [System.Management.Automation.CompletionResult]::new($_.Name, $_.Name, 'ProviderItem', "Directory: $($_.FullName)")
@@ -233,6 +276,21 @@ $completer = {
         [System.Management.Automation.CompletionResult]::new('--embed-thumb', '--embed-thumb', 'ParameterName', 'Embed thumbnail cover art directly into media tags'),
         [System.Management.Automation.CompletionResult]::new('--photos-only', '--photos-only', 'ParameterName', 'Download only photos from post or carousel'),
         [System.Management.Automation.CompletionResult]::new('--videos-only', '--videos-only', 'ParameterName', 'Download only videos from post or carousel'),
+        [System.Management.Automation.CompletionResult]::new('--skip-existing', '--skip-existing', 'ParameterName', 'Skip media if already recorded in download ledger'),
+        [System.Management.Automation.CompletionResult]::new('--time', '--time', 'ParameterName', 'Extract specific time range (e.g. 01:30-03:45)'),
+        [System.Management.Automation.CompletionResult]::new('--section', '--section', 'ParameterName', 'Extract specific time range'),
+        [System.Management.Automation.CompletionResult]::new('--cookies', '--cookies', 'ParameterName', 'Path to Netscape formatted cookie file'),
+        [System.Management.Automation.CompletionResult]::new('--cookies-from-browser', '--cookies-from-browser', 'ParameterName', 'Extract cookies from installed browser profile'),
+        [System.Management.Automation.CompletionResult]::new('--proxy', '--proxy', 'ParameterName', 'HTTP or SOCKS proxy URL'),
+        [System.Management.Automation.CompletionResult]::new('--geo-bypass', '--geo-bypass', 'ParameterName', 'Bypass geographic restriction via fake X-Forwarded-For'),
+        [System.Management.Automation.CompletionResult]::new('--geo-country', '--geo-country', 'ParameterName', 'Simulate client IP from 2-letter ISO country code'),
+        [System.Management.Automation.CompletionResult]::new('--limit-rate', '--limit-rate', 'ParameterName', 'Maximum download rate limit'),
+        [System.Management.Automation.CompletionResult]::new('--sponsorblock', '--sponsorblock', 'ParameterName', 'Handle sponsor segments via SponsorBlock API'),
+        [System.Management.Automation.CompletionResult]::new('--sponsorblock-remove', '--sponsorblock-remove', 'ParameterName', 'Categories of sponsor segments to remove'),
+        [System.Management.Automation.CompletionResult]::new('--output-template', '--output-template', 'ParameterName', 'Output filename template string'),
+        [System.Management.Automation.CompletionResult]::new('--template', '--template', 'ParameterName', 'Output filename template string'),
+        [System.Management.Automation.CompletionResult]::new('--concurrency', '--concurrency', 'ParameterName', 'Maximum concurrent playlist downloads'),
+        [System.Management.Automation.CompletionResult]::new('-c', '-c', 'ParameterName', 'Maximum concurrent playlist downloads'),
         [System.Management.Automation.CompletionResult]::new('--completion', '--completion', 'ParameterName', 'Generate shell autocompletion script')
     )
 

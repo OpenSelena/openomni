@@ -1,5 +1,5 @@
 import {spawn, type ChildProcess} from 'node:child_process'
-import {createWriteStream} from 'node:fs'
+import {createWriteStream, existsSync, unlinkSync} from 'node:fs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -315,7 +315,31 @@ export async function probe(
 
   const infoJsonPath = path.join(os.tmpdir(), `open-omni-info-${process.pid}-${Date.now()}.json`)
   await fs.writeFile(infoJsonPath, stdout)
+  activeInfoJsonFiles.add(infoJsonPath)
   return parseProbeOutput(stdout, url, infoJsonPath)
+}
+
+const activeInfoJsonFiles = new Set<string>()
+
+process.once('exit', () => {
+  for (const file of activeInfoJsonFiles) {
+    try {
+      if (existsSync(file)) {
+        unlinkSync(file)
+      }
+    } catch {}
+  }
+  activeInfoJsonFiles.clear()
+})
+
+export async function cleanupInfoJson(filePath?: string): Promise<void> {
+  if (!filePath) return
+  activeInfoJsonFiles.delete(filePath)
+  try {
+    if (existsSync(filePath)) {
+      await fs.unlink(filePath)
+    }
+  } catch {}
 }
 
 export type DownloadChoice = {

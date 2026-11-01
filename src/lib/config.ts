@@ -507,7 +507,7 @@ export function setConfigValue(
   switch (key) {
     case 'theme': {
       if (!isThemeMode(trimmed)) {
-        throw new Error(`Invalid theme: "${trimmed}". Expected system, dark, light, or a named theme.`)
+        throw new Error(`Invalid theme: "${trimmed}". Expected auto, dark, or light.`)
       }
       updates.theme = trimmed
       break

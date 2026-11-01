@@ -251,6 +251,14 @@ export function resolveCookieJar(
       `open-omni-cookies-${Date.now()}-${randomSuffix}.txt`
     )
 
+    try {
+      const fd = fs.openSync(tempPath, 'w', 0o600)
+      fs.closeSync(fd)
+      fs.chmodSync(tempPath, 0o600)
+    } catch {
+      // Ignore permissions errors on platforms without POSIX permissions
+    }
+
     const runner = deps?.runner ?? defaultRunner(deps?.ytdlpPath)
     // Query a dummy target to trigger cookie extraction into --cookies file
     const result = runner([
@@ -262,7 +270,20 @@ export function resolveCookieJar(
       'https://www.instagram.com/',
     ])
 
-    if (result.status !== 0 && !fs.existsSync(tempPath)) {
+    if (fs.existsSync(tempPath)) {
+      try {
+        fs.chmodSync(tempPath, 0o600)
+      } catch {
+        // Ignore permissions errors on platforms without POSIX permissions
+      }
+    }
+
+    if (result.status !== 0 && (!fs.existsSync(tempPath) || fs.statSync(tempPath).size === 0)) {
+      try {
+        if (fs.existsSync(tempPath)) {
+          fs.unlinkSync(tempPath)
+        }
+      } catch {}
       if (isAuto) {
         return undefined
       }

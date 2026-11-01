@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import {EventEmitter} from 'node:events'
+import os from 'node:os'
+import path from 'node:path'
+import {spawn} from 'node:child_process'
 import {
   isBlueskyUrl,
   isBlueskyCdnUrl,
@@ -8,6 +12,8 @@ import {
   buildBlueskyApiUrl,
   parseBlueskyThread,
   resolveBlueskyMedia,
+  downloadBlueskyItem,
+  type BlueskyMediaItem,
 } from './bluesky.js'
 
 test('isBlueskyUrl validates Bluesky URLs and AT URIs', () => {
@@ -176,4 +182,77 @@ test('resolveBlueskyMedia fetches and parses post via public API', async () => {
   assert.equal(result.author, 'Bob')
   assert.equal(result.items.length, 1)
   assert.equal(result.items[0]?.url, 'https://cdn.bsky.app/test@jpeg')
+})
+
+test('downloadBlueskyItem uses ffmpeg on PATH when ffmpegLocation is undefined for HLS video', async () => {
+  let spawnedCmd = ''
+  let spawnedArgs: string[] = []
+  const mockSpawn = ((cmd: string, args: string[]) => {
+    spawnedCmd = cmd
+    spawnedArgs = args
+    const emitter = new EventEmitter()
+    process.nextTick(() => emitter.emit('close', 0))
+    return emitter
+  }) as unknown as typeof spawn
+
+  let fetchCalled = false
+  const mockFetch = (async () => {
+    fetchCalled = true
+    return {ok: true, body: null}
+  }) as unknown as typeof fetch
+
+  const videoItem: BlueskyMediaItem = {
+    url: 'https://video.bsky.app/watch/did:plc:1/bafkv/playlist.m3u8',
+    kind: 'video',
+    ext: 'mp4',
+  }
+
+  const outputPath = path.join(os.tmpdir(), `test-bluesky-${Date.now()}.mp4`)
+
+  await downloadBlueskyItem(
+    videoItem,
+    outputPath,
+    undefined,
+    mockFetch,
+    undefined,
+    mockSpawn,
+  )
+
+  assert.equal(spawnedCmd, 'ffmpeg')
+  assert.equal(spawnedArgs.includes(videoItem.url), true)
+  assert.equal(fetchCalled, false, 'Should not fall through to HTTP fetch for HLS playlist')
+})
+
+test('downloadBlueskyItem throws when ffmpeg fails or is not found for HLS video', async () => {
+  const mockSpawn = (() => {
+    const emitter = new EventEmitter()
+    process.nextTick(() => {
+      const err: any = new Error('spawn ffmpeg ENOENT')
+      err.code = 'ENOENT'
+      emitter.emit('error', err)
+    })
+    return emitter
+  }) as unknown as typeof spawn
+
+  const videoItem: BlueskyMediaItem = {
+    url: 'https://video.bsky.app/watch/did:plc:1/bafkv/playlist.m3u8',
+    kind: 'video',
+    ext: 'mp4',
+  }
+
+  const outputPath = path.join(os.tmpdir(), `test-bluesky-${Date.now()}.mp4`)
+
+  await assert.rejects(
+    async () => {
+      await downloadBlueskyItem(
+        videoItem,
+        outputPath,
+        undefined,
+        fetch,
+        undefined,
+        mockSpawn,
+      )
+    },
+    /ffmpeg is required to download Bluesky video streams/,
+  )
 })

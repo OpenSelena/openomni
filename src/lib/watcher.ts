@@ -11,6 +11,7 @@ import {
 import {
   ensureYtDlp,
   findFfmpeg,
+  cleanupInfoJson,
   download,
   buildChoices,
   type DownloadChoice,
@@ -144,6 +145,7 @@ export async function defaultWatchDownload(url: string, opts: WatcherOptions): P
       time: opts.time,
       proxy: opts.proxy,
       limitRate: opts.limitRate,
+      signal: opts.signal,
     })
     return filepath
   }
@@ -192,6 +194,7 @@ export async function defaultWatchDownload(url: string, opts: WatcherOptions): P
         limitRate: opts.limitRate,
         sponsorblock: opts.sponsorblock,
         sponsorblockRemove: opts.sponsorblockRemove,
+        signal: opts.signal,
       })
       lastFilepath = downloaded
     })
@@ -243,6 +246,8 @@ export async function defaultWatchDownload(url: string, opts: WatcherOptions): P
     handlers,
     opts.signal,
   )
+
+  await cleanupInfoJson(infoJsonPath)
 
   const platform = detectPlatform(url).key || info.extractor || 'yt-dlp'
   await recordDownloadWithStat({

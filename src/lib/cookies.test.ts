@@ -78,6 +78,28 @@ test('resolveCookieJar extracts ephemeral jar via runner when browser is specifi
   assert.ok(!fs.existsSync(jar!.filePath), 'Ephemeral cookie file must be deleted on cleanup')
 })
 
+test('resolveCookieJar creates ephemeral cookie file with restrictive 0o600 permissions', () => {
+  const mockRunner = (args: string[]) => {
+    const cookieArgIdx = args.indexOf('--cookies')
+    if (cookieArgIdx !== -1 && args[cookieArgIdx + 1]) {
+      fs.writeFileSync(args[cookieArgIdx + 1]!, '# Netscape extracted cookies\n.instagram.com\tTRUE\t/\tTRUE\t0\tsessionid\tabc')
+    }
+    return {status: 0, stderr: ''}
+  }
+
+  const jar = resolveCookieJar({browser: 'brave'}, {runner: mockRunner})
+  assert.ok(jar)
+  assert.equal(jar.isEphemeral, true)
+  assert.ok(fs.existsSync(jar.filePath))
+
+  if (process.platform !== 'win32') {
+    const stats = fs.statSync(jar.filePath)
+    assert.equal(stats.mode & 0o777, 0o600, 'Ephemeral cookie file mode must be 0600 (owner read/write only)')
+  }
+
+  cleanupCookieJar(jar)
+})
+
 test('resolveCookieJar surfaces clean error if browser extraction fails', () => {
   const failingRunner = () => {
     return {

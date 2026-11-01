@@ -120,7 +120,7 @@ jobs:
           path: manifests/
 
       - name: Submit to WinGet (if WINGET_TOKEN configured)
-        if: env.WINGET_TOKEN != ''
+        if: ${{ secrets.WINGET_TOKEN != '' }}
         uses: vedantmgoyal2009/winget-releaser@v2
         env:
           WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}

@@ -8,7 +8,7 @@ import {captureFrames} from './lib/click-map.js'
 import {parseArgs, resolveOutputDir, toSubtitleOptions, toThumbnailOptions} from './lib/args.js'
 import {readClipboard} from './lib/clipboard.js'
 import {isProbablyUrl} from './lib/platforms.js'
-import {buildChoices, download, ensureYtDlp, findFfmpeg, maskProxyCredentials, probe, updateYtDlp, type DownloadChoice} from './lib/ytdlp.js'
+import {buildChoices, cleanupInfoJson, download, ensureYtDlp, findFfmpeg, maskProxyCredentials, probe, updateYtDlp, type DownloadChoice} from './lib/ytdlp.js'
 import {sanitizeError} from './lib/sanitizer.js'
 import {updateGalleryDl} from './lib/gallerydl.js'
 import {
@@ -343,6 +343,7 @@ if (args.watch) {
 }
 
 if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFormat || videoFormat) && initialUrl) {
+  let activeProbeInfoJson: string | undefined
   try {
     await fs.mkdir(outDir, {recursive: true})
     const ytdlp = await ensureYtDlp(status => console.error(`[open-omni] ${status}`))
@@ -359,6 +360,10 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFor
       limitRate: runtimeConfig.limitRate,
       onStatus: status => console.error(`[open-omni] ${status}`),
     })
+
+    if (probeResult.kind === 'single_video') {
+      activeProbeInfoJson = probeResult.infoJsonPath
+    }
 
     if (probeResult.kind === 'single_photo') {
       const item = probeResult.item
@@ -492,6 +497,11 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFor
 
     const {info, infoJsonPath} = probeResult
     const choices = buildChoices(info, {audioFormat, videoFormat})
+    if (choices.length === 0) {
+      cleanupCookieJar(cookieJar)
+      console.error(`[open-omni] error: no downloadable formats found for this media.`)
+      process.exit(1)
+    }
     const isAudio = effectiveFormat === 'mp3' || (effectiveFormat === undefined && Boolean(audioFormat))
     const choice =
       isAudio
@@ -502,6 +512,7 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFor
       const recorded = getCompletedDownload({url: initialUrl, mediaId: info.id})
       if (recorded) {
         cleanupCookieJar(cookieJar)
+        await cleanupInfoJson(infoJsonPath)
         console.log(`✓ already downloaded (ledger) → ${recorded.outputPath}`)
         process.exit(0)
       }
@@ -554,10 +565,12 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFor
       format: choice.label,
     })
     cleanupCookieJar(cookieJar)
+    await cleanupInfoJson(infoJsonPath)
     console.log(`✓ downloaded → ${filepath}`)
     process.exit(0)
   } catch (error) {
     cleanupCookieJar(cookieJar)
+    await cleanupInfoJson(activeProbeInfoJson)
     console.error(`✗ ${maskProxyCredentials(error instanceof Error ? error.message : String(error))}`)
     process.exit(1)
   }

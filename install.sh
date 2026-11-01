@@ -37,11 +37,11 @@ printf "  Checking Node.js... "
 if command -v node >/dev/null 2>&1; then
   NODE_VER=$(node -v | sed 's/^v//')
   NODE_MAJOR=$(echo "$NODE_VER" | cut -d. -f1)
-  if [ "$NODE_MAJOR" -ge 18 ]; then
+  if [ "$NODE_MAJOR" -ge 20 ]; then
     printf "${GREEN}ok${RESET} ${DIM}(v%s)${RESET}\n" "$NODE_VER"
   else
     printf "${RED}failed${RESET}\n"
-    printf "\n${RED}Error: Node.js 18 or higher is required (found v%s).${RESET}\n" "$NODE_VER"
+    printf "\n${RED}Error: Node.js 20 or higher is required (found v%s).${RESET}\n" "$NODE_VER"
     printf "Please update Node.js and try again: ${BOLD}https://nodejs.org${RESET}\n\n"
     exit 1
   fi

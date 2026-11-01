@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import fs from 'node:fs/promises'
+import fsSync from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import {
   parseProbeOutput,
   extractSingleVideoUrl,
@@ -17,6 +21,7 @@ import {
   buildRateLimitArgs,
   buildSponsorBlockArgs,
   isFfmpegAvailable,
+  cleanupInfoJson,
   type VideoInfo
 } from './ytdlp.js'
 
@@ -377,6 +382,18 @@ test('cleanYtDlpError extracts error message and masks proxy credentials', () =>
 
   assert.equal(cleanYtDlpError(''), '')
   assert.equal(cleanYtDlpError('Just normal info output'), '')
+})
+
+test('cleanupInfoJson unlinks probe metadata file safely', async () => {
+  const tempPath = path.join(os.tmpdir(), `open-omni-test-info-${Date.now()}.json`)
+  await fs.writeFile(tempPath, '{"id": "test"}')
+  assert.equal(fsSync.existsSync(tempPath), true)
+
+  await cleanupInfoJson(tempPath)
+  assert.equal(fsSync.existsSync(tempPath), false)
+
+  await cleanupInfoJson(tempPath)
+  await cleanupInfoJson(undefined)
 })
 
 

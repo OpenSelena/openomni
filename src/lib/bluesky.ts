@@ -263,25 +263,34 @@ export async function downloadBlueskyItem(
   onProgress?: (downloadedBytes: number, totalBytes?: number) => void,
   fetchImpl: typeof fetch = fetch,
   ffmpegLocation?: string,
+  spawnImpl: typeof spawn = spawn,
 ): Promise<void> {
   await fs.mkdir(path.dirname(outputPath), {recursive: true})
 
-  // Video download handling (HLS playlist stream)
   if (item.kind === 'video' && item.url.includes('.m3u8')) {
-    if (ffmpegLocation) {
-      return new Promise<void>((resolve, reject) => {
-        const child = spawn(
-          ffmpegLocation,
-          ['-y', '-i', item.url, '-c', 'copy', '-bsf:a', 'aac_adtstoasc', outputPath],
-          {stdio: 'ignore'},
-        )
-        child.on('error', reject)
-        child.on('close', code => {
-          if (code === 0) resolve()
-          else reject(new Error(`ffmpeg failed to convert Bluesky video stream (exit code ${code})`))
-        })
+    const ffmpegBin = ffmpegLocation || 'ffmpeg'
+    return new Promise<void>((resolve, reject) => {
+      const child = spawnImpl(
+        ffmpegBin,
+        ['-y', '-i', item.url, '-c', 'copy', '-bsf:a', 'aac_adtstoasc', outputPath],
+        {stdio: 'ignore'},
+      )
+      child.on('error', err => {
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+          reject(
+            new Error(
+              'ffmpeg is required to download Bluesky video streams: executable not found on PATH or via ffmpeg-static.',
+            ),
+          )
+        } else {
+          reject(err)
+        }
       })
-    }
+      child.on('close', code => {
+        if (code === 0) resolve()
+        else reject(new Error(`ffmpeg failed to convert Bluesky video stream (exit code ${code})`))
+      })
+    })
   }
 
   // Native HTTP stream download for photos and direct media

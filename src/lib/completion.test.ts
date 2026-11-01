@@ -133,3 +133,24 @@ test('completion scripts include update-gallerydl flag across all shells', () =>
     assert.ok(script.includes('update-gallerydl'), `Missing update-gallerydl in ${shell} completion`)
   }
 })
+
+test('completion scripts include modern flags across all shells', () => {
+  const modernFlags = [
+    'skip-existing',
+    'cookies',
+    'cookies-from-browser',
+    'proxy',
+    'geo-bypass',
+    'geo-country',
+    'limit-rate',
+    'sponsorblock',
+    'output-template',
+    'concurrency',
+  ]
+  for (const shell of SUPPORTED_SHELLS) {
+    const script = generateCompletion(shell)
+    for (const flag of modernFlags) {
+      assert.ok(script.includes(flag), `Missing ${flag} in ${shell} completion`)
+    }
+  }
+})
