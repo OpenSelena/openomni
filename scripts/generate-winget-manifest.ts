@@ -47,7 +47,15 @@ const options: WingetManifestOptions = {
   installerUrl: config.url,
   installerSha256: config.sha256,
   commands: ['open-omni', 'openomni', 'omni', 'oo'],
-  tags: ['video-downloader', 'yt-dlp', 'cli', 'tui', 'terminal', 'audio-downloader'],
+  tags: [
+    'video-downloader',
+    'yt-dlp',
+    'cli',
+    'tui',
+    'terminal',
+    'audio-downloader',
+    'photo-downloader',
+  ],
 };
 
 const manifests = generateWingetManifests(options);

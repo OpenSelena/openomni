@@ -118,22 +118,12 @@ try {
   ]);
   console.log(`\n🎉 Winget PR successfully created:`);
   console.log(prUrl);
-} catch (err) {
-  const existing = runGh([
-    'pr',
-    'list',
-    '--repo',
-    `${UPSTREAM_OWNER}/${REPO}`,
-    '--head',
-    `${FORK_OWNER}:${BRANCH}`,
-    '--json',
-    'url',
-    '--jq',
-    '.[0].url',
-  ]);
-  if (existing) {
+} catch (err: unknown) {
+  const errMsg = String(err);
+  const match = errMsg.match(/https:\/\/github\.com\/[^\s]+\/pull\/\d+/);
+  if (match) {
     console.log(`\n✓ Branch updated and existing PR found:`);
-    console.log(existing);
+    console.log(match[0]);
   } else {
     throw err;
   }
