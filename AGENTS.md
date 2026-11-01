@@ -7,6 +7,14 @@
 - `npm run build`: Bundle to `dist/` with `tsup`.
 - `npm run dev`: Rebuild on change (`tsup --watch`).
 
+### Non-symlink and exFAT environments
+When working on exFAT mounts (e.g. `/run/media/igect/Onion` without POSIX symlink support):
+- Install dependencies using `npm ci --no-bin-links` to avoid `EPERM: operation not permitted, symlink` errors.
+- Run commands via direct entry points:
+  - Test: `node node_modules/tsx/dist/cli.mjs --test src/**/*.test.ts`
+  - Typecheck: `node node_modules/typescript/bin/tsc --noEmit`
+  - Build: `node node_modules/tsup/dist/cli-default.js`
+
 ## Architecture
 
 Terminal-first video, audio, and photo downloader powered by `yt-dlp`, `gallery-dl`, and Ink.
