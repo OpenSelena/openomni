@@ -4,6 +4,42 @@ All notable changes to Open Omni are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2026-11-01
+
+[Diff: v1.5.0...v1.5.1](https://github.com/OpenSelena/openomni/compare/v1.5.0...v1.5.1)
+
+### Added
+
+- **Universal Multi-Browser Discovery**:
+  - Expanded automated profile resolution to support Linux XDG config directories (`~/.config/mozilla/firefox`), Flatpak sandboxes (`org.mozilla.firefox`, `app.zen_browser.zen`, `one.ablaze.floorp`, `io.gitlab.librewolf-community`, `net.waterfox.waterfox`), Snap packages, and direct profile directories.
+  - Automatically sorts detected browser profiles by SQLite database modification timestamp (`mtime`) to prioritize active, running browser sessions.
+- **Dynamic HTTP 403 Forbidden & Auth Wall Recovery**:
+  - Expanded `isLoginRedirectError()` to classify HTTP 403 Forbidden, 401 Unauthorized, login checkpoints, and bot challenges.
+  - Automatically triggers background browser cookie extraction and transparently retries probes when encountering authentication barriers on Instagram, YouTube, and gallery-dl.
+
+### Fixed
+
+- **Ephemeral Cookie Security**:
+  - Enforced restrictive `0o600` permissions on temporary Netscape cookie files exported to `/tmp` via post-extraction chmod and safe process exit cleanup.
+- **Bluesky HLS Video Stream Transcoding**:
+  - Added PATH-based system `ffmpeg` fallback when custom `ffmpegLocation` is omitted, preventing corrupted `.m3u8` playlist text from being written directly to `.mp4` destinations.
+- **Shell Completions Parity**:
+  - Added missing options across Bash, Zsh, Fish, and PowerShell scripts (`--proxy`, `--geo-bypass`, `--geo-country`, `--limit-rate`, `--sponsorblock`, `--output-template`, `--concurrency`, `--watch`, `--skip-existing`, `--time`).
+- **Daemon Lifecycle & Cleanup**:
+  - Passed abort signal to background watcher downloads to guarantee child processes terminate cleanly on daemon exit.
+  - Safely unlinked probe info JSON files in `/tmp` across single and batch download flows.
+
+## [1.5.0] - 2026-10-23
+
+[Diff: v1.4.1...v1.5.0](https://github.com/OpenSelena/openomni/compare/v1.4.1...v1.5.0)
+
+### Added
+
+- **Background Clipboard Watcher**:
+  - Added `--watch` / `-w` daemon to automatically detect and queue media URLs copied to the system clipboard.
+- **Native Bluesky Media Resolver**:
+  - Direct unauthenticated AT Protocol AppView resolver for photos, videos, and multi-image posts.
+
 ## [1.3.0] - 2026-09-17
 
 [Diff: v1.2.0...v1.3.0](https://github.com/OpenSelena/openomni/compare/v1.2.0...v1.3.0)
