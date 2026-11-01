@@ -25,6 +25,8 @@ jobs:
   build-windows:
     name: Build Standalone Windows Binary & Winget Package
     runs-on: windows-latest
+    env:
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -120,10 +122,8 @@ jobs:
           path: manifests/
 
       - name: Submit to WinGet (if WINGET_TOKEN configured)
-        if: ${{ secrets.WINGET_TOKEN != '' }}
+        if: env.WINGET_TOKEN != ''
         uses: vedantmgoyal2009/winget-releaser@v2
-        env:
-          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
         with:
           identifier: OpenSelena.OpenOmni
           version: ${{ steps.vars.outputs.VERSION }}
