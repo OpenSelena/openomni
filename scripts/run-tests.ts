@@ -25,10 +25,18 @@ if (testFiles.length === 0) {
   process.exit(1);
 }
 
+process.env.NODE_ENV = 'test';
+process.env.OPEN_OMNI_TEST = '1';
+
 const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 const result = spawnSync(npxCmd, ['tsx', '--test', ...testFiles], {
   stdio: 'inherit',
   shell: true,
+  env: {
+    ...process.env,
+    NODE_ENV: 'test',
+    OPEN_OMNI_TEST: '1',
+  },
 });
 
 process.exit(result.status ?? 0);

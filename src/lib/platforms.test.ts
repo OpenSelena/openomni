@@ -80,7 +80,13 @@ test('revealInFileManager safely executes without throwing on unhandled errors',
     revealInFileManager('')
   })
   assert.doesNotThrow(() => {
+    revealInFileManager(undefined as unknown as string)
+  })
+  assert.doesNotThrow(() => {
     revealInFileManager('./relative/path/folder')
+  })
+  assert.doesNotThrow(() => {
+    revealInFileManager(process.cwd())
   })
 })
 

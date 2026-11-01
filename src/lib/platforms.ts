@@ -108,20 +108,28 @@ export const getRevealInFileManagerCommand = getRevealCommand
 
 export function revealInFileManager(targetPath: string): void {
   try {
+    if (!targetPath || typeof targetPath !== 'string') {
+      return
+    }
     const resolved = path.resolve(targetPath)
     let pathToReveal = resolved
-    if (process.platform === 'win32') {
-      try {
-        if (!fs.existsSync(resolved)) {
-          const dir = path.dirname(resolved)
-          if (fs.existsSync(dir)) {
-            pathToReveal = dir
-          }
+    try {
+      if (!fs.existsSync(resolved)) {
+        const dir = path.dirname(resolved)
+        if (fs.existsSync(dir)) {
+          pathToReveal = dir
+        } else {
+          return
         }
-      } catch {
-        // ignore
       }
+    } catch {
+      return
     }
+
+    if (process.env.NODE_ENV === 'test' || process.env.OPEN_OMNI_TEST === '1') {
+      return
+    }
+
     const {command, args} = getRevealCommand(pathToReveal)
     const useVerbatim = process.platform === 'win32' && args.some(a => a.startsWith('/select,'))
     const child = spawn(command, args, {
