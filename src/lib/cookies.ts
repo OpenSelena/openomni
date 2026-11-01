@@ -91,7 +91,7 @@ export type BrowserDetectorDeps = {
 function getFsDeps(deps?: BrowserDetectorDeps) {
   return {
     platform: deps?.platform ?? process.platform,
-    env: deps?.env ?? process.env,
+    env: deps?.env ?? (deps?.homedir ? {} : process.env),
     homedir: deps?.homedir ?? os.homedir(),
     existsSync: deps?.existsSync ?? fs.existsSync,
     readdirSync: deps?.readdirSync ?? ((dir: string) => {
@@ -132,6 +132,7 @@ function getGeckoBaseDirs(browserDirName: string, deps?: BrowserDetectorDeps): s
   }
 
   const configHome = env.XDG_CONFIG_HOME || path.join(homedir, '.config')
+  const defaultConfigHome = path.join(homedir, '.config')
   const varApp = path.join(homedir, '.var', 'app')
   const snap = path.join(homedir, 'snap')
   const dirs: string[] = []
@@ -139,6 +140,7 @@ function getGeckoBaseDirs(browserDirName: string, deps?: BrowserDetectorDeps): s
   if (norm.includes('firefox')) {
     dirs.push(
       path.join(configHome, 'mozilla', 'firefox'),
+      path.join(defaultConfigHome, 'mozilla', 'firefox'),
       path.join(homedir, '.mozilla', 'firefox'),
       path.join(varApp, 'org.mozilla.firefox', '.mozilla', 'firefox'),
       path.join(varApp, 'org.mozilla.firefox', '.config', 'mozilla', 'firefox'),
@@ -150,24 +152,28 @@ function getGeckoBaseDirs(browserDirName: string, deps?: BrowserDetectorDeps): s
       path.join(varApp, 'app.zen_browser.zen', '.config', 'zen'),
       path.join(homedir, '.zen'),
       path.join(configHome, 'zen'),
+      path.join(defaultConfigHome, 'zen'),
     )
   } else if (norm.includes('floorp')) {
     dirs.push(
       path.join(varApp, 'one.ablaze.floorp', '.floorp'),
       path.join(homedir, '.floorp'),
       path.join(configHome, 'floorp'),
+      path.join(defaultConfigHome, 'floorp'),
     )
   } else if (norm.includes('waterfox')) {
     dirs.push(
       path.join(varApp, 'net.waterfox.waterfox', '.waterfox'),
       path.join(homedir, '.waterfox'),
       path.join(configHome, 'waterfox'),
+      path.join(defaultConfigHome, 'waterfox'),
     )
   } else if (norm.includes('librewolf')) {
     dirs.push(
       path.join(varApp, 'io.gitlab.librewolf-community', '.librewolf'),
       path.join(homedir, '.librewolf'),
       path.join(configHome, 'librewolf'),
+      path.join(defaultConfigHome, 'librewolf'),
     )
   }
 
@@ -261,25 +267,30 @@ export function detectInstalledBrowserSpec(deps?: BrowserDetectorDeps): string |
     }
   } else {
     const configHome = env.XDG_CONFIG_HOME || path.join(homedir, '.config')
+    const defaultConfigHome = path.join(homedir, '.config')
     const varApp = path.join(homedir, '.var', 'app')
     const snap = path.join(homedir, 'snap')
 
     checkChromium('brave', [
       path.join(configHome, 'BraveSoftware', 'Brave-Browser'),
+      path.join(defaultConfigHome, 'BraveSoftware', 'Brave-Browser'),
       path.join(varApp, 'com.brave.Browser', 'config', 'BraveSoftware', 'Brave-Browser'),
       path.join(snap, 'brave', 'current', '.config', 'BraveSoftware', 'Brave-Browser'),
     ])
     checkChromium('chrome', [
       path.join(configHome, 'google-chrome'),
+      path.join(defaultConfigHome, 'google-chrome'),
       path.join(varApp, 'com.google.Chrome', 'config', 'google-chrome'),
     ])
     checkChromium('chromium', [
       path.join(configHome, 'chromium'),
+      path.join(defaultConfigHome, 'chromium'),
       path.join(varApp, 'org.chromium.Chromium', 'config', 'chromium'),
       path.join(snap, 'chromium', 'current', '.config', 'chromium'),
     ])
     checkChromium('edge', [
       path.join(configHome, 'microsoft-edge'),
+      path.join(defaultConfigHome, 'microsoft-edge'),
       path.join(varApp, 'com.microsoft.Edge', 'config', 'microsoft-edge'),
     ])
   }

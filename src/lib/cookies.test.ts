@@ -191,6 +191,26 @@ test('detectInstalledBrowserSpec detects Firefox under XDG ~/.config/mozilla/fir
   const detected = detectInstalledBrowserSpec({
     platform: 'linux',
     homedir: '/home/user',
+    env: {},
+    existsSync: p => linuxFs.has(p),
+    readdirSync: p => linuxDirs.get(p) || [],
+  })
+
+  assert.equal(detected, `firefox:${pPath}`)
+})
+
+test('detectInstalledBrowserSpec detects Firefox under custom XDG_CONFIG_HOME', () => {
+  const pPath = path.normalize('/custom/config/mozilla/firefox/default-release')
+  const cPath = path.join(pPath, 'cookies.sqlite')
+  const baseDir = path.normalize('/custom/config/mozilla/firefox')
+
+  const linuxFs = new Set([cPath])
+  const linuxDirs = new Map([[baseDir, ['default-release']]])
+
+  const detected = detectInstalledBrowserSpec({
+    platform: 'linux',
+    homedir: '/home/user',
+    env: {XDG_CONFIG_HOME: '/custom/config'},
     existsSync: p => linuxFs.has(p),
     readdirSync: p => linuxDirs.get(p) || [],
   })
@@ -209,6 +229,7 @@ test('detectInstalledBrowserSpec detects Flatpak Zen browser', () => {
   const detected = detectInstalledBrowserSpec({
     platform: 'linux',
     homedir: '/home/user',
+    env: {},
     existsSync: p => linuxFs.has(p),
     readdirSync: p => linuxDirs.get(p) || [],
   })
@@ -234,6 +255,7 @@ test('detectInstalledBrowserSpec selects the browser profile with latest mtime',
   const detected = detectInstalledBrowserSpec({
     platform: 'linux',
     homedir: '/home/user',
+    env: {},
     existsSync: p => linuxFs.has(p),
     readdirSync: p => linuxDirs.get(p) || [],
     statMtimeMs: p => (p === ffCookie ? 2000 : 1000),
