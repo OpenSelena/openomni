@@ -179,3 +179,65 @@ test('resolveCookieJar in auto mode returns undefined gracefully when no browser
   })
   assert.equal(jar, undefined)
 })
+
+test('detectInstalledBrowserSpec detects Firefox under XDG ~/.config/mozilla/firefox on Linux', () => {
+  const pPath = path.normalize('/home/user/.config/mozilla/firefox/default-release')
+  const cPath = path.join(pPath, 'cookies.sqlite')
+  const baseDir = path.normalize('/home/user/.config/mozilla/firefox')
+
+  const linuxFs = new Set([cPath])
+  const linuxDirs = new Map([[baseDir, ['default-release']]])
+
+  const detected = detectInstalledBrowserSpec({
+    platform: 'linux',
+    homedir: '/home/user',
+    existsSync: p => linuxFs.has(p),
+    readdirSync: p => linuxDirs.get(p) || [],
+  })
+
+  assert.equal(detected, `firefox:${pPath}`)
+})
+
+test('detectInstalledBrowserSpec detects Flatpak Zen browser', () => {
+  const pPath = path.normalize('/home/user/.var/app/app.zen_browser.zen/.zen/default')
+  const cPath = path.join(pPath, 'cookies.sqlite')
+  const baseDir = path.normalize('/home/user/.var/app/app.zen_browser.zen/.zen')
+
+  const linuxFs = new Set([cPath])
+  const linuxDirs = new Map([[baseDir, ['default']]])
+
+  const detected = detectInstalledBrowserSpec({
+    platform: 'linux',
+    homedir: '/home/user',
+    existsSync: p => linuxFs.has(p),
+    readdirSync: p => linuxDirs.get(p) || [],
+  })
+
+  assert.equal(detected, `firefox:${pPath}`)
+})
+
+test('detectInstalledBrowserSpec selects the browser profile with latest mtime', () => {
+  const zenPath = path.normalize('/home/user/.var/app/app.zen_browser.zen/.zen/default')
+  const zenCookie = path.join(zenPath, 'cookies.sqlite')
+  const zenBase = path.normalize('/home/user/.var/app/app.zen_browser.zen/.zen')
+
+  const ffPath = path.normalize('/home/user/.config/mozilla/firefox/default-release')
+  const ffCookie = path.join(ffPath, 'cookies.sqlite')
+  const ffBase = path.normalize('/home/user/.config/mozilla/firefox')
+
+  const linuxFs = new Set([zenCookie, ffCookie])
+  const linuxDirs = new Map([
+    [zenBase, ['default']],
+    [ffBase, ['default-release']],
+  ])
+
+  const detected = detectInstalledBrowserSpec({
+    platform: 'linux',
+    homedir: '/home/user',
+    existsSync: p => linuxFs.has(p),
+    readdirSync: p => linuxDirs.get(p) || [],
+    statMtimeMs: p => (p === ffCookie ? 2000 : 1000),
+  })
+
+  assert.equal(detected, `firefox:${ffPath}`)
+})

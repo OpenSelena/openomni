@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import {
   isMixedOrPhotoPlatform,
+  isLoginRedirectError,
   filterMediaItems,
   normalizeGalleryDlToUnified,
   normalizeYtDlpToUnified,
@@ -644,6 +645,90 @@ test('probeUnified automatically recovers with auto-detected cookies on login re
   assert.equal(autoRecoverCalled, true)
   assert.equal(attemptCount, 2)
   assert.equal(result.kind, 'single_photo')
+})
+
+test('isLoginRedirectError identifies authentication walls and HTTP 403/401 errors', () => {
+  assert.equal(isLoginRedirectError(new Error('[instagram][error] HTTP Error 403: Forbidden')), true)
+  assert.equal(isLoginRedirectError(new Error('gallery-dl: 403 Forbidden')), true)
+  assert.equal(isLoginRedirectError(new Error('ERROR: [youtube] Sign in to confirm you’re not a bot')), true)
+  assert.equal(isLoginRedirectError(new Error('Sign in to confirm your age')), true)
+  assert.equal(isLoginRedirectError(new Error('HTTP Error 401: Unauthorized')), true)
+  assert.equal(isLoginRedirectError(new Error('checkpoint_required')), true)
+  assert.equal(isLoginRedirectError(new Error('This video is only available to registered users')), true)
+  assert.equal(isLoginRedirectError(new Error('Network error: connection reset by peer')), false)
+  assert.equal(isLoginRedirectError(undefined), false)
+})
+
+test('probeUnified automatically recovers with auto-detected cookies on gallery-dl 403 Forbidden', async () => {
+  let autoRecoverCalled = false
+  let gdlCallCount = 0
+
+  const result = await probeUnified({
+    url: 'https://www.instagram.com/p/DFtest403/',
+    ytdlp: 'yt-dlp',
+    gallerydl: 'gallery-dl',
+    autoRecoverCookiesFn: async () => {
+      autoRecoverCalled = true
+      return {
+        cookieFile: '/tmp/recovered-403-cookies.txt',
+        cookieHeader: 'sessionid=authed_session_token',
+      }
+    },
+    resolveInstagramFn: async () => {
+      throw new Error('Embed resolution failed: HTTP 403 Forbidden')
+    },
+    probeGalleryDlFn: async (_gdl, _url, _sig, cookieFile) => {
+      gdlCallCount++
+      if (!cookieFile) {
+        throw new Error('gallery-dl: [instagram][error] HTTP Error 403: Forbidden')
+      }
+      return [{url: 'https://example.com/pic-403.jpg', filename: 'pic-403.jpg', ext: 'jpg', kind: 'photo', index: 1}]
+    },
+    probeYtDlpFn: async () => {
+      throw new Error('Unsupported URL')
+    },
+  })
+
+  assert.equal(autoRecoverCalled, true)
+  assert.equal(gdlCallCount, 2)
+  assert.equal(result.kind, 'single_photo')
+})
+
+test('probeUnified automatically recovers with auto-detected cookies on yt-dlp 403 Forbidden', async () => {
+  let autoRecoverCalled = false
+  let ytCallCount = 0
+
+  const result = await probeUnified({
+    url: 'https://www.youtube.com/watch?v=DFtestYt403',
+    ytdlp: 'yt-dlp',
+    autoRecoverCookiesFn: async () => {
+      autoRecoverCalled = true
+      return {
+        cookieFile: '/tmp/recovered-yt-cookies.txt',
+      }
+    },
+    probeYtDlpFn: async (_ytdlp, _url, _sig, cookieFile) => {
+      ytCallCount++
+      if (!cookieFile) {
+        throw new Error('ERROR: [youtube] DFtestYt403: Private video. Sign in if you’ve been granted access')
+      }
+      return {
+        kind: 'single',
+        infoJsonPath: '/tmp/test-info.json',
+        info: {
+          id: 'DFtestYt403',
+          title: 'Authorized Video',
+          formats: [],
+          extractor: 'youtube',
+          webpage_url: 'https://www.youtube.com/watch?v=DFtestYt403',
+        },
+      }
+    },
+  })
+
+  assert.equal(autoRecoverCalled, true)
+  assert.equal(ytCallCount, 2)
+  assert.equal(result.kind, 'single_video')
 })
 
 test('downloadUnifiedItem skips extraction if item exists in Download Ledger and skipExisting is true', async () => {

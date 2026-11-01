@@ -111,80 +111,182 @@ function getFsDeps(deps?: BrowserDetectorDeps) {
   }
 }
 
-export function findGeckoProfilePath(browserDirName: string, deps?: BrowserDetectorDeps): string | undefined {
-  const {platform, env, homedir, existsSync, readdirSync, statMtimeMs} = getFsDeps(deps)
-  let baseDir = ''
+function getGeckoBaseDirs(browserDirName: string, deps?: BrowserDetectorDeps): string[] {
+  const {platform, env, homedir} = getFsDeps(deps)
+  const norm = browserDirName.toLowerCase()
 
   if (platform === 'win32') {
     const appData = env.APPDATA || path.join(homedir, 'AppData', 'Roaming')
-    baseDir = path.join(appData, browserDirName, 'Profiles')
-  } else if (platform === 'darwin') {
-    baseDir = path.join(homedir, 'Library', 'Application Support', browserDirName, 'Profiles')
+    return [
+      path.join(appData, browserDirName, 'Profiles'),
+      path.join(appData, browserDirName),
+    ]
+  }
+
+  if (platform === 'darwin') {
+    const appSupport = path.join(homedir, 'Library', 'Application Support')
+    return [
+      path.join(appSupport, browserDirName, 'Profiles'),
+      path.join(appSupport, browserDirName),
+    ]
+  }
+
+  const configHome = env.XDG_CONFIG_HOME || path.join(homedir, '.config')
+  const varApp = path.join(homedir, '.var', 'app')
+  const snap = path.join(homedir, 'snap')
+  const dirs: string[] = []
+
+  if (norm.includes('firefox')) {
+    dirs.push(
+      path.join(configHome, 'mozilla', 'firefox'),
+      path.join(homedir, '.mozilla', 'firefox'),
+      path.join(varApp, 'org.mozilla.firefox', '.mozilla', 'firefox'),
+      path.join(varApp, 'org.mozilla.firefox', '.config', 'mozilla', 'firefox'),
+      path.join(snap, 'firefox', 'common', '.mozilla', 'firefox'),
+    )
+  } else if (norm.includes('zen')) {
+    dirs.push(
+      path.join(varApp, 'app.zen_browser.zen', '.zen'),
+      path.join(varApp, 'app.zen_browser.zen', '.config', 'zen'),
+      path.join(homedir, '.zen'),
+      path.join(configHome, 'zen'),
+    )
+  } else if (norm.includes('floorp')) {
+    dirs.push(
+      path.join(varApp, 'one.ablaze.floorp', '.floorp'),
+      path.join(homedir, '.floorp'),
+      path.join(configHome, 'floorp'),
+    )
+  } else if (norm.includes('waterfox')) {
+    dirs.push(
+      path.join(varApp, 'net.waterfox.waterfox', '.waterfox'),
+      path.join(homedir, '.waterfox'),
+      path.join(configHome, 'waterfox'),
+    )
+  } else if (norm.includes('librewolf')) {
+    dirs.push(
+      path.join(varApp, 'io.gitlab.librewolf-community', '.librewolf'),
+      path.join(homedir, '.librewolf'),
+      path.join(configHome, 'librewolf'),
+    )
+  }
+
+  if (browserDirName.startsWith('.')) {
+    dirs.push(path.join(homedir, browserDirName))
   } else {
-    baseDir = browserDirName.startsWith('.')
-      ? path.join(homedir, browserDirName)
-      : path.join(homedir, `.${browserDirName.toLowerCase()}`)
+    dirs.push(path.join(homedir, `.${browserDirName.toLowerCase()}`))
   }
 
-  try {
-    const entries = readdirSync(baseDir)
-    if (!entries || entries.length === 0) return undefined
-    const candidates = entries
-      .map(name => path.join(baseDir, name))
-      .filter(dir => existsSync(path.join(dir, 'cookies.sqlite')))
+  return dirs
+}
 
-    if (candidates.length === 0) return undefined
+export function findGeckoProfilePath(browserDirName: string, deps?: BrowserDetectorDeps): string | undefined {
+  const {existsSync, readdirSync, statMtimeMs} = getFsDeps(deps)
+  const baseDirs = getGeckoBaseDirs(browserDirName, deps)
 
-    candidates.sort((a, b) => {
-      const timeA = statMtimeMs(path.join(a, 'cookies.sqlite'))
-      const timeB = statMtimeMs(path.join(b, 'cookies.sqlite'))
-      return timeB - timeA
-    })
+  const candidates: {path: string; mtime: number}[] = []
 
-    return candidates[0]
-  } catch {
-    return undefined
+  for (const baseDir of baseDirs) {
+    const directDb = path.join(baseDir, 'cookies.sqlite')
+    if (existsSync(directDb)) {
+      candidates.push({path: baseDir, mtime: statMtimeMs(directDb)})
+    }
+
+    try {
+      const entries = readdirSync(baseDir)
+      for (const entry of entries) {
+        const profileDir = path.join(baseDir, entry)
+        const dbPath = path.join(profileDir, 'cookies.sqlite')
+        if (existsSync(dbPath)) {
+          candidates.push({path: profileDir, mtime: statMtimeMs(dbPath)})
+        }
+      }
+    } catch {}
   }
+
+  if (candidates.length === 0) return undefined
+  candidates.sort((a, b) => b.mtime - a.mtime)
+  return candidates[0]?.path
 }
 
 export function detectInstalledBrowserSpec(deps?: BrowserDetectorDeps): string | undefined {
-  const {platform, env, homedir, existsSync} = getFsDeps(deps)
+  const {platform, env, homedir, existsSync, statMtimeMs} = getFsDeps(deps)
+  const candidates: {spec: string; mtime: number}[] = []
 
-  // 1. Gecko-based browsers (Firefox, Zen, Floorp, Waterfox)
-  const zenProfile = findGeckoProfilePath('zen', deps)
-  if (zenProfile) return `firefox:${zenProfile}`
-
-  const ffProfile = findGeckoProfilePath('Mozilla/Firefox', deps) || findGeckoProfilePath('firefox', deps)
-  if (ffProfile) return `firefox:${ffProfile}`
-
-  const floorpProfile = findGeckoProfilePath('floorp', deps)
-  if (floorpProfile) return `firefox:${floorpProfile}`
-
-  const waterfoxProfile = findGeckoProfilePath('Waterfox', deps) || findGeckoProfilePath('waterfox', deps)
-  if (waterfoxProfile) return `firefox:${waterfoxProfile}`
-
-  // 2. Chromium-based browsers (Brave, Chrome, Edge, Helium, Chromium)
-  if (platform === 'win32') {
-    const localAppData = env.LOCALAPPDATA || path.join(homedir, 'AppData', 'Local')
-    if (existsSync(path.join(localAppData, 'BraveSoftware', 'Brave-Browser', 'User Data'))) return 'brave'
-    if (existsSync(path.join(localAppData, 'Google', 'Chrome', 'User Data'))) return 'chrome'
-    if (existsSync(path.join(localAppData, 'Microsoft', 'Edge', 'User Data'))) return 'edge'
-    if (existsSync(path.join(localAppData, 'Helium', 'User Data'))) return 'chromium'
-  } else if (platform === 'darwin') {
-    const appSupport = path.join(homedir, 'Library', 'Application Support')
-    if (existsSync(path.join(appSupport, 'BraveSoftware', 'Brave-Browser'))) return 'brave'
-    if (existsSync(path.join(appSupport, 'Google', 'Chrome'))) return 'chrome'
-    if (existsSync(path.join(appSupport, 'Microsoft Edge'))) return 'edge'
-    if (existsSync(path.join(homedir, 'Library', 'Cookies'))) return 'safari'
-  } else {
-    const configHome = env.XDG_CONFIG_HOME || path.join(homedir, '.config')
-    if (existsSync(path.join(configHome, 'BraveSoftware', 'Brave-Browser'))) return 'brave'
-    if (existsSync(path.join(configHome, 'google-chrome'))) return 'chrome'
-    if (existsSync(path.join(configHome, 'chromium'))) return 'chromium'
-    if (existsSync(path.join(configHome, 'microsoft-edge'))) return 'edge'
+  const checkGecko = (name: string) => {
+    const profile = findGeckoProfilePath(name, deps)
+    if (profile) {
+      const dbPath = path.join(profile, 'cookies.sqlite')
+      const mtime = existsSync(dbPath) ? statMtimeMs(dbPath) : 0
+      candidates.push({spec: `firefox:${profile}`, mtime})
+    }
   }
 
-  return undefined
+  // 1. Gecko browsers
+  checkGecko('zen')
+  checkGecko('Mozilla/Firefox')
+  checkGecko('floorp')
+  checkGecko('waterfox')
+  checkGecko('librewolf')
+
+  // 2. Chromium browsers
+  const checkChromium = (spec: string, dataDirs: string[]) => {
+    for (const dir of dataDirs) {
+      if (existsSync(dir)) {
+        const cookieFile = path.join(dir, 'Default', 'Network', 'Cookies')
+        const legacyCookieFile = path.join(dir, 'Default', 'Cookies')
+        let mtime = 0
+        if (existsSync(cookieFile)) mtime = statMtimeMs(cookieFile)
+        else if (existsSync(legacyCookieFile)) mtime = statMtimeMs(legacyCookieFile)
+        else mtime = statMtimeMs(dir)
+        candidates.push({spec, mtime})
+        break
+      }
+    }
+  }
+
+  if (platform === 'win32') {
+    const localAppData = env.LOCALAPPDATA || path.join(homedir, 'AppData', 'Local')
+    checkChromium('brave', [path.join(localAppData, 'BraveSoftware', 'Brave-Browser', 'User Data')])
+    checkChromium('chrome', [path.join(localAppData, 'Google', 'Chrome', 'User Data')])
+    checkChromium('edge', [path.join(localAppData, 'Microsoft', 'Edge', 'User Data')])
+    checkChromium('chromium', [path.join(localAppData, 'Helium', 'User Data')])
+  } else if (platform === 'darwin') {
+    const appSupport = path.join(homedir, 'Library', 'Application Support')
+    checkChromium('brave', [path.join(appSupport, 'BraveSoftware', 'Brave-Browser')])
+    checkChromium('chrome', [path.join(appSupport, 'Google', 'Chrome')])
+    checkChromium('edge', [path.join(appSupport, 'Microsoft Edge')])
+    if (existsSync(path.join(homedir, 'Library', 'Cookies'))) {
+      candidates.push({spec: 'safari', mtime: statMtimeMs(path.join(homedir, 'Library', 'Cookies'))})
+    }
+  } else {
+    const configHome = env.XDG_CONFIG_HOME || path.join(homedir, '.config')
+    const varApp = path.join(homedir, '.var', 'app')
+    const snap = path.join(homedir, 'snap')
+
+    checkChromium('brave', [
+      path.join(configHome, 'BraveSoftware', 'Brave-Browser'),
+      path.join(varApp, 'com.brave.Browser', 'config', 'BraveSoftware', 'Brave-Browser'),
+      path.join(snap, 'brave', 'current', '.config', 'BraveSoftware', 'Brave-Browser'),
+    ])
+    checkChromium('chrome', [
+      path.join(configHome, 'google-chrome'),
+      path.join(varApp, 'com.google.Chrome', 'config', 'google-chrome'),
+    ])
+    checkChromium('chromium', [
+      path.join(configHome, 'chromium'),
+      path.join(varApp, 'org.chromium.Chromium', 'config', 'chromium'),
+      path.join(snap, 'chromium', 'current', '.config', 'chromium'),
+    ])
+    checkChromium('edge', [
+      path.join(configHome, 'microsoft-edge'),
+      path.join(varApp, 'com.microsoft.Edge', 'config', 'microsoft-edge'),
+    ])
+  }
+
+  if (candidates.length === 0) return undefined
+  candidates.sort((a, b) => b.mtime - a.mtime)
+  return candidates[0]?.spec
 }
 
 export function normalizeBrowserSpec(spec: string, deps?: BrowserDetectorDeps): string | undefined {
@@ -250,14 +352,6 @@ export function resolveCookieJar(
       os.tmpdir(),
       `open-omni-cookies-${Date.now()}-${randomSuffix}.txt`
     )
-
-    try {
-      const fd = fs.openSync(tempPath, 'w', 0o600)
-      fs.closeSync(fd)
-      fs.chmodSync(tempPath, 0o600)
-    } catch {
-      // Ignore permissions errors on platforms without POSIX permissions
-    }
 
     const runner = deps?.runner ?? defaultRunner(deps?.ytdlpPath)
     // Query a dummy target to trigger cookie extraction into --cookies file

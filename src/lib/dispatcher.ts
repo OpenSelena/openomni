@@ -271,7 +271,20 @@ export function isLoginRedirectError(err?: Error): boolean {
     msg.includes('http redirect to login page') ||
     msg.includes('login required') ||
     msg.includes('sign in to confirm you’re not a bot') ||
-    msg.includes('sign in to confirm you are not a bot')
+    msg.includes('sign in to confirm you are not a bot') ||
+    msg.includes('sign in to confirm your age') ||
+    msg.includes('this video is only available to registered users') ||
+    msg.includes('private video. sign in') ||
+    msg.includes('403: forbidden') ||
+    msg.includes('403 forbidden') ||
+    msg.includes('http error 403') ||
+    msg.includes('status 403') ||
+    msg.includes('401: unauthorized') ||
+    msg.includes('401 unauthorized') ||
+    msg.includes('http error 401') ||
+    msg.includes('status 401') ||
+    msg.includes('checkpoint_required') ||
+    msg.includes('action_blocked')
   )
 }
 
@@ -522,6 +535,33 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
     }
     if (galleryDlErr && galleryDlErr.message.includes('gallery-dl extraction aborted')) {
       throw galleryDlErr
+    }
+
+    const ytErrorObj = ytErr instanceof Error ? ytErr : new Error(String(ytErr))
+    if (!cookieFile && isLoginRedirectError(ytErrorObj)) {
+      const recoverFn = options.autoRecoverCookiesFn || (async () => {
+        try {
+          const jar = resolveCookieJar({browser: 'auto'}, {ytdlpPath: ytdlp})
+          if (!jar) return undefined
+          return {
+            cookieFile: jar.filePath,
+            cookieHeader: parseNetscapeCookieFile(jar.filePath),
+          }
+        } catch {
+          return undefined
+        }
+      })
+
+      onStatus?.('Login required: auto-detecting browser session to retry…')
+      const recovered = await recoverFn()
+      if (recovered?.cookieFile || recovered?.cookieHeader) {
+        return probeUnified({
+          ...options,
+          cookieFile: recovered.cookieFile ?? cookieFile,
+          cookieHeader: recovered.cookieHeader ?? cookieHeader,
+          autoRecoverCookiesFn: undefined,
+        })
+      }
     }
 
     // If url was not already probed by gallery-dl, try gallery-dl fallback
