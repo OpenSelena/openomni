@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import {spawnSync} from 'node:child_process'
 import type {CookieOptions} from './config.js'
+import {sanitizeErrorMessage} from './sanitizer.js'
 
 export type CookieJar = {
   filePath: string
@@ -14,10 +15,23 @@ export type CookieRunner = (args: string[]) => {
   stderr: string
 }
 
-function defaultRunner(ytdlpPath?: string): CookieRunner {
+function defaultRunner(ytdlpPath?: string, proxy?: string): CookieRunner {
   const exe = ytdlpPath ?? 'yt-dlp'
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    ...(proxy
+      ? {
+          ALL_PROXY: proxy,
+          HTTPS_PROXY: proxy,
+          HTTP_PROXY: proxy,
+          all_proxy: proxy,
+          https_proxy: proxy,
+          http_proxy: proxy,
+        }
+      : {}),
+  }
   return (args: string[]) => {
-    const result = spawnSync(exe, args, {encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']})
+    const result = spawnSync(exe, args, {encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe']})
     return {
       status: result.status,
       stderr: result.stderr || '',
@@ -38,9 +52,18 @@ function cookieDomainMatches(
   return req === cookie
 }
 
-export function parseNetscapeCookieContent(content: string, targetDomain?: string): string {
+export function parseNetscapeCookieContent(
+  content: string,
+  targetDomain?: string,
+  opts?: {path?: string; isHttps?: boolean; nowSeconds?: number},
+): string {
   const cookies: string[] = []
-  const reqDomain = targetDomain?.replace(/^\./, '').toLowerCase()
+  const reqDomain = targetDomain?.replace(/^\./, '').toLowerCase().trim()
+  if (!reqDomain) return ''
+
+  const reqPath = opts?.path || '/'
+  const isHttps = opts?.isHttps ?? true
+  const nowSeconds = opts?.nowSeconds ?? Math.floor(Date.now() / 1000)
 
   for (const rawLine of content.split('\n')) {
     const line = rawLine.trim()
@@ -56,10 +79,22 @@ export function parseNetscapeCookieContent(content: string, targetDomain?: strin
 
     const rawDomain = parts[0]!
     const includeSubdomains = parts[1]?.toUpperCase() === 'TRUE'
+    const cookiePath = parts[2] || '/'
+    const secureOnly = parts[3]?.toUpperCase() === 'TRUE'
+    const expiry = Number(parts[4] || '0')
     const name = parts[5]!
     const value = parts[6]!
 
-    if (reqDomain && !cookieDomainMatches(reqDomain, rawDomain, includeSubdomains)) {
+    if (!cookieDomainMatches(reqDomain, rawDomain, includeSubdomains)) {
+      continue
+    }
+    if (secureOnly && !isHttps) {
+      continue
+    }
+    if (cookiePath !== '/' && !reqPath.startsWith(cookiePath)) {
+      continue
+    }
+    if (Number.isFinite(expiry) && expiry > 0 && expiry < nowSeconds) {
       continue
     }
 
@@ -334,6 +369,7 @@ export function resolveCookieJar(
     runner?: CookieRunner
     ytdlpPath?: string
     detectorDeps?: BrowserDetectorDeps
+    proxy?: string
   }
 ): CookieJar | undefined {
   if (options.file) {
@@ -358,21 +394,23 @@ export function resolveCookieJar(
       throw new Error(`could not locate browser profile for “${options.browser}”`)
     }
 
-    const randomSuffix = Math.random().toString(36).slice(2, 8)
-    const tempPath = path.join(
-      os.tmpdir(),
-      `open-omni-cookies-${Date.now()}-${randomSuffix}.txt`
-    )
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'open-omni-cookies-'))
+    try {
+      fs.chmodSync(tempDir, 0o700)
+    } catch {
+      // Ignore permission errors on platforms without POSIX permissions
+    }
+    const tempPath = path.join(tempDir, 'cookies.txt')
+    fs.writeFileSync(tempPath, '', {encoding: 'utf8', mode: 0o600, flag: 'wx'})
 
-    const runner = deps?.runner ?? defaultRunner(deps?.ytdlpPath)
-    // Query a dummy target to trigger cookie extraction into --cookies file
+    const runner = deps?.runner ?? defaultRunner(deps?.ytdlpPath, deps?.proxy)
+    // Extract browser cookies locally without hitting a remote third-party endpoint
     const result = runner([
       '--cookies-from-browser',
       normalizedSpec,
       '--cookies',
       tempPath,
-      '--skip-download',
-      'https://www.instagram.com/',
+      '--ignore-config',
     ])
 
     if (fs.existsSync(tempPath)) {
@@ -383,17 +421,16 @@ export function resolveCookieJar(
       }
     }
 
-    if (result.status !== 0 && (!fs.existsSync(tempPath) || fs.statSync(tempPath).size === 0)) {
+    const hasCookieOutput = fs.existsSync(tempPath) && fs.statSync(tempPath).size > 0
+    if (!hasCookieOutput && result.status !== 0) {
       try {
-        if (fs.existsSync(tempPath)) {
-          fs.unlinkSync(tempPath)
-        }
+        fs.rmSync(tempDir, {recursive: true, force: true})
       } catch {}
       if (isAuto) {
         return undefined
       }
       throw new Error(
-        `could not extract cookies from browser “${options.browser}”: ${result.stderr.trim() || 'process failed'}`
+        `could not extract cookies from browser “${options.browser}”: ${sanitizeErrorMessage(result.stderr.trim()) || 'process failed'}`
       )
     }
 
@@ -418,6 +455,10 @@ export function cleanupCookieJar(jar?: CookieJar): void {
   try {
     if (fs.existsSync(jar.filePath)) {
       fs.unlinkSync(jar.filePath)
+    }
+    const parentDir = path.dirname(jar.filePath)
+    if (path.basename(parentDir).startsWith('open-omni-cookies-')) {
+      fs.rmSync(parentDir, {recursive: true, force: true})
     }
   } catch {
     // Ignore cleanup errors on exit

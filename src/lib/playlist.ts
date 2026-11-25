@@ -1,4 +1,5 @@
 import path from 'node:path'
+import {assertContainedPath, stripTerminalControls} from './sanitizer.js'
 
 export type QualityTier = 'best' | '1080p' | '720p' | 'mp3'
 
@@ -30,7 +31,7 @@ export type PlaylistMetadata = {
  * Limits length to maxLength (default 100) to avoid OS MAX_PATH / 255-char filename limits.
  */
 export function sanitizeFilename(name: string, maxLength = 100): string {
-  const sanitized = name
+  const sanitized = stripTerminalControls(name)
     .replace(/[/\\:*?"<>|]/g, '')
     .replace(/\s+/g, ' ')
     .replace(/[.\s]+$/, '')
@@ -41,6 +42,11 @@ export function sanitizeFilename(name: string, maxLength = 100): string {
   }
 
   return sanitized
+}
+
+export function sanitizeExtension(ext: string, fallback = 'jpg'): string {
+  const clean = stripTerminalControls(ext).replace(/^\./, '').toLowerCase().trim()
+  return /^[a-z0-9]{1,10}$/.test(clean) ? clean : fallback
 }
 
 /**
@@ -55,7 +61,7 @@ export function formatTrackFilename(
   const padWidth = Math.max(2, String(total).length)
   const paddedIndex = String(index).padStart(padWidth, '0')
   const cleanTitle = sanitizeFilename(title)
-  const cleanExt = ext.replace(/^\./, '')
+  const cleanExt = ext === '%(ext)s' ? '%(ext)s' : sanitizeExtension(ext, 'mp4')
   return `${paddedIndex} - ${cleanTitle}.${cleanExt}`
 }
 
@@ -64,7 +70,9 @@ export function formatTrackFilename(
  */
 export function resolvePlaylistDir(baseDir: string, playlistTitle: string): string {
   const cleanName = sanitizeFilename(playlistTitle) || 'Playlist'
-  return path.join(baseDir, cleanName)
+  const joined = path.join(baseDir, cleanName)
+  assertContainedPath(baseDir, joined)
+  return joined
 }
 
 export function getQualityTierExt(tier: QualityTier, audioFormat?: string, videoFormat?: string): string {
@@ -120,8 +128,8 @@ export function parsePlaylistOutput(rawJson: string): PlaylistMetadata {
   let currentIndex = 1
 
   for (const entry of rawEntries) {
-    const rawTitle = typeof entry.title === 'string' ? entry.title.trim() : ''
-    const id = typeof entry.id === 'string' && entry.id ? entry.id : String(currentIndex)
+    const rawTitle = typeof entry.title === 'string' ? stripTerminalControls(entry.title).trim() : ''
+    const id = typeof entry.id === 'string' && entry.id ? stripTerminalControls(entry.id) : String(currentIndex)
     const title = rawTitle || (id && id !== String(currentIndex) ? `Item ${id}` : `Item ${currentIndex}`)
 
     // Exclude deleted or private videos
@@ -159,8 +167,8 @@ export function parsePlaylistOutput(rawJson: string): PlaylistMetadata {
 
   return {
     id: typeof data.id === 'string' ? data.id : '',
-    title: typeof data.title === 'string' && data.title ? data.title : 'Playlist',
-    uploader: typeof data.uploader === 'string' ? data.uploader : undefined,
+    title: typeof data.title === 'string' && data.title ? stripTerminalControls(data.title) : 'Playlist',
+    uploader: typeof data.uploader === 'string' ? stripTerminalControls(data.uploader) : undefined,
     webpageUrl:
       typeof data.webpage_url === 'string' ? data.webpage_url : undefined,
     entries: rawEntries,

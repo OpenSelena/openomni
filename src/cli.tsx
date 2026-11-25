@@ -9,13 +9,14 @@ import {parseArgs, resolveOutputDir, toSubtitleOptions, toThumbnailOptions} from
 import {readClipboard} from './lib/clipboard.js'
 import {isProbablyUrl} from './lib/platforms.js'
 import {buildChoices, cleanupInfoJson, download, ensureYtDlp, findFfmpeg, maskProxyCredentials, probe, updateYtDlp, type DownloadChoice} from './lib/ytdlp.js'
-import {sanitizeError} from './lib/sanitizer.js'
+import {sanitizeError, stripTerminalControls} from './lib/sanitizer.js'
 import {updateGalleryDl} from './lib/gallerydl.js'
 import {
   buildQualityTierArgs,
   formatTrackFilename,
   getQualityTierExt,
   resolvePlaylistDir,
+  sanitizeExtension,
   sanitizeFilename,
   type QualityTier,
 } from './lib/playlist.js'
@@ -255,24 +256,28 @@ let cookieJar: CookieJar | undefined
 let cookieFile: string | undefined
 let cookieHeader: string | undefined
 
-const effectiveCookieOptions = runtimeConfig.cookies ?? {browser: 'auto'}
+// Extract upfront only when explicit cookie options are configured; default auto-mode
+// resolves lazily on login-wall recovery to avoid unsolicited startup external requests.
+const effectiveCookieOptions = runtimeConfig.cookies
 
-try {
-  let ytdlpPath: string | undefined
-  if (effectiveCookieOptions.browser) {
-    ytdlpPath = await ensureYtDlp(status => console.error(`[open-omni] ${status}`))
-  }
-  cookieJar = resolveCookieJar(effectiveCookieOptions, {ytdlpPath})
-  if (cookieJar) {
-    cookieFile = cookieJar.filePath
-    cookieHeader = parseNetscapeCookieFile(cookieJar.filePath)
-  }
-} catch (err) {
-  if (runtimeConfig.cookies) {
-    console.error(`open-omni: ${err instanceof Error ? err.message : String(err)}`)
+if (effectiveCookieOptions) {
+  try {
+    let ytdlpPath: string | undefined
+    if (effectiveCookieOptions.browser) {
+      ytdlpPath = await ensureYtDlp(status => console.error(`[open-omni] ${stripTerminalControls(status)}`))
+    }
+    cookieJar = resolveCookieJar(effectiveCookieOptions, {
+      ytdlpPath,
+      proxy: runtimeConfig.proxy,
+    })
+    if (cookieJar) {
+      cookieFile = cookieJar.filePath
+      cookieHeader = parseNetscapeCookieFile(cookieJar.filePath, 'instagram.com')
+    }
+  } catch (err) {
+    console.error(`open-omni: ${sanitizeError(err)}`)
     process.exit(1)
   }
-  // If auto-mode failed, silently proceed in unauthenticated guest mode
 }
 
 if (args.watch) {
@@ -319,22 +324,22 @@ if (args.watch) {
     signal: abortController.signal,
     onUrlDetected: url => {
       const now = new Date().toLocaleTimeString()
-      console.log(`\x1b[90m[${now}]\x1b[0m \x1b[33mDetected link:\x1b[0m ${url}`)
+      console.log(`\x1b[90m[${now}]\x1b[0m \x1b[33mDetected link:\x1b[0m ${stripTerminalControls(url)}`)
     },
     onDownloadStart: () => {
       console.log(`  → downloading…`)
     },
     onDownloadComplete: (_url, filepath) => {
-      console.log(`  \x1b[32m✓ Downloaded\x1b[0m → ${filepath}\n`)
+      console.log(`  \x1b[32m✓ Downloaded\x1b[0m → ${stripTerminalControls(filepath)}\n`)
     },
     onDownloadError: (_url, err) => {
-      console.error(`  \x1b[31m✗ Download failed:\x1b[0m ${err}\n`)
+      console.error(`  \x1b[31m✗ Download failed:\x1b[0m ${stripTerminalControls(err, true)}\n`)
     },
     onSkip: (_url, reason) => {
-      console.log(`  \x1b[90m→ Skipped (${reason})\x1b[0m\n`)
+      console.log(`  \x1b[90m→ Skipped (${stripTerminalControls(reason)})\x1b[0m\n`)
     },
     onLog: msg => {
-      console.error(`  ${msg}`)
+      console.error(`  ${stripTerminalControls(msg, true)}`)
     },
   })
 
@@ -367,16 +372,17 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFor
 
     if (probeResult.kind === 'single_photo') {
       const item = probeResult.item
-      const filename = `${sanitizeFilename(probeResult.postTitle)}.${item.ext || 'jpg'}`
+      const safeExt = sanitizeExtension(item.ext || 'jpg', 'jpg')
+      const filename = `${sanitizeFilename(probeResult.postTitle)}.${safeExt}`
       if (args.skipExisting && !args.force) {
         const recorded = getCompletedDownload({url: initialUrl, mediaId: item.id})
         if (recorded) {
           cleanupCookieJar(cookieJar)
-          console.log(`✓ already downloaded (ledger) → ${recorded.outputPath}`)
+          console.log(`✓ already downloaded (ledger) → ${stripTerminalControls(recorded.outputPath)}`)
           process.exit(0)
         }
       }
-      console.error(`[open-omni] downloading photo “${probeResult.postTitle}”…`)
+      console.error(`[open-omni] downloading photo “${stripTerminalControls(probeResult.postTitle)}”…`)
       const filepath = await downloadUnifiedItem({
         item: {
           id: item.id,
@@ -384,7 +390,8 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFor
           url: item.url,
           index: 1,
           kind: 'photo',
-          ext: item.ext,
+          ext: safeExt,
+          engine: item.engine,
         },
         destDir: outDir,
         filename,
@@ -485,13 +492,13 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFor
           if (effectiveConcurrency === 1) {
             process.stderr.write('\n')
           }
-          console.error(`[open-omni] ⚠ skipped “${entry.title}”: ${err instanceof Error ? err.message : String(err)}`)
+          console.error(`[open-omni] ⚠ skipped “${stripTerminalControls(entry.title)}”: ${sanitizeError(err)}`)
           skipped++
         }
       })
 
       cleanupCookieJar(cookieJar)
-      console.log(`✓ downloaded ${succeeded} items to ${playlistDir}${skipped > 0 ? ` (${skipped} skipped)` : ''}`)
+      console.log(`✓ downloaded ${succeeded} items to ${stripTerminalControls(playlistDir)}${skipped > 0 ? ` (${skipped} skipped)` : ''}`)
       process.exit(0)
     }
 
@@ -518,7 +525,7 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFor
       }
     }
 
-    console.error(`[open-omni] downloading ${info.title ? `“${info.title}” ` : ''}(${choice.label})…`)
+    console.error(`[open-omni] downloading ${info.title ? `“${stripTerminalControls(info.title)}” ` : ''}(${choice.label})…`)
     const ffmpegLocation = await findFfmpeg()
     const section = args.time ? normalizeToYtdlpSection(args.time) ?? undefined : undefined
     const filepath = await download(
@@ -566,12 +573,12 @@ if (!isTTY && (effectiveFormat || args.photosOnly || args.videosOnly || audioFor
     })
     cleanupCookieJar(cookieJar)
     await cleanupInfoJson(infoJsonPath)
-    console.log(`✓ downloaded → ${filepath}`)
+    console.log(`✓ downloaded → ${stripTerminalControls(filepath)}`)
     process.exit(0)
   } catch (error) {
     cleanupCookieJar(cookieJar)
     await cleanupInfoJson(activeProbeInfoJson)
-    console.error(`✗ ${maskProxyCredentials(error instanceof Error ? error.message : String(error))}`)
+    console.error(`✗ ${sanitizeError(error)}`)
     process.exit(1)
   }
 }
@@ -581,7 +588,7 @@ let clipboardUrl: string | undefined
 if (!initialUrl && isTTY) {
   const clipped = readClipboard().trim()
   // reject multi-line clipboard content — new URL() silently strips newlines
-  if (clipped && !/\s/.test(clipped) && isProbablyUrl(clipped)) clipboardUrl = clipped
+  if (clipped && !/\s/.test(clipped) && isProbablyUrl(clipped)) clipboardUrl = stripTerminalControls(clipped)
 }
 const enterAltScreen = () => process.stdout.write('\x1b[?1049h\x1b[H')
 // also switch mouse tracking off — a crash can skip React effect cleanup
@@ -645,13 +652,12 @@ try {
 
 if (isTTY) leaveAltScreen()
 if (outcome.filepath) {
-  console.log(`✓ downloaded → ${outcome.filepath}`)
+  console.log(`✓ downloaded → ${stripTerminalControls(outcome.filepath)}`)
 }
 }
 
 main().catch(err => {
-  const msg = err instanceof Error ? err.message : String(err)
-  console.error(`open-omni: ${maskProxyCredentials(msg)}`)
+  console.error(`open-omni: ${sanitizeError(err)}`)
   process.exit(1)
 })
 

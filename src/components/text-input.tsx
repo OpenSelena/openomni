@@ -159,7 +159,7 @@ export function TextInput({
     // the screen otherwise pastes `[<0;34;12M`), control chars and newlines,
     // then replace the selection
     // eslint-disable-next-line no-control-regex
-    const clean = stripMouseReports(input).replace(/[\x00-\x1f\x7f]/g, '')
+    const clean = stripMouseReports(input).replace(/[\x00-\x1f\x7f-\x9f]/g, '')
     if (!clean) return
     const [start, end] = selection ?? [cursor, cursor]
     const next = value.slice(0, start) + clean + value.slice(end)

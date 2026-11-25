@@ -25,13 +25,12 @@ jobs:
   build-windows:
     name: Build Standalone Windows Binary & Winget Package
     runs-on: windows-latest
-    env:
-      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
@@ -54,22 +53,31 @@ jobs:
       - name: Resolve Release Version
         id: vars
         shell: pwsh
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          $ver = if ("${{ inputs.version }}") {
-            "${{ inputs.version }}"
-          } elseif ($env:GITHUB_REF_NAME -match '^v?([0-9]+\.[0-9]+\.[0-9]+.*)') {
+          $semverRegex = '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
+          $ver = if ($env:INPUT_VERSION) {
+            $env:INPUT_VERSION.Trim()
+          } elseif ($env:GITHUB_REF_NAME -match '^v?([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)$') {
             $Matches[1]
           } else {
             (Get-Content package.json | ConvertFrom-Json).version
           }
-          echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
-          echo "TAG=v$ver" >> $env:GITHUB_OUTPUT
+          if ($ver -notmatch $semverRegex) {
+            throw "Invalid release version format: $ver"
+          }
+          "VERSION=$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "TAG=v$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           echo "Resolved version: $ver"
 
       - name: Compile Standalone Windows Package
         id: build_exe
         shell: pwsh
         run: |
+          # Prune devDependencies before packaging standalone zip
+          npm prune --omit=dev
+
           # 1. Compile native launcher shims using csc.exe
           $csc = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
           & $csc /nologo /target:exe /out:open-omni.exe "scripts\shim.cs"
@@ -99,21 +107,24 @@ jobs:
 
           # 5. Compute SHA256
           $hash = (Get-FileHash -Path dist/open-omni-windows-x64.zip -Algorithm SHA256).Hash
-          echo "SHA256=$hash" >> $env:GITHUB_OUTPUT
+          "SHA256=$hash" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           echo "Computed SHA256: $hash"
 
       - name: Upload Windows Asset to GitHub Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.vars.outputs.TAG }}
         run: |
-          $tag = "${{ steps.vars.outputs.TAG }}"
-          gh release upload $tag dist/open-omni-windows-x64.zip --clobber
+          gh release upload $env:RELEASE_TAG dist/open-omni-windows-x64.zip --clobber
 
       - name: Generate Winget Manifests
         shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ steps.vars.outputs.VERSION }}
+          PKG_SHA256: ${{ steps.build_exe.outputs.SHA256 }}
         run: |
-          npx tsx scripts/generate-winget-manifest.ts --version "${{ steps.vars.outputs.VERSION }}" --sha256 "${{ steps.build_exe.outputs.SHA256 }}"
+          npx tsx scripts/generate-winget-manifest.ts --version $env:RELEASE_VERSION --sha256 $env:PKG_SHA256
 
       - name: Upload Winget Manifests Artifact
         uses: actions/upload-artifact@v4
@@ -123,6 +134,8 @@ jobs:
 
       - name: Submit to WinGet (if WINGET_TOKEN configured)
         if: env.WINGET_TOKEN != ''
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
         uses: vedantmgoyal2009/winget-releaser@v2
         with:
           identifier: OpenSelena.OpenOmni

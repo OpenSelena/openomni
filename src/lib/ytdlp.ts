@@ -1,5 +1,6 @@
 import {spawn, type ChildProcess} from 'node:child_process'
-import {createWriteStream, existsSync, unlinkSync} from 'node:fs'
+import crypto from 'node:crypto'
+import {existsSync, rmSync, unlinkSync} from 'node:fs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -7,8 +8,9 @@ import {Readable} from 'node:stream'
 import {pipeline} from 'node:stream/promises'
 import {formatBytes} from './format.js'
 import {parsePlaylistOutput, type PlaylistMetadata} from './playlist.js'
+import {fetchWithProxy} from './proxy-fetch.js'
 import type {AudioFormat, VideoFormat} from './args.js'
-import {sanitizeErrorMessage, sanitizeError} from './sanitizer.js'
+import {assertContainedPath, sanitizeErrorMessage, sanitizeError, stripTerminalControls} from './sanitizer.js'
 
 const OPEN_OMNI_DIR = path.join(os.homedir(), '.open-omni', 'bin')
 const LEGACY_YOINKS_DIR = path.join(os.homedir(), '.yoinks', 'bin')
@@ -90,20 +92,78 @@ export function getYtDlpVersion(executablePath: string): Promise<string | undefi
   })
 }
 
+const ALLOWED_YTDLP_HOSTS = new Set([
+  'github.com',
+  'objects.githubusercontent.com',
+  'release-assets.githubusercontent.com',
+])
+
+function isAllowedYtDlpReleaseUrl(rawUrl: string): boolean {
+  try {
+    const parsed = new URL(rawUrl)
+    return parsed.protocol === 'https:' && ALLOWED_YTDLP_HOSTS.has(parsed.hostname.toLowerCase())
+  } catch {
+    return false
+  }
+}
+
+async function fetchExpectedYtDlpSha256(assetName: string, signal?: AbortSignal): Promise<string | undefined> {
+  try {
+    const res = await fetchWithProxy(`${RELEASE_BASE}/SHA2-256SUMS`, {signal}, {requireHttps: true})
+    if (!res.ok) return undefined
+    const body = await res.text()
+    for (const line of body.split('\n')) {
+      const m = /^([a-fA-F0-9]{64})\s+\*?(.+)$/.exec(line.trim())
+      if (m && m[2]?.trim() === assetName) {
+        return m[1].toLowerCase()
+      }
+    }
+  } catch {
+    // Checksum manifest unavailable or offline
+  }
+  return undefined
+}
+
 export async function downloadLatestYtDlp(targetDir = OPEN_OMNI_DIR, signal?: AbortSignal): Promise<string> {
   await fs.mkdir(targetDir, {recursive: true})
   const binaryName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp'
+  const assetName = ytDlpAssetName()
   const local = path.join(targetDir, binaryName)
-  const url = `${RELEASE_BASE}/${ytDlpAssetName()}`
-  const response = await fetch(url, {signal})
+  const url = `${RELEASE_BASE}/${assetName}`
+  const expectedSha256 = await fetchExpectedYtDlpSha256(assetName, signal)
+  const response = await fetchWithProxy(url, {signal}, {requireHttps: true})
+  if (response.url && !isAllowedYtDlpReleaseUrl(response.url)) {
+    throw new Error(`Refusing yt-dlp download from untrusted host: ${response.url}`)
+  }
   if (!response.ok || !response.body) {
     throw new Error(`Could not download yt-dlp (${response.status}). Check your connection and try again.`)
   }
-  const tmp = `${local}.download`
-  await pipeline(Readable.fromWeb(response.body as never), createWriteStream(tmp), {signal})
-  await fs.chmod(tmp, 0o755)
-  await fs.rename(tmp, local)
-  return local
+  const stageDir = await fs.mkdtemp(path.join(targetDir, '.ytdlp-stage-'))
+  await fs.chmod(stageDir, 0o700).catch(() => {})
+  const tmp = path.join(stageDir, binaryName)
+  const hash = crypto.createHash('sha256')
+  try {
+    const fh = await fs.open(tmp, 'wx', 0o755)
+    try {
+      const nodeStream = Readable.fromWeb(response.body as never)
+      const ws = fh.createWriteStream()
+      nodeStream.on('data', (chunk: Buffer) => hash.update(chunk))
+      await pipeline(nodeStream, ws, {signal})
+    } finally {
+      await fh.close().catch(() => {})
+    }
+    if (expectedSha256) {
+      const actualSha256 = hash.digest('hex').toLowerCase()
+      if (actualSha256 !== expectedSha256) {
+        throw new Error(`yt-dlp checksum mismatch (expected ${expectedSha256}, got ${actualSha256})`)
+      }
+    }
+    await fs.chmod(tmp, 0o755)
+    await fs.rename(tmp, local)
+    return local
+  } finally {
+    await fs.rm(stageDir, {recursive: true, force: true}).catch(() => {})
+  }
 }
 
 export type UpdateResult = {
@@ -271,9 +331,17 @@ export function parseProbeOutput(
     }
   }
 
+  const info = data as unknown as VideoInfo
+  if (typeof info.title === 'string') {
+    info.title = stripTerminalControls(info.title)
+  }
+  if (typeof info.uploader === 'string') {
+    info.uploader = stripTerminalControls(info.uploader)
+  }
+
   return {
     kind: 'single',
-    info: data as unknown as VideoInfo,
+    info,
     infoJsonPath,
   }
 }
@@ -297,7 +365,7 @@ export async function probe(
   const stdout = await new Promise<string>((resolve, reject) => {
     const child = spawn(ytdlp, probeArgs, {
       signal,
-      env: {...process.env, PYTHONIOENCODING: 'utf-8'},
+      env: buildProxyEnv(process.env, options?.proxy),
     })
     let out = ''
     let stderr = ''
@@ -313,8 +381,10 @@ export async function probe(
     })
   })
 
-  const infoJsonPath = path.join(os.tmpdir(), `open-omni-info-${process.pid}-${Date.now()}.json`)
-  await fs.writeFile(infoJsonPath, stdout)
+  const infoDir = await fs.mkdtemp(path.join(os.tmpdir(), 'open-omni-info-'))
+  await fs.chmod(infoDir, 0o700).catch(() => {})
+  const infoJsonPath = path.join(infoDir, 'info.json')
+  await fs.writeFile(infoJsonPath, stdout, {encoding: 'utf8', mode: 0o600, flag: 'wx'})
   activeInfoJsonFiles.add(infoJsonPath)
   return parseProbeOutput(stdout, url, infoJsonPath)
 }
@@ -327,6 +397,10 @@ process.once('exit', () => {
       if (existsSync(file)) {
         unlinkSync(file)
       }
+      const parentDir = path.dirname(file)
+      if (path.basename(parentDir).startsWith('open-omni-info-')) {
+        rmSync(parentDir, {recursive: true, force: true})
+      }
     } catch {}
   }
   activeInfoJsonFiles.clear()
@@ -338,6 +412,10 @@ export async function cleanupInfoJson(filePath?: string): Promise<void> {
   try {
     if (existsSync(filePath)) {
       await fs.unlink(filePath)
+    }
+    const parentDir = path.dirname(filePath)
+    if (path.basename(parentDir).startsWith('open-omni-info-')) {
+      await fs.rm(parentDir, {recursive: true, force: true})
     }
   } catch {}
 }
@@ -499,6 +577,26 @@ export function buildMetadataArgs(opts?: MetadataOptions): string[] {
 export const maskProxyCredentials = sanitizeErrorMessage
 export {sanitizeErrorMessage, sanitizeError}
 
+export function buildProxyEnv(
+  baseEnv: NodeJS.ProcessEnv = process.env,
+  proxy?: string,
+): NodeJS.ProcessEnv {
+  return {
+    ...baseEnv,
+    PYTHONIOENCODING: 'utf-8',
+    ...(proxy
+      ? {
+          ALL_PROXY: proxy,
+          HTTPS_PROXY: proxy,
+          HTTP_PROXY: proxy,
+          all_proxy: proxy,
+          https_proxy: proxy,
+          http_proxy: proxy,
+        }
+      : {}),
+  }
+}
+
 export function buildProxyArgs(options?: {
   proxy?: string
   geoBypass?: boolean
@@ -506,9 +604,6 @@ export function buildProxyArgs(options?: {
 }): string[] {
   if (!options) return []
   const args: string[] = []
-  if (options.proxy) {
-    args.push('--proxy', options.proxy)
-  }
   if (options.geoBypass) {
     args.push('--geo-bypass')
   }
@@ -615,7 +710,7 @@ export async function download(
   return new Promise((resolve, reject) => {
     const child = spawn(opts.ytdlp, args, {
       signal,
-      env: {...process.env, PYTHONIOENCODING: 'utf-8'},
+      env: buildProxyEnv(process.env, opts.proxy),
     })
     activeChild = child
 
@@ -670,7 +765,7 @@ export async function download(
       activeChild = undefined
       if (signal?.aborted) {
         // cancelled on purpose — don't leave half-written files behind
-        void removePartials(destinations)
+        void removePartials(destinations, opts.outDir)
         reject(new Error('Download cancelled.'))
         return
       }
@@ -683,12 +778,17 @@ export async function download(
   })
 }
 
-function removePartials(destinations: string[]): Promise<unknown> {
-  return Promise.allSettled(
-    destinations
-      .flatMap(dest => [dest, `${dest}.part`, `${dest}.ytdl`])
-      .map(file => fs.rm(file, {force: true})),
-  )
+function removePartials(destinations: string[], outDir: string): Promise<unknown> {
+  const safeFiles = destinations
+    .flatMap(dest => [dest, `${dest}.part`, `${dest}.ytdl`])
+    .flatMap(file => {
+      try {
+        return [assertContainedPath(outDir, file, true)]
+      } catch {
+        return []
+      }
+    })
+  return Promise.allSettled(safeFiles.map(file => fs.rm(file, {force: true})))
 }
 
 function toNumber(value: string | undefined): number | undefined {

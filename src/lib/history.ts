@@ -35,9 +35,12 @@ export function loadHistory(): string[] {
 export function addToHistory(url: string): string[] {
   const next = [url, ...loadHistory().filter(entry => entry !== url)].slice(0, LIMIT)
   const historyFile = getHistoryPath()
+  const dir = path.dirname(historyFile)
   try {
-    fs.mkdirSync(path.dirname(historyFile), {recursive: true})
-    fs.writeFileSync(historyFile, `${JSON.stringify(next, null, 2)}\n`)
+    fs.mkdirSync(dir, {recursive: true, mode: 0o700})
+    try { fs.chmodSync(dir, 0o700) } catch {}
+    fs.writeFileSync(historyFile, `${JSON.stringify(next, null, 2)}\n`, {encoding: 'utf8', mode: 0o600})
+    try { fs.chmodSync(historyFile, 0o600) } catch {}
   } catch {
     // history is a nicety — never let it break a download
   }

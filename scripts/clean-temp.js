@@ -4,10 +4,31 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
+const STALE_AGE_MS = 60 * 60 * 1000
+
+function measureRealDirSize(dirPath) {
+  let dirSize = 0
+  const stack = [dirPath]
+  while (stack.length > 0) {
+    const curr = stack.pop()
+    const children = fs.readdirSync(curr)
+    for (const child of children) {
+      const childPath = path.join(curr, child)
+      const s = fs.lstatSync(childPath)
+      if (s.isSymbolicLink()) continue
+      if (s.isDirectory()) stack.push(childPath)
+      else dirSize += s.size
+    }
+  }
+  return dirSize
+}
+
 function cleanTemp() {
   const tmpDir = os.tmpdir()
   if (!fs.existsSync(tmpDir)) return
 
+  const currentUid = typeof process.getuid === 'function' ? process.getuid() : null
+  const now = Date.now()
   let cleanedCount = 0
   let freedBytes = 0
 
@@ -24,22 +45,15 @@ function cleanTemp() {
     const fullPath = path.join(tmpDir, name)
 
     try {
-      const stat = fs.statSync(fullPath)
-      if (!stat.isDirectory()) continue
+      const stat = fs.lstatSync(fullPath)
+      if (stat.isSymbolicLink() || !stat.isDirectory()) continue
+      if (currentUid !== null && stat.uid !== currentUid) continue
+      // Only remove stale caches so unrelated active PyInstaller runs are preserved
+      if (now - stat.mtimeMs < STALE_AGE_MS) continue
 
       let dirSize = 0
       try {
-        const stack = [fullPath]
-        while (stack.length > 0) {
-          const curr = stack.pop()
-          const children = fs.readdirSync(curr)
-          for (const child of children) {
-            const childPath = path.join(curr, child)
-            const s = fs.statSync(childPath)
-            if (s.isDirectory()) stack.push(childPath)
-            else dirSize += s.size
-          }
-        }
+        dirSize = measureRealDirSize(fullPath)
       } catch {}
 
       fs.rmSync(fullPath, {recursive: true, force: true})

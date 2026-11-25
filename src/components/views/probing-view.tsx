@@ -2,6 +2,7 @@ import React from 'react'
 import {Box, Text} from 'ink'
 import {FramedInput} from '../framed-input.js'
 import type {Platform} from '../../lib/platforms.js'
+import {stripTerminalControls} from '../../lib/sanitizer.js'
 import type {Theme} from '../../theme.js'
 
 export type ProbingViewProps = {
@@ -19,7 +20,8 @@ export function ProbingView({
   theme,
   buttonText,
 }: ProbingViewProps) {
-  const displayUrl = url.length > boxWidth - 8 ? `${url.slice(0, boxWidth - 9)}…` : url
+  const safeUrl = stripTerminalControls(url)
+  const displayUrl = safeUrl.length > boxWidth - 8 ? `${safeUrl.slice(0, boxWidth - 9)}…` : safeUrl
 
   return (
     <Box flexDirection="column" alignItems="center">

@@ -54,9 +54,12 @@ export function loadLedger(): LedgerEntry[] {
  */
 function saveLedger(entries: LedgerEntry[]): void {
   const filePath = getLedgerPath()
+  const dir = path.dirname(filePath)
   try {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true })
-    fs.writeFileSync(filePath, `${JSON.stringify(entries.slice(0, LEDGER_LIMIT), null, 2)}\n`, 'utf8')
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 })
+    try { fs.chmodSync(dir, 0o700) } catch {}
+    fs.writeFileSync(filePath, `${JSON.stringify(entries.slice(0, LEDGER_LIMIT), null, 2)}\n`, { encoding: 'utf8', mode: 0o600 })
+    try { fs.chmodSync(filePath, 0o600) } catch {}
   } catch {
     // Ledger is resilient and should never break download execution
   }

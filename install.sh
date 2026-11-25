@@ -48,7 +48,7 @@ if command -v node >/dev/null 2>&1; then
 else
   printf "${RED}not found${RESET}\n"
   printf "\n${RED}Error: Node.js is not installed.${RESET}\n"
-  printf "Please install Node.js 18+ and try again: ${BOLD}https://nodejs.org${RESET}\n\n"
+  printf "Please install Node.js 20+ and try again: ${BOLD}https://nodejs.org${RESET}\n\n"
   exit 1
 fi
 
@@ -64,26 +64,22 @@ else
   exit 1
 fi
 
-# Step 3: Install Open Omni globally
-printf "  Installing open-omni globally via npm... "
+# Step 3: Install Open Omni without privilege escalation
+printf "  Installing open-omni... "
 if npm install -g open-omni >/dev/null 2>&1; then
   printf "${GREEN}done${RESET}\n"
 else
-  # If global install without sudo fails, try with sudo if available
-  printf "${RED}failed${RESET}\n"
-  if command -v sudo >/dev/null 2>&1; then
-    printf "  Retrying with sudo... "
-    if sudo npm install -g open-omni >/dev/null 2>&1; then
-      printf "${GREEN}done${RESET}\n"
-    else
-      printf "${RED}failed${RESET}\n"
-      printf "\n${RED}Error: Failed to install open-omni globally.${RESET}\n"
-      printf "Try running manually: ${BOLD}npm install -g open-omni${RESET}\n\n"
-      exit 1
-    fi
+  # Fall back to user-writable ~/.open-omni prefix instead of invoking sudo
+  USER_PREFIX="$HOME/.open-omni/npm"
+  mkdir -p "$USER_PREFIX" "$HOME/.open-omni/bin"
+  if npm install -g --prefix "$USER_PREFIX" open-omni >/dev/null 2>&1; then
+    ln -sf "$USER_PREFIX/bin/open-omni" "$HOME/.open-omni/bin/open-omni" 2>/dev/null || true
+    printf "${GREEN}done${RESET} ${DIM}(installed in %s)${RESET}\n" "$HOME/.open-omni/bin"
   else
-    printf "\n${RED}Error: Failed to install open-omni globally.${RESET}\n"
-    printf "Try running manually: ${BOLD}npm install -g open-omni${RESET}\n\n"
+    printf "${RED}failed${RESET}\n"
+    printf "\n${RED}Error: Failed to install open-omni.${RESET}\n"
+    printf "Try configuring a user-writable npm prefix or running manually:\n"
+    printf "  ${BOLD}npm install -g --prefix \"\$HOME/.open-omni/npm\" open-omni${RESET}\n\n"
     exit 1
   fi
 fi

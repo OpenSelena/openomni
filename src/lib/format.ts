@@ -1,3 +1,5 @@
+import {stripTerminalControls} from './sanitizer.js'
+
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return ''
   const units = ['B', 'KB', 'MB', 'GB']
@@ -22,11 +24,13 @@ export function formatDuration(seconds: number): string {
 }
 
 export function truncate(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text
+  const clean = stripTerminalControls(text)
+  return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean
 }
 
 export function shortenPath(filepath: string, homedir: string, max = 60): string {
-  const pretty = filepath.startsWith(homedir) ? `~${filepath.slice(homedir.length)}` : filepath
+  const clean = stripTerminalControls(filepath)
+  const pretty = clean.startsWith(homedir) ? `~${clean.slice(homedir.length)}` : clean
   if (pretty.length <= max) return pretty
   const ext = /\.\w{1,5}$/.exec(pretty)?.[0] ?? ''
   return `${pretty.slice(0, max - ext.length - 1)}…${ext}`
@@ -38,9 +42,10 @@ export function shortenPath(filepath: string, homedir: string, max = 60): string
  * line by one cell and makes multi-line text look off-center.
  */
 export function wrapText(text: string, width: number): string[] {
+  const clean = stripTerminalControls(text)
   const lines: string[] = []
   let line = ''
-  for (const word of text.split(/\s+/).filter(Boolean)) {
+  for (const word of clean.split(/\s+/).filter(Boolean)) {
     if (!line) line = word
     else if (line.length + 1 + word.length <= width) line += ` ${word}`
     else {
@@ -63,5 +68,7 @@ export function formatEta(seconds: number): string {
 }
 
 export function terminalLink(text: string, url: string): string {
-  return `\u001B]8;;${url}\u0007${text}\u001B]8;;\u0007`
+  const cleanText = stripTerminalControls(text)
+  const cleanUrl = stripTerminalControls(url)
+  return `\u001B]8;;${cleanUrl}\u0007${cleanText}\u001B]8;;\u0007`
 }

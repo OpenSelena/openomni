@@ -3,6 +3,7 @@ import {Box, Text} from 'ink'
 import SelectInput, {type IndicatorProps, type ItemProps} from 'ink-select-input'
 import {Panel} from '../panel.js'
 import {formatDuration, wrapText} from '../../lib/format.js'
+import {stripTerminalControls} from '../../lib/sanitizer.js'
 import type {DownloadChoice, VideoInfo} from '../../lib/ytdlp.js'
 import type {Platform} from '../../lib/platforms.js'
 import {useTheme, type Theme} from '../../theme.js'
@@ -64,7 +65,7 @@ export function PickingView({
         <Text color={theme.gray} dimColor={theme.dimSecondary}>
           ▸ {platform.label}
           {info?.duration ? ` · ${formatDuration(info.duration)}` : ''}
-          {info?.uploader ? ` · ${info.uploader}` : ''}
+          {info?.uploader ? ` · ${stripTerminalControls(info.uploader)}` : ''}
         </Text>
       </Box>
       <Panel title="Download" width={38}>

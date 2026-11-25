@@ -3,6 +3,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import {
+  cleanupInfoJson,
   download,
   findFfmpeg,
   maskProxyCredentials,
@@ -126,19 +127,24 @@ export function useSingleDownload({
                 : path.join(targetDir, outputTemplate)
               : undefined,
           }
+          const activeInfoJsonPath = cachedInfoJsonPath ?? infoJsonRef.current
           let filepath: string
           try {
-            filepath = await download(
-              {...base, infoJsonPath: cachedInfoJsonPath ?? infoJsonRef.current},
-              handlers,
-              controller.signal,
-            )
-          } catch (error) {
-            if (controller.signal.aborted) throw error
-            setPhase(prev =>
-              prev.name === 'downloading' ? {...prev, progress: undefined, refreshing: true} : prev,
-            )
-            filepath = await download(base, handlers, controller.signal)
+            try {
+              filepath = await download(
+                {...base, infoJsonPath: activeInfoJsonPath},
+                handlers,
+                controller.signal,
+              )
+            } catch (error) {
+              if (controller.signal.aborted) throw error
+              setPhase(prev =>
+                prev.name === 'downloading' ? {...prev, progress: undefined, refreshing: true} : prev,
+              )
+              filepath = await download(base, handlers, controller.signal)
+            }
+          } finally {
+            await cleanupInfoJson(activeInfoJsonPath)
           }
 
           const platform = detectPlatform(targetUrl).key || info?.extractor || 'yt-dlp'
