@@ -4,9 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g. 1.0.0)'
+        description: 'Release version (e.g. 1.5.2; defaults to package.json)'
         required: false
-        default: '1.0.0'
+        default: ''
+      npm_only:
+        description: 'Only publish the current package.json version to npm (skip Windows zip rebuild)'
+        required: false
+        type: boolean
+        default: false
   release:
     types: [published]
   push:
@@ -23,6 +28,7 @@ permissions:
 
 jobs:
   build-windows:
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.npm_only }}
     name: Build Standalone Windows Binary & Winget Package
     runs-on: windows-latest
     steps:
@@ -142,3 +148,29 @@ jobs:
           version: ${{ steps.vars.outputs.VERSION }}
           installers-regex: '\.zip$'
           token: ${{ secrets.WINGET_TOKEN }}
+
+  publish-npm:
+    name: Publish to npm (OIDC)
+    needs: build-windows
+    if: ${{ !cancelled() && (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Publish to npm registry
+        run: npm publish --access public
