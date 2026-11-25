@@ -1,11 +1,13 @@
 import {spawn, type ChildProcess} from 'node:child_process'
-import {createWriteStream} from 'node:fs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import {Readable} from 'node:stream'
 import {pipeline} from 'node:stream/promises'
-import {maskProxyCredentials} from './ytdlp.js'
+import {buildProxyEnv, maskProxyCredentials} from './ytdlp.js'
+import {assertContainedPath, stripTerminalControls} from './sanitizer.js'
+import {sanitizeExtension} from './playlist.js'
+import {fetchWithProxy} from './proxy-fetch.js'
 
 const OPEN_OMNI_DIR = path.join(os.homedir(), '.open-omni', 'bin')
 const CODEBERG_RELEASE_API = 'https://codeberg.org/api/v1/repos/mikf/gallery-dl/releases/latest'
@@ -47,7 +49,8 @@ export function galleryDlAssetName(): string {
 
 export function resolveGalleryDlPath(env: NodeJS.ProcessEnv = process.env): string {
   const binaryName = process.platform === 'win32' ? 'gallery-dl.exe' : 'gallery-dl'
-  const targetDir = env.OPEN_OMNI_DIR || OPEN_OMNI_DIR
+  // Do not read OPEN_OMNI_DIR (media download folder) for binary resolution
+  const targetDir = env.OPEN_OMNI_BIN_DIR || OPEN_OMNI_DIR
   return path.join(targetDir, binaryName)
 }
 
@@ -64,10 +67,13 @@ export type GalleryDlItem = {
 }
 
 function normalizeExtension(ext?: string, filename?: string, url?: string): string {
-  if (ext) return ext.replace(/^\./, '').toLowerCase().trim()
+  if (ext) {
+    const clean = sanitizeExtension(ext, '')
+    if (clean) return clean
+  }
   const candidate = filename || url || ''
   const match = /\.([a-zA-Z0-9]+)(?:[?#:]|$)/.exec(candidate)
-  return match ? match[1].toLowerCase() : 'jpg'
+  return match ? sanitizeExtension(match[1], 'jpg') : 'jpg'
 }
 
 export function parseGalleryDlOutput(rawJson: string): GalleryDlItem[] {
@@ -109,15 +115,17 @@ export function parseGalleryDlOutput(rawJson: string): GalleryDlItem[] {
           const rawFilename = (typeof meta.filename === 'string' ? meta.filename : '') || ''
           const ext = normalizeExtension(rawExt, rawFilename, mediaUrl)
           const kind: 'photo' | 'video' = isVideoExtension(ext) ? 'video' : 'photo'
-          const title = (typeof meta.title === 'string' ? meta.title : undefined) ||
+          const rawTitle = (typeof meta.title === 'string' ? meta.title : undefined) ||
             (typeof meta.content === 'string' ? meta.content : undefined) ||
             (typeof meta.description === 'string' ? meta.description : undefined)
-          const uploader = typeof meta.uploader === 'string' ? meta.uploader :
+          const title = rawTitle ? stripTerminalControls(rawTitle) : undefined
+          const rawUploader = typeof meta.uploader === 'string' ? meta.uploader :
             (typeof meta.author === 'object' && meta.author !== null && 'nick' in meta.author ? String(meta.author.nick) : undefined)
+          const uploader = rawUploader ? stripTerminalControls(rawUploader) : undefined
 
           items.push({
             url: mediaUrl,
-            filename: rawFilename || `item_${index}.${ext}`,
+            filename: stripTerminalControls(rawFilename) || `item_${index}.${ext}`,
             ext,
             kind,
             title,
@@ -128,7 +136,7 @@ export function parseGalleryDlOutput(rawJson: string): GalleryDlItem[] {
           })
           index++
         }
-      } else if (entry && typeof entry === 'object' && 'url' in entry && typeof entry.url === 'string') {
+      } else if (entry && typeof entry === 'object' && 'url' in entry && typeof entry.url === 'string' && entry.url.startsWith('http')) {
         const obj = entry as Record<string, unknown>
         const mediaUrl = String(obj.url)
         const rawExt = typeof obj.extension === 'string' ? obj.extension : ''
@@ -138,11 +146,11 @@ export function parseGalleryDlOutput(rawJson: string): GalleryDlItem[] {
 
         items.push({
           url: mediaUrl,
-          filename: rawFilename || `item_${index}.${ext}`,
+          filename: stripTerminalControls(rawFilename) || `item_${index}.${ext}`,
           ext,
           kind,
-          title: typeof obj.title === 'string' ? obj.title : undefined,
-          uploader: typeof obj.uploader === 'string' ? obj.uploader : undefined,
+          title: typeof obj.title === 'string' ? stripTerminalControls(obj.title) : undefined,
+          uploader: typeof obj.uploader === 'string' ? stripTerminalControls(obj.uploader) : undefined,
           width: typeof obj.width === 'number' ? obj.width : undefined,
           height: typeof obj.height === 'number' ? obj.height : undefined,
           index,
@@ -208,6 +216,17 @@ export async function getGalleryDlVersion(binaryPath: string): Promise<string | 
   })
 }
 
+function isAllowedGalleryDlReleaseUrl(rawUrl: string): boolean {
+  try {
+    const parsed = new URL(rawUrl)
+    if (parsed.protocol !== 'https:') return false
+    const host = parsed.hostname.toLowerCase()
+    return host === 'codeberg.org' || host.endsWith('.codeberg.org')
+  } catch {
+    return false
+  }
+}
+
 export async function getGalleryDlDownloadUrls(
   assetName: string,
   fetchFn: typeof fetch = fetch,
@@ -232,9 +251,9 @@ export async function getGalleryDlDownloadUrls(
       }
       const asset = data.assets?.find(a => a.name === assetName)
       const downloadUrl = asset?.browser_download_url || asset?.download_url
-      if (downloadUrl) {
+      if (downloadUrl && isAllowedGalleryDlReleaseUrl(downloadUrl)) {
         urls.push(downloadUrl)
-      } else if (data.tag_name) {
+      } else if (data.tag_name && /^[A-Za-z0-9._-]+$/.test(data.tag_name) && !data.tag_name.includes('..')) {
         urls.push(`https://codeberg.org/mikf/gallery-dl/releases/download/${data.tag_name}/${assetName}`)
       }
     }
@@ -265,11 +284,17 @@ export async function downloadLatestGalleryDl(
   let lastError: Error | undefined
 
   for (const candidateUrl of candidateUrls) {
+    if (!isAllowedGalleryDlReleaseUrl(candidateUrl)) continue
     try {
       if (onStatus) {
         onStatus('fetching gallery-dl from Codeberg…')
       }
-      const res = await fetch(candidateUrl, {signal})
+      const res = await fetchWithProxy(candidateUrl, {signal}, {requireHttps: true})
+      if (res.url && !isAllowedGalleryDlReleaseUrl(res.url)) {
+        await res.body?.cancel().catch(() => {})
+        lastError = new Error(`Untrusted redirect host: ${res.url}`)
+        continue
+      }
       if (res.ok && res.body) {
         response = res
         break
@@ -287,11 +312,22 @@ export async function downloadLatestGalleryDl(
     )
   }
 
-  const tmp = `${local}.download`
-  await pipeline(Readable.fromWeb(response.body as never), createWriteStream(tmp), {signal})
-  await fs.chmod(tmp, 0o755)
-  await fs.rename(tmp, local)
-  return local
+  const stageDir = await fs.mkdtemp(path.join(targetDir, '.gallerydl-stage-'))
+  await fs.chmod(stageDir, 0o700).catch(() => {})
+  const tmp = path.join(stageDir, binaryName)
+  try {
+    const fh = await fs.open(tmp, 'wx', 0o755)
+    try {
+      await pipeline(Readable.fromWeb(response.body as never), fh.createWriteStream(), {signal})
+    } finally {
+      await fh.close().catch(() => {})
+    }
+    await fs.chmod(tmp, 0o755)
+    await fs.rename(tmp, local)
+    return local
+  } finally {
+    await fs.rm(stageDir, {recursive: true, force: true}).catch(() => {})
+  }
 }
 
 export type GalleryDlUpdateResult = {
@@ -612,9 +648,6 @@ export function buildGalleryDlProbeArgs(
   if (cookieFile) {
     args.push('--cookies', cookieFile)
   }
-  if (options?.proxy) {
-    args.push('--proxy', options.proxy)
-  }
   if (options?.limitRate) {
     args.push('--limit-rate', options.limitRate)
   }
@@ -643,7 +676,7 @@ export async function probeGalleryDl(
       child = spawn(
         gallerydl,
         args,
-        {signal, env: {...process.env, PYTHONIOENCODING: 'utf-8'}},
+        {signal, env: buildProxyEnv(process.env, options?.proxy)},
       )
     } catch (err) {
       reject(new Error(maskProxyCredentials(`failed to spawn gallery-dl: ${err instanceof Error ? err.message : String(err)}`)))
@@ -706,16 +739,14 @@ export function buildGalleryDlDownloadArgs(options: {
     args.push('--cookies', options.cookieFile)
   }
 
-  if (options.proxy) {
-    args.push('--proxy', options.proxy)
-  }
-
   if (options.limitRate) {
     args.push('--limit-rate', options.limitRate)
   }
 
   if (options.filename) {
-    args.push('-f', options.filename)
+    // Escape Python format-string braces so gallery-dl treats -f as a literal filename
+    const escapedFilename = options.filename.replace(/\{/g, '{{').replace(/\}/g, '}}')
+    args.push('-f', escapedFilename)
   }
 
   args.push(options.url)
@@ -734,6 +765,7 @@ export async function downloadPhotoItem(options: {
   limitRate?: string
 }): Promise<string> {
   const {gallerydl, url, destDir, filename, signal, cookieFile, proxy, limitRate} = options
+  const containedOutPath = filename ? assertContainedPath(destDir, path.join(destDir, filename)) : undefined
   await fs.mkdir(destDir, {recursive: true})
 
   return new Promise((resolve, reject) => {
@@ -743,7 +775,7 @@ export async function downloadPhotoItem(options: {
     let stderr = ''
 
     try {
-      child = spawn(gallerydl, args, {signal, env: {...process.env, PYTHONIOENCODING: 'utf-8'}})
+      child = spawn(gallerydl, args, {signal, env: buildProxyEnv(process.env, proxy)})
     } catch (err) {
       reject(new Error(maskProxyCredentials(`failed to spawn gallery-dl for download: ${err instanceof Error ? err.message : String(err)}`)))
       return
@@ -763,8 +795,8 @@ export async function downloadPhotoItem(options: {
         return
       }
 
-      if (filename) {
-        resolve(path.join(destDir, filename))
+      if (containedOutPath) {
+        resolve(containedOutPath)
       } else {
         resolve(destDir)
       }

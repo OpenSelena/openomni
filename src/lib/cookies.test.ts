@@ -13,14 +13,15 @@ import {
 } from './cookies.js'
 
 test('parseNetscapeCookieContent parses Netscape format into HTTP cookie header string', () => {
+  const futureExp = Math.floor(Date.now() / 1000) + 86400
   const content = `
 # Netscape HTTP Cookie File
 # http://curl.haxx.se/rfc/cookie_spec.html
 
-.instagram.com\tTRUE\t/\tTRUE\t1822962023\tdatr\tZ9mYagbpfR8oMkiWo
-#HttpOnly_.instagram.com\tTRUE\t/\tTRUE\t1820649634\tsessionid\t12345%3Aabc
-.instagram.com\tTRUE\t/\tTRUE\t1796889684\tds_user_id\t12345
-.youtube.com\tTRUE\t/\tTRUE\t1820649634\tLOGIN_INFO\txyz
+.instagram.com\tTRUE\t/\tTRUE\t${futureExp}\tdatr\tZ9mYagbpfR8oMkiWo
+#HttpOnly_.instagram.com\tTRUE\t/\tTRUE\t${futureExp}\tsessionid\t12345%3Aabc
+.instagram.com\tTRUE\t/\tTRUE\t${futureExp}\tds_user_id\t12345
+.youtube.com\tTRUE\t/\tTRUE\t${futureExp}\tLOGIN_INFO\txyz
 `
 
   const igCookies = parseNetscapeCookieContent(content, 'instagram.com')

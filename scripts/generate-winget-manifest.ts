@@ -1,6 +1,6 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { generateWingetManifests, validateWingetManifests, type WingetManifestOptions } from '../src/distribution.js';
+import { join, resolve, relative, isAbsolute } from 'node:path';
+import { generateWingetManifests, validateWingetManifests, isValidSemver, type WingetManifestOptions } from '../src/distribution.js';
 
 function parseArgs(): { version: string; sha256: string; url?: string; outDir?: string } {
   const args = process.argv.slice(2);
@@ -24,6 +24,10 @@ function parseArgs(): { version: string; sha256: string; url?: string; outDir?: 
 
   if (!sha256) {
     console.error('Error: --sha256 <SHA256_HEX> is required');
+    process.exit(1);
+  }
+  if (!isValidSemver(version)) {
+    console.error(`Error: invalid semver version "${version}"`);
     process.exit(1);
   }
 
@@ -66,7 +70,13 @@ if (!validation.valid) {
   process.exit(1);
 }
 
-const targetDir = join(process.cwd(), config.outDir, config.version);
+const outRoot = resolve(process.cwd(), config.outDir);
+const targetDir = resolve(outRoot, config.version);
+const rel = relative(outRoot, targetDir);
+if (!rel || rel === '..' || rel.startsWith('..') || isAbsolute(rel)) {
+  console.error(`Error: resolved output path escapes manifest root: ${targetDir}`);
+  process.exit(1);
+}
 mkdirSync(targetDir, { recursive: true });
 
 writeFileSync(join(targetDir, 'OpenSelena.OpenOmni.yaml'), manifests.versionManifest, 'utf8');

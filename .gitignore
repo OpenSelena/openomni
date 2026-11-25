@@ -5,3 +5,8 @@ dist/
 .claude/
 .agents/
 .scratch/
+.env
+.env.*
+*.pem
+*.key
+cookies*.txt

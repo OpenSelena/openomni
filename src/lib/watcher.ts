@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import {readClipboardAsync} from './clipboard.js'
-import {isProbablyUrl, detectPlatform} from './platforms.js'
+import {isProbablyUrl, isPrivateOrLoopbackHost, detectPlatform} from './platforms.js'
 import {getCompletedDownload, recordDownloadWithStat} from './ledger.js'
 import {
   probeUnified,
@@ -23,13 +23,14 @@ import {
 import {
   resolvePlaylistDir,
   buildQualityTierArgs,
+  sanitizeExtension,
   sanitizeFilename,
   type QualityTier,
   type PlaylistEntry,
 } from './playlist.js'
 import {asyncPool} from './pool.js'
 import {normalizeToYtdlpSection} from './time.js'
-import {sanitizeError} from './sanitizer.js'
+import {sanitizeError, stripTerminalControls} from './sanitizer.js'
 import type {AudioFormat, VideoFormat, FormatMode} from './args.js'
 
 export type WatcherLogFn = (message: string) => void
@@ -57,6 +58,7 @@ export type WatcherOptions = {
   time?: string
   cookieFile?: string
   cookieHeader?: string
+  allowGenericUrls?: boolean
   pollIntervalMs?: number
   clipboardReader?: () => Promise<string>
   downloadFn?: (url: string, opts: WatcherOptions) => Promise<string>
@@ -79,27 +81,59 @@ const DEFAULT_POLL_INTERVAL = 1500
 const MAX_SEEN_CACHE = 500
 
 /**
- * Extracts a candidate HTTP/HTTPS URL from raw clipboard text.
+ * Extracts a candidate HTTP/HTTPS URL from raw clipboard text, rejecting control chars,
+ * embedded multi-line prose/logs, and private/loopback host targets.
  */
 export function extractUrlFromText(text: string): string | null {
   if (!text || typeof text !== 'string') return null
   const trimmed = text.trim()
+  if (!trimmed || /[\r\n]/.test(trimmed)) return null
+
+  let candidate: string | null = null
   if (isProbablyUrl(trimmed)) {
-    return trimmed
+    candidate = trimmed
+  } else {
+    const match = /(https?:\/\/[^\s"'<>]+)/i.exec(trimmed)
+    if (match && match[1] && isProbablyUrl(match[1])) {
+      candidate = match[1]
+    }
   }
-  const match = /(https?:\/\/[^\s"'<>]+)/i.exec(trimmed)
-  if (match && match[1] && isProbablyUrl(match[1])) {
-    return match[1]
+  if (!candidate) return null
+
+  try {
+    const parsed = new URL(candidate)
+    if (isPrivateOrLoopbackHost(parsed.hostname)) {
+      return null
+    }
+    return stripTerminalControls(candidate)
+  } catch {
+    return null
   }
-  return null
 }
 
 /**
  * Default download pipeline used by the watcher when no mock downloadFn is passed.
  */
 export async function defaultWatchDownload(url: string, opts: WatcherOptions): Promise<string> {
+  let parsedUrl: URL
+  try {
+    parsedUrl = new URL(url)
+  } catch {
+    throw new Error('Invalid clipboard URL')
+  }
+  if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+    throw new Error(`Unsupported URL protocol in watch mode: ${parsedUrl.protocol}`)
+  }
+  if (isPrivateOrLoopbackHost(parsedUrl.hostname)) {
+    throw new Error(`Blocked watcher request to private/loopback host: ${parsedUrl.hostname}`)
+  }
+  const platformKey = detectPlatform(url).key
+  if (platformKey === 'generic' && !opts.allowGenericUrls) {
+    throw new Error(`Skipped unrecognized non-platform URL in --watch mode: ${parsedUrl.hostname}`)
+  }
+
   await fs.mkdir(opts.outDir, {recursive: true})
-  const ytdlp = await ensureYtDlp(status => opts.onLog?.(`[watch] ${status}`))
+  const ytdlp = await ensureYtDlp(status => opts.onLog?.(`[watch] ${stripTerminalControls(status)}`), opts.signal)
   const ffmpegLocation = await findFfmpeg()
   const mediaFilter = opts.photosOnly ? 'photos' : opts.videosOnly ? 'videos' : 'all'
 
@@ -113,13 +147,15 @@ export async function defaultWatchDownload(url: string, opts: WatcherOptions): P
     geoBypass: opts.geoBypass,
     geoCountry: opts.geoCountry,
     limitRate: opts.limitRate,
-    onStatus: status => opts.onLog?.(`[watch] ${status}`),
+    signal: opts.signal,
+    onStatus: status => opts.onLog?.(`[watch] ${stripTerminalControls(status)}`),
   })
 
   // 1. Single Photo
   if (probeResult.kind === 'single_photo') {
     const item = probeResult.item
-    const filename = `${sanitizeFilename(probeResult.postTitle)}.${item.ext || 'jpg'}`
+    const safeExt = sanitizeExtension(item.ext || 'jpg', 'jpg')
+    const filename = `${sanitizeFilename(probeResult.postTitle)}.${safeExt}`
     const filepath = await downloadUnifiedItem({
       item: {
         id: item.id,
@@ -127,7 +163,8 @@ export async function defaultWatchDownload(url: string, opts: WatcherOptions): P
         url: item.url,
         index: 1,
         kind: 'photo',
-        ext: item.ext,
+        ext: safeExt,
+        engine: item.engine,
       },
       destDir: opts.outDir,
       filename,
@@ -222,32 +259,36 @@ export async function defaultWatchDownload(url: string, opts: WatcherOptions): P
     onProcessing: () => {},
   }
 
-  const filepath = await download(
-    {
-      ytdlp,
-      ffmpegLocation,
-      url,
-      choice,
-      outDir: opts.outDir,
-      outputTemplate: resolvedTemplate,
-      infoJsonPath,
-      subtitles: opts.subtitles,
-      thumbnail: opts.thumbnail,
-      metadata: opts.metadata,
-      cookieFile: opts.cookieFile,
-      section,
-      proxy: opts.proxy,
-      geoBypass: opts.geoBypass,
-      geoCountry: opts.geoCountry,
-      limitRate: opts.limitRate,
-      sponsorblock: opts.sponsorblock,
-      sponsorblockRemove: opts.sponsorblockRemove,
-    },
-    handlers,
-    opts.signal,
-  )
-
-  await cleanupInfoJson(infoJsonPath)
+  const filepath = await (async () => {
+    try {
+      return await download(
+        {
+          ytdlp,
+          ffmpegLocation,
+          url,
+          choice,
+          outDir: opts.outDir,
+          outputTemplate: resolvedTemplate,
+          infoJsonPath,
+          subtitles: opts.subtitles,
+          thumbnail: opts.thumbnail,
+          metadata: opts.metadata,
+          cookieFile: opts.cookieFile,
+          section,
+          proxy: opts.proxy,
+          geoBypass: opts.geoBypass,
+          geoCountry: opts.geoCountry,
+          limitRate: opts.limitRate,
+          sponsorblock: opts.sponsorblock,
+          sponsorblockRemove: opts.sponsorblockRemove,
+        },
+        handlers,
+        opts.signal,
+      )
+    } finally {
+      await cleanupInfoJson(infoJsonPath)
+    }
+  })()
 
   const platform = detectPlatform(url).key || info.extractor || 'yt-dlp'
   await recordDownloadWithStat({

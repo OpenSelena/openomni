@@ -37,9 +37,53 @@ export function detectPlatform(url: string): Platform {
   return {key: 'generic', label: hostname}
 }
 
+export function netmaskMatches(ip: string): boolean {
+  return isPrivateOrLoopbackHost(ip)
+}
+
+function isIpv4PrivateOrSpecial(ip: string): boolean {
+  const parts = ip.split('.').map(n => Number(n))
+  if (parts.length !== 4 || parts.some(n => !Number.isInteger(n) || n < 0 || n > 255)) return false
+  const [a, b] = parts as [number, number, number, number]
+  if (a === 0 || a === 10 || a === 127) return true
+  if (a === 169 && b === 254) return true
+  if (a === 172 && b >= 16 && b <= 31) return true
+  if (a === 192 && b === 168) return true
+  if (a === 100 && b >= 64 && b <= 127) return true
+  return false
+}
+
+export function isPrivateOrLoopbackHost(hostname: string): boolean {
+  const bare = hostname.trim().toLowerCase().replace(/^\[|\]$/g, '').split('%')[0] ?? ''
+  if (!bare) return true
+  if (bare === 'localhost' || bare.endsWith('.localhost') || bare.endsWith('.local') || bare.endsWith('.internal')) {
+    return true
+  }
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(bare)) {
+    return isIpv4PrivateOrSpecial(bare)
+  }
+  if (bare === '::' || bare === '::1' || bare === '0:0:0:0:0:0:0:1') return true
+  if (bare.startsWith('::ffff:')) {
+    const mapped = bare.slice('::ffff:'.length)
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(mapped)) return isIpv4PrivateOrSpecial(mapped)
+  }
+  const firstHextet = bare.split(':')[0] ?? ''
+  if (/^[0-9a-f]{1,4}$/.test(firstHextet)) {
+    const val = parseInt(firstHextet, 16)
+    if ((val & 0xfe00) === 0xfc00) return true
+    if ((val & 0xffc0) === 0xfe80) return true
+  }
+  return false
+}
+
 export function isProbablyUrl(input: string): boolean {
+  if (!input || typeof input !== 'string') return false
+  const trimmed = input.trim()
+  // Reject internal whitespace and C0/C1 control chars so new URL() cannot silently strip them.
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u0020\u007f-\u009f]/.test(trimmed)) return false
   try {
-    const u = new URL(input.trim())
+    const u = new URL(trimmed)
     return u.protocol === 'http:' || u.protocol === 'https:'
   } catch {
     return false
@@ -50,13 +94,23 @@ export function getOpenBrowserCommand(
   url: string,
   platform: NodeJS.Platform = process.platform,
 ): {command: string; args: string[]} {
+  let parsed: URL
+  try {
+    parsed = new URL(url.trim())
+  } catch {
+    throw new Error('Invalid URL')
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`Unsupported browser URL protocol: ${parsed.protocol}`)
+  }
+  const safeUrl = parsed.toString()
   if (platform === 'darwin') {
-    return {command: 'open', args: [url]}
+    return {command: 'open', args: [safeUrl]}
   }
   if (platform === 'win32') {
-    return {command: 'rundll32.exe', args: ['url.dll,FileProtocolHandler', url]}
+    return {command: 'rundll32.exe', args: ['url.dll,FileProtocolHandler', safeUrl]}
   }
-  return {command: 'xdg-open', args: [url]}
+  return {command: 'xdg-open', args: [safeUrl]}
 }
 
 export function openBrowser(url: string): void {

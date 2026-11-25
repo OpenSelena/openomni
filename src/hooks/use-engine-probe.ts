@@ -10,6 +10,7 @@ import {
   type VideoInfo,
 } from '../lib/ytdlp.js'
 import {
+  sanitizeExtension,
   sanitizeFilename,
   type PlaylistMetadata,
   type PlaylistEntry,
@@ -118,7 +119,7 @@ export function useEngineProbe({
           const postTitle = probeResult.postTitle
           const baseDir = outDir ?? DEFAULT_OUT_DIR
           await fs.mkdir(baseDir, {recursive: true})
-          const ext = item.ext || 'jpg'
+          const ext = sanitizeExtension(item.ext || 'jpg', 'jpg')
           const filename = `${sanitizeFilename(postTitle)}.${ext}`
           setPhase({
             name: 'downloading',
@@ -139,6 +140,7 @@ export function useEngineProbe({
                 index: 1,
                 kind: 'photo',
                 ext,
+                engine: item.engine,
               },
               destDir: baseDir,
               filename,

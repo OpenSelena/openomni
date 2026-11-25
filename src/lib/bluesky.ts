@@ -4,6 +4,8 @@ import path from 'node:path'
 import {Readable} from 'node:stream'
 import {pipeline} from 'node:stream/promises'
 import {spawn} from 'node:child_process'
+import {fetchWithProxy, validateRemoteHttpUrl} from './proxy-fetch.js'
+import {stripTerminalControls} from './sanitizer.js'
 
 const BLUESKY_HOSTS = new Set([
   'bsky.app',
@@ -56,8 +58,14 @@ export function isBlueskyCdnUrl(rawUrl: string): boolean {
   if (!rawUrl || typeof rawUrl !== 'string') return false
   try {
     const parsed = new URL(rawUrl.trim())
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
     const host = parsed.hostname.toLowerCase()
-    return host.includes('bsky.app') || host.includes('bsky.network')
+    return (
+      host === 'bsky.app' ||
+      host.endsWith('.bsky.app') ||
+      host === 'bsky.network' ||
+      host.endsWith('.bsky.network')
+    )
   } catch {
     return false
   }
@@ -143,14 +151,23 @@ export function parseBlueskyThread(data: unknown, rkey: string): BlueskyMediaRes
 
   const post = (thread.post || thread) as Record<string, unknown>
   const authorObj = (post.author || {}) as Record<string, unknown>
-  const handle = String(authorObj.handle || 'unknown')
-  const author = String(authorObj.displayName || authorObj.handle || 'Bluesky User')
+  const handle = stripTerminalControls(String(authorObj.handle || 'unknown'))
+  const author = stripTerminalControls(String(authorObj.displayName || authorObj.handle || 'Bluesky User'))
 
   const recordObj = (post.record || {}) as Record<string, unknown>
-  const caption = String(recordObj.text || '').trim()
+  const caption = stripTerminalControls(String(recordObj.text || '')).trim()
   const title = caption ? (caption.length > 60 ? caption.slice(0, 60) : caption) : `Post by @${handle}`
 
   const items: BlueskyMediaItem[] = []
+
+  function toSafeMediaUrl(candidate: unknown): string | undefined {
+    if (typeof candidate !== 'string' || !candidate) return undefined
+    try {
+      return validateRemoteHttpUrl(candidate).toString()
+    } catch {
+      return undefined
+    }
+  }
 
   function inspectEmbed(embed: unknown): void {
     if (!embed || typeof embed !== 'object') return
@@ -160,7 +177,7 @@ export function parseBlueskyThread(data: unknown, rkey: string): BlueskyMediaRes
     // Case 1: Direct images
     if (type.includes('app.bsky.embed.images') && Array.isArray(embedObj.images)) {
       for (const img of embedObj.images as Array<Record<string, unknown>>) {
-        const fullsize = String(img.fullsize || img.thumb || '')
+        const fullsize = toSafeMediaUrl(img.fullsize) || toSafeMediaUrl(img.thumb)
         if (fullsize) {
           const aspect = (img.aspectRatio || {}) as Record<string, number | undefined>
           items.push({
@@ -169,7 +186,7 @@ export function parseBlueskyThread(data: unknown, rkey: string): BlueskyMediaRes
             ext: parseImageExtension(fullsize),
             width: aspect.width,
             height: aspect.height,
-            alt: typeof img.alt === 'string' ? img.alt : undefined,
+            alt: typeof img.alt === 'string' ? stripTerminalControls(img.alt) : undefined,
           })
         }
       }
@@ -177,7 +194,7 @@ export function parseBlueskyThread(data: unknown, rkey: string): BlueskyMediaRes
 
     // Case 2: Direct video
     if (type.includes('app.bsky.embed.video')) {
-      const playlist = String(embedObj.playlist || '')
+      const playlist = toSafeMediaUrl(embedObj.playlist)
       if (playlist) {
         const aspect = (embedObj.aspectRatio || {}) as Record<string, number | undefined>
         items.push({
@@ -198,7 +215,7 @@ export function parseBlueskyThread(data: unknown, rkey: string): BlueskyMediaRes
     // Case 4: External link with preview image
     if (type.includes('app.bsky.embed.external')) {
       const extObj = (embedObj.external || {}) as Record<string, unknown>
-      const thumb = String(extObj.thumb || '')
+      const thumb = toSafeMediaUrl(extObj.thumb)
       if (thumb && items.length === 0) {
         items.push({
           url: thumb,
@@ -231,6 +248,7 @@ export function parseBlueskyThread(data: unknown, rkey: string): BlueskyMediaRes
 export async function resolveBlueskyMedia(
   url: string,
   fetchImpl: typeof fetch = fetch,
+  proxy?: string,
 ): Promise<BlueskyMediaResult> {
   const info = extractBlueskyPostInfo(url)
   if (!info) {
@@ -238,12 +256,16 @@ export async function resolveBlueskyMedia(
   }
 
   const apiUrl = buildBlueskyApiUrl(info.handleOrDid, info.rkey)
-  const response = await fetchImpl(apiUrl, {
-    headers: {
-      'User-Agent': 'OpenOmni-Media-Resolver/1.5',
-      'Accept': 'application/json',
+  const response = await fetchWithProxy(
+    apiUrl,
+    {
+      headers: {
+        'User-Agent': 'OpenOmni-Media-Resolver/1.5',
+        'Accept': 'application/json',
+      },
     },
-  })
+    {proxy, requireHttps: true, fetchImpl},
+  )
 
   if (!response.ok) {
     throw new Error(`Bluesky public API request failed: HTTP ${response.status} ${response.statusText || ''}`.trim())
@@ -264,16 +286,46 @@ export async function downloadBlueskyItem(
   fetchImpl: typeof fetch = fetch,
   ffmpegLocation?: string,
   spawnImpl: typeof spawn = spawn,
+  proxy?: string,
 ): Promise<void> {
+  validateRemoteHttpUrl(item.url)
   await fs.mkdir(path.dirname(outputPath), {recursive: true})
 
   if (item.kind === 'video' && item.url.includes('.m3u8')) {
     const ffmpegBin = ffmpegLocation || 'ffmpeg'
+    const childEnv: NodeJS.ProcessEnv = {...process.env}
+    if (proxy) {
+      let proxyParsed: URL
+      try {
+        proxyParsed = new URL(proxy)
+      } catch {
+        throw new Error('Invalid proxy URL for Bluesky video stream')
+      }
+      if (proxyParsed.protocol !== 'http:' || proxyParsed.username || proxyParsed.password) {
+        throw new Error(`Proxy protocol "${proxyParsed.protocol}" is not supported directly by ffmpeg HLS download; failing closed to prevent proxy bypass`)
+      }
+      childEnv.http_proxy = proxy
+      childEnv.https_proxy = proxy
+      childEnv.HTTP_PROXY = proxy
+      childEnv.HTTPS_PROXY = proxy
+    }
+
     return new Promise<void>((resolve, reject) => {
       const child = spawnImpl(
         ffmpegBin,
-        ['-y', '-i', item.url, '-c', 'copy', '-bsf:a', 'aac_adtstoasc', outputPath],
-        {stdio: 'ignore'},
+        [
+          '-y',
+          '-protocol_whitelist',
+          'http,https,tls,rtp,tcp,udp,crypto,httpproxy',
+          '-i',
+          item.url,
+          '-c',
+          'copy',
+          '-bsf:a',
+          'aac_adtstoasc',
+          outputPath,
+        ],
+        {stdio: 'ignore', env: childEnv},
       )
       child.on('error', err => {
         if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
@@ -294,11 +346,15 @@ export async function downloadBlueskyItem(
   }
 
   // Native HTTP stream download for photos and direct media
-  const response = await fetchImpl(item.url, {
-    headers: {
-      'User-Agent': 'OpenOmni-Media-Resolver/1.5',
+  const response = await fetchWithProxy(
+    item.url,
+    {
+      headers: {
+        'User-Agent': 'OpenOmni-Media-Resolver/1.5',
+      },
     },
-  })
+    {proxy, fetchImpl},
+  )
 
   if (!response.ok || !response.body) {
     throw new Error(`Failed to download Bluesky media: HTTP ${response.status}`)

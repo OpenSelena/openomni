@@ -18,8 +18,9 @@ import {
   type MetadataOptions,
   type VideoInfo,
 } from './ytdlp.js'
-import {formatTrackFilename, type PlaylistEntry, type PlaylistMetadata} from './playlist.js'
+import {formatTrackFilename, sanitizeExtension, type PlaylistEntry, type PlaylistMetadata} from './playlist.js'
 import {renderOutputTemplate} from './template.js'
+import {assertContainedPath} from './sanitizer.js'
 import {
   isInstagramUrl,
   isInstagramCdnUrl,
@@ -300,8 +301,8 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
   if (isInstagramUrl(url)) {
     try {
       onStatus?.('Probing Instagram post via embed resolver…')
-      const igCookies = cookieHeader || (cookieFile ? parseNetscapeCookieFile(cookieFile, 'instagram.com') : undefined)
-      const igResult = await runResolveInstagram(url, undefined, igCookies)
+      const igCookies = (cookieFile ? parseNetscapeCookieFile(cookieFile, 'instagram.com') : '') || cookieHeader
+      const igResult = await runResolveInstagram(url, undefined, igCookies, proxy)
       const unifiedItems: UnifiedMediaItem[] = igResult.items.map((it, idx) => ({
         id: `${igResult.postId}_${idx + 1}`,
         index: idx + 1,
@@ -354,7 +355,7 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
   if (isBlueskyUrl(url)) {
     try {
       onStatus?.('Probing Bluesky post via AT Protocol resolver…')
-      const bskyResult = await runResolveBluesky(url)
+      const bskyResult = await runResolveBluesky(url, undefined, proxy)
       const unifiedItems: UnifiedMediaItem[] = bskyResult.items.map((it, idx) => ({
         id: `${bskyResult.rkey}_${idx + 1}`,
         index: idx + 1,
@@ -468,11 +469,11 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
       if (!cookieFile && isLoginRedirectError(galleryDlErr)) {
         const recoverFn = options.autoRecoverCookiesFn || (async () => {
           try {
-            const jar = resolveCookieJar({browser: 'auto'}, {ytdlpPath: ytdlp})
+            const jar = resolveCookieJar({browser: 'auto'}, {ytdlpPath: ytdlp, proxy})
             if (!jar) return undefined
             return {
               cookieFile: jar.filePath,
-              cookieHeader: parseNetscapeCookieFile(jar.filePath),
+              cookieHeader: parseNetscapeCookieFile(jar.filePath, 'instagram.com'),
             }
           } catch {
             return undefined
@@ -541,11 +542,11 @@ export async function probeUnified(options: ProbeUnifiedOptions): Promise<Unifie
     if (!cookieFile && isLoginRedirectError(ytErrorObj)) {
       const recoverFn = options.autoRecoverCookiesFn || (async () => {
         try {
-          const jar = resolveCookieJar({browser: 'auto'}, {ytdlpPath: ytdlp})
+          const jar = resolveCookieJar({browser: 'auto'}, {ytdlpPath: ytdlp, proxy})
           if (!jar) return undefined
           return {
             cookieFile: jar.filePath,
-            cookieHeader: parseNetscapeCookieFile(jar.filePath),
+            cookieHeader: parseNetscapeCookieFile(jar.filePath, 'instagram.com'),
           }
         } catch {
           return undefined
@@ -691,7 +692,7 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
   let downloadedPath: string
 
   if (item.engine === 'instagram' || isInstagramCdnUrl(item.url)) {
-    const finalExt = item.ext || (item.kind === 'video' ? 'mp4' : 'jpg')
+    const finalExt = sanitizeExtension(item.ext || '', item.kind === 'video' ? 'mp4' : 'jpg')
     const finalFilename =
       filename ||
       (outputTemplate
@@ -703,10 +704,10 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
             ext: finalExt,
           })
         : formatTrackFilename(item.index, totalCount ?? Math.max(item.index, 1), item.title, finalExt))
-    const outPath = path.join(destDir, finalFilename)
-    await fs.mkdir(destDir, {recursive: true})
+    const outPath = assertContainedPath(destDir, path.join(destDir, finalFilename))
+    await fs.mkdir(path.dirname(outPath), {recursive: true})
 
-    const igCookies = cookieHeader || (cookieFile ? parseNetscapeCookieFile(cookieFile, 'instagram.com') : undefined)
+    const igCookies = (cookieFile ? parseNetscapeCookieFile(cookieFile, 'instagram.com') : '') || cookieHeader
     await runDownloadInstagram(
       {
         url: item.url,
@@ -723,10 +724,20 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
       },
       undefined,
       igCookies,
+      proxy,
     )
     downloadedPath = outPath
-  } else if (item.engine === 'bluesky' || isBlueskyCdnUrl(item.url)) {
-    const finalExt = item.ext || (item.kind === 'video' ? 'mp4' : 'jpg')
+  } else if (
+    (item.engine === 'bluesky' || isBlueskyCdnUrl(item.url)) &&
+    !(
+      item.kind === 'video' &&
+      item.url.includes('.m3u8') &&
+      proxy &&
+      (!proxy.startsWith('http://') || /:\/\/[^/@]+@/.test(proxy)) &&
+      !options.downloadBlueskyFn
+    )
+  ) {
+    const finalExt = sanitizeExtension(item.ext || '', item.kind === 'video' ? 'mp4' : 'jpg')
     const finalFilename =
       filename ||
       (outputTemplate
@@ -738,8 +749,8 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
             ext: finalExt,
           })
         : formatTrackFilename(item.index, totalCount ?? Math.max(item.index, 1), item.title, finalExt))
-    const outPath = path.join(destDir, finalFilename)
-    await fs.mkdir(destDir, {recursive: true})
+    const outPath = assertContainedPath(destDir, path.join(destDir, finalFilename))
+    await fs.mkdir(path.dirname(outPath), {recursive: true})
 
     await runDownloadBluesky(
       {
@@ -758,10 +769,12 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
       },
       undefined,
       ffmpegLocation,
+      undefined,
+      proxy,
     )
     downloadedPath = outPath
   } else if (item.kind === 'photo') {
-    const ext = item.ext || 'jpg'
+    const ext = sanitizeExtension(item.ext || 'jpg', 'jpg')
     const resolvedFilename =
       filename ||
       (outputTemplate
@@ -773,6 +786,7 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
             ext,
           })
         : formatTrackFilename(item.index, totalCount ?? Math.max(item.index, 1), item.title, ext))
+    assertContainedPath(destDir, path.join(destDir, resolvedFilename))
     const gdl = gallerydl || (options.downloadPhotoFn ? 'gallery-dl' : await ensureGalleryDl(undefined, signal))
     downloadedPath = await runDownloadPhoto({
       url: item.url,
@@ -797,11 +811,12 @@ export async function downloadUnifiedItem(options: DownloadUnifiedItemOptions): 
     })
   } else {
     const ext = '%(ext)s'
+    const escapedTitle = item.title.replace(/%/g, '%%')
     const resolvedFilename =
       filename ||
       (outputTemplate
-        ? (path.isAbsolute(outputTemplate) ? outputTemplate : path.join(destDir, outputTemplate))
-        : path.join(destDir, formatTrackFilename(item.index, totalCount ?? Math.max(item.index, 1), item.title, ext)))
+        ? (path.isAbsolute(outputTemplate) ? outputTemplate : assertContainedPath(destDir, path.join(destDir, outputTemplate)))
+        : assertContainedPath(destDir, path.join(destDir, formatTrackFilename(item.index, totalCount ?? Math.max(item.index, 1), escapedTitle, ext))))
     const section = time ? normalizeToYtdlpSection(time) ?? undefined : undefined
 
     downloadedPath = await runDownloadVideo(

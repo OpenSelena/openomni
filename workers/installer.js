@@ -14,6 +14,11 @@ const GITHUB_REPO_URL = 'https://github.com/OpenSelena/openomni'
 export default {
   async fetch(request) {
     const url = new URL(request.url)
+    if (url.protocol === 'http:') {
+      url.protocol = 'https:'
+      return Response.redirect(url.toString(), 301)
+    }
+
     const userAgent = request.headers.get('user-agent') || ''
     const isTerminalClient = userAgent.includes('curl') || userAgent.includes('Wget') || userAgent.includes('HTTPie')
 
@@ -36,6 +41,7 @@ export default {
           headers: {
             'Content-Type': 'text/plain; charset=utf-8',
             'Cache-Control': 'public, max-age=300, s-maxage=300',
+            'Vary': 'User-Agent',
             'X-Content-Type-Options': 'nosniff',
           },
         })
@@ -45,6 +51,12 @@ export default {
     }
 
     // Interactive browser navigation: redirect to GitHub repository
-    return Response.redirect(GITHUB_REPO_URL, 302)
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: GITHUB_REPO_URL,
+        Vary: 'User-Agent',
+      },
+    })
   },
 }

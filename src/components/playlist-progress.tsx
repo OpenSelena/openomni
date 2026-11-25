@@ -6,6 +6,7 @@ import { Panel } from './panel.js'
 import { ProgressBar } from './progress-bar.js'
 import type { DownloadProgress } from '../lib/ytdlp.js'
 import { formatBytes, formatEta, formatSpeed } from '../lib/format.js'
+import { stripTerminalControls } from '../lib/sanitizer.js'
 
 export type PlaylistProgressProps = {
   playlistTitle: string
@@ -43,14 +44,16 @@ export function PlaylistProgress({
   const batchRatio =
     totalCount > 0 ? Math.min(1, (currentIndex + itemRatio) / totalCount) : 0
   const batchPct = Math.round(batchRatio * 100)
-  const cleanTitle = currentTitle.length > 44 ? `${currentTitle.slice(0, 41)}...` : currentTitle
+  const safePlaylistTitle = stripTerminalControls(playlistTitle)
+  const safeCurrentTitle = stripTerminalControls(currentTitle)
+  const cleanTitle = safeCurrentTitle.length > 44 ? `${safeCurrentTitle.slice(0, 41)}...` : safeCurrentTitle
 
   const speedStr = progress?.speed ? formatSpeed(progress.speed) : ''
   const etaStr = progress?.eta ? `${formatEta(progress.eta)} left` : ''
   const bytesStr = progress?.downloadedBytes ? formatBytes(progress.downloadedBytes) : ''
 
   return (
-    <Panel title={`Playlist: ${playlistTitle.slice(0, 30)}`} width={width}>
+    <Panel title={`Playlist: ${safePlaylistTitle.slice(0, 30)}`} width={width}>
       <Box flexDirection="column" paddingY={1}>
         {/* Overall Batch Progress Header */}
         <Box justifyContent="space-between" marginBottom={0}>
@@ -104,7 +107,7 @@ export function PlaylistProgress({
             </Text>
             {lastWarning && (
               <Text color={theme.gray} dimColor={theme.dimSecondary}>
-                {`  └─ ${lastWarning.length > 55 ? `${lastWarning.slice(0, 52)}...` : lastWarning}`}
+                {`  └─ ${(() => { const w = stripTerminalControls(lastWarning); return w.length > 55 ? `${w.slice(0, 52)}...` : w })()}`}
               </Text>
             )}
           </Box>

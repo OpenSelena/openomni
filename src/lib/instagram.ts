@@ -5,6 +5,9 @@
  * the unauthenticated /embed/captioned/ endpoint, bypassing standard login redirects.
  */
 
+import {fetchWithProxy, validateRemoteHttpUrl} from './proxy-fetch.js';
+import {stripTerminalControls} from './sanitizer.js';
+
 const INSTAGRAM_HOSTS = new Set([
   'instagram.com',
   'www.instagram.com',
@@ -14,14 +17,39 @@ const INSTAGRAM_HOSTS = new Set([
   'www.ddinstagram.com',
 ]);
 
+const OFFICIAL_INSTAGRAM_AUTH_HOSTS = new Set([
+  'instagram.com',
+  'www.instagram.com',
+  'instagr.am',
+  'www.instagr.am',
+]);
+
 /**
  * Checks if a given URL belongs to Instagram.
  */
 export function isInstagramUrl(rawUrl: string): boolean {
   try {
     const parsed = new URL(rawUrl);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
     const host = parsed.hostname.toLowerCase();
     return INSTAGRAM_HOSTS.has(host) || host.endsWith('.instagram.com');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Strict positive allowlist for HTTPS official Instagram origins that may receive session cookies.
+ */
+export function isOfficialInstagramHttpsUrl(rawUrl: string): boolean {
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol !== 'https:') return false;
+    const host = parsed.hostname.toLowerCase();
+    if (isInstagramCdnUrl(rawUrl) || host === 'ddinstagram.com' || host.endsWith('.ddinstagram.com')) {
+      return false;
+    }
+    return OFFICIAL_INSTAGRAM_AUTH_HOSTS.has(host) || host.endsWith('.instagram.com');
   } catch {
     return false;
   }
@@ -33,11 +61,14 @@ export function isInstagramUrl(rawUrl: string): boolean {
 export function isInstagramCdnUrl(rawUrl: string): boolean {
   try {
     const parsed = new URL(rawUrl);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
     const host = parsed.hostname.toLowerCase();
     return (
-      host.includes('cdninstagram.com') ||
-      host.includes('fbcdn.net') ||
-      host.includes('instagram.f')
+      host === 'cdninstagram.com' ||
+      host.endsWith('.cdninstagram.com') ||
+      host === 'fbcdn.net' ||
+      host.endsWith('.fbcdn.net') ||
+      /^instagram\.[a-z0-9-]+\.fna\.fbcdn\.net$/.test(host)
     );
   } catch {
     return false;
@@ -65,19 +96,18 @@ export function extractInstagramPostId(rawUrl: string): string | null {
       return null;
     }
 
+    let postId: string | null = null;
     if (first === 'p' || first === 'reel' || first === 'reels' || first === 'tv') {
-      return segments[1] || null;
-    }
-
-    if (first === 'share') {
-      // Handles /share/p/ID/ or /share/ID/
+      postId = segments[1] || null;
+    } else if (first === 'share') {
       if (segments[1]?.toLowerCase() === 'p' && segments[2]) {
-        return segments[2];
+        postId = segments[2];
+      } else {
+        postId = segments[1] || null;
       }
-      return segments[1] || null;
     }
 
-    return null;
+    return postId && /^[A-Za-z0-9_-]+$/.test(postId) ? postId : null;
   } catch {
     return null;
   }
@@ -164,10 +194,23 @@ export function parseInstagramEmbed(
     rawData?.xdt_shortcode_media ||
     rawData;
 
-  const author =
+  const rawAuthor =
     mediaNode?.owner?.username || rawData?.owner?.username || undefined;
-  const caption =
+  const author = typeof rawAuthor === 'string' ? stripTerminalControls(rawAuthor) : undefined;
+  const rawCaption =
     mediaNode?.edge_media_to_caption?.edges?.[0]?.node?.text || undefined;
+  const caption = typeof rawCaption === 'string' ? stripTerminalControls(rawCaption) : undefined;
+
+  const isAllowedMediaUrl = (rawUrl: unknown): rawUrl is string => {
+    if (typeof rawUrl !== 'string') return false;
+    try {
+      const parsed = validateRemoteHttpUrl(rawUrl, {requireHttps: true});
+      const urlStr = parsed.toString();
+      return isInstagramCdnUrl(urlStr) || isOfficialInstagramHttpsUrl(urlStr);
+    } catch {
+      return false;
+    }
+  };
 
   const items: InstagramMediaItem[] = [];
 
@@ -177,14 +220,14 @@ export function parseInstagramEmbed(
     for (const edge of sidecarEdges) {
       const node = edge?.node;
       if (!node) continue;
-      if (node.is_video && node.video_url) {
+      if (node.is_video && isAllowedMediaUrl(node.video_url)) {
         items.push({
           url: node.video_url,
           kind: 'video',
           width: node.dimensions?.width,
           height: node.dimensions?.height,
         });
-      } else if (node.display_url) {
+      } else if (isAllowedMediaUrl(node.display_url)) {
         items.push({
           url: node.display_url,
           kind: 'photo',
@@ -197,20 +240,23 @@ export function parseInstagramEmbed(
 
   // If not a carousel or carousel had no items, check single video/photo
   if (items.length === 0) {
-    if (mediaNode?.video_url) {
+    if (isAllowedMediaUrl(mediaNode?.video_url)) {
       items.push({
         url: mediaNode.video_url,
         kind: 'video',
         width: mediaNode.dimensions?.width,
         height: mediaNode.dimensions?.height,
       });
-    } else if (mediaNode?.display_url || mediaNode?.media?.display_url) {
-      items.push({
-        url: mediaNode.display_url || mediaNode.media.display_url,
-        kind: 'photo',
-        width: mediaNode.dimensions?.width,
-        height: mediaNode.dimensions?.height,
-      });
+    } else {
+      const singlePhotoUrl = mediaNode?.display_url || mediaNode?.media?.display_url;
+      if (isAllowedMediaUrl(singlePhotoUrl)) {
+        items.push({
+          url: singlePhotoUrl,
+          kind: 'photo',
+          width: mediaNode.dimensions?.width,
+          height: mediaNode.dimensions?.height,
+        });
+      }
     }
   }
 
@@ -237,6 +283,7 @@ export async function resolveInstagramMedia(
   url: string,
   fetchImpl: typeof fetch = fetch,
   cookieHeader?: string,
+  proxy?: string,
 ): Promise<InstagramMediaResult> {
   const postId = extractInstagramPostId(url);
   if (!postId) {
@@ -255,11 +302,15 @@ export async function resolveInstagramMedia(
     'Referer': 'https://www.instagram.com/',
   };
 
-  if (cookieHeader) {
+  if (cookieHeader && isOfficialInstagramHttpsUrl(embedUrl)) {
     headers['Cookie'] = cookieHeader;
   }
 
-  const response = await fetchImpl(embedUrl, {headers});
+  const response = await fetchWithProxy(embedUrl, {headers}, {
+    proxy,
+    requireHttps: true,
+    fetchImpl,
+  });
 
   if (!response.ok) {
     throw new Error(
@@ -280,10 +331,13 @@ export async function downloadInstagramItem(
   onProgress?: (receivedBytes: number, totalBytes?: number) => void,
   fetchImpl: typeof fetch = fetch,
   cookieHeader?: string,
+  proxy?: string,
 ): Promise<void> {
   const { createWriteStream } = await import('node:fs');
   const { pipeline } = await import('node:stream/promises');
   const { Readable } = await import('node:stream');
+
+  validateRemoteHttpUrl(item.url, {requireHttps: fetchImpl === fetch});
 
   const headers: Record<string, string> = {
     'User-Agent': DEFAULT_USER_AGENT,
@@ -291,17 +345,25 @@ export async function downloadInstagramItem(
     'Sec-Fetch-Dest': item.kind === 'video' ? 'video' : 'image',
   };
 
-  // Only forward Cookie header to instagram.com, NEVER to static CDN hosts (*.cdninstagram.com, *.fbcdn.net)
-  if (cookieHeader && !isInstagramCdnUrl(item.url)) {
+  // Positive allowlist: only forward cookies to official HTTPS instagram.com/instagr.am origins
+  if (cookieHeader && isOfficialInstagramHttpsUrl(item.url)) {
     headers['Cookie'] = cookieHeader;
   }
 
-  let response = await fetchImpl(item.url, {headers});
+  let response = await fetchWithProxy(item.url, {headers}, {
+    proxy,
+    requireHttps: fetchImpl === fetch,
+    fetchImpl,
+  });
 
   // Retry once with backoff on transient 429 (rate limit) or 5xx server errors
   if (!response.ok && (response.status === 429 || response.status >= 500)) {
     await new Promise(resolve => setTimeout(resolve, 1500));
-    response = await fetchImpl(item.url, {headers});
+    response = await fetchWithProxy(item.url, {headers}, {
+      proxy,
+      requireHttps: fetchImpl === fetch,
+      fetchImpl,
+    });
   }
 
   if (!response.ok || !response.body) {

@@ -306,13 +306,10 @@ test('maskProxyCredentials removes passwords and user credentials from URLs in s
   assert.equal(maskProxyCredentials(null as unknown as string), '')
 })
 
-test('buildProxyArgs generates correct yt-dlp proxy and geo bypass arguments', () => {
+test('buildProxyArgs generates geo bypass arguments without leaking proxy credentials to argv', () => {
   assert.deepEqual(buildProxyArgs(undefined), [])
   assert.deepEqual(buildProxyArgs({}), [])
-  assert.deepEqual(buildProxyArgs({proxy: 'http://127.0.0.1:8080'}), [
-    '--proxy',
-    'http://127.0.0.1:8080',
-  ])
+  assert.deepEqual(buildProxyArgs({proxy: 'http://user:secret@127.0.0.1:8080'}), [])
   assert.deepEqual(buildProxyArgs({geoBypass: true}), ['--geo-bypass'])
   assert.deepEqual(buildProxyArgs({geoCountry: 'US'}), ['--geo-bypass-country', 'US'])
   assert.deepEqual(
@@ -321,13 +318,7 @@ test('buildProxyArgs generates correct yt-dlp proxy and geo bypass arguments', (
       geoBypass: true,
       geoCountry: 'JP',
     }),
-    [
-      '--proxy',
-      'socks5://127.0.0.1:1080',
-      '--geo-bypass',
-      '--geo-bypass-country',
-      'JP',
-    ]
+    ['--geo-bypass', '--geo-bypass-country', 'JP'],
   )
 })
 

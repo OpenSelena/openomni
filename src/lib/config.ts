@@ -448,11 +448,21 @@ export function saveConfig(
   configPath: string = resolveConfigPath(),
 ): void {
   const dir = path.dirname(configPath)
-  fs.mkdirSync(dir, {recursive: true})
+  fs.mkdirSync(dir, {recursive: true, mode: 0o700})
+  try {
+    fs.chmodSync(dir, 0o700)
+  } catch {
+    // Ignore permission tightening failures on non-POSIX filesystems
+  }
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', {
     encoding: 'utf8',
     mode: 0o600,
   })
+  try {
+    fs.chmodSync(configPath, 0o600)
+  } catch {
+    // Ignore permission tightening failures on non-POSIX filesystems
+  }
 }
 
 export function updateConfig(

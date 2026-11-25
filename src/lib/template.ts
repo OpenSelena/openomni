@@ -1,4 +1,5 @@
-import path from 'node:path'
+import {sanitizeExtension} from './playlist.js'
+import {stripTerminalControls} from './sanitizer.js'
 
 export type TemplateVars = {
   title?: string
@@ -18,7 +19,7 @@ export type TemplateVars = {
  * and illegal filename characters.
  */
 export function sanitizeTemplateTokens(val: string): string {
-  return val
+  return stripTerminalControls(val)
     .replace(/[/\\:*?"<>|]/g, '_')
     .replace(/\.\./g, '_')
     .replace(/\s+/g, ' ')
@@ -34,7 +35,8 @@ export function renderOutputTemplate(template: string, vars: TemplateVars): stri
   const uploader = sanitizeTemplateTokens(vars.uploader ?? vars.artist ?? '')
   const title = sanitizeTemplateTokens(vars.title ?? 'Untitled')
   const id = sanitizeTemplateTokens(vars.id ?? '')
-  const ext = sanitizeTemplateTokens((vars.ext ?? '').replace(/^\./, ''))
+  const rawExt = vars.ext ?? ''
+  const ext = rawExt ? sanitizeExtension(rawExt, '') : ''
   const uploadDate = sanitizeTemplateTokens(vars.upload_date ?? vars.date ?? '')
   const idx = vars.index ?? vars.playlist_index ?? 1
   const paddedIndex = String(idx).padStart(2, '0')
@@ -65,6 +67,6 @@ export function renderOutputTemplate(template: string, vars: TemplateVars): stri
   // Handle brace style tokens:
   result = result.replace(/\{(\w+)\}/g, (_, key) => tokenMap[key] ?? '')
 
-  // Prevent directory traversal upwards out of the destination root
-  return result.replace(/\.\./g, '_')
+  // Prevent directory traversal upwards and strip any control characters
+  return stripTerminalControls(result.replace(/\.\./g, '_'))
 }

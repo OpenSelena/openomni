@@ -14,6 +14,10 @@ const FORK_OWNER = 'igect';
 const UPSTREAM_OWNER = 'microsoft';
 const REPO = 'winget-pkgs';
 const VERSION = version;
+if (!/^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$/.test(VERSION) || VERSION.includes('..')) {
+  console.error(`Error: invalid semver version "${VERSION}"`);
+  process.exit(1);
+}
 const BRANCH = `update-openselena-openomni-${VERSION}`;
 const MANIFEST_DIR = `manifests/o/OpenSelena/OpenOmni/${VERSION}`;
 

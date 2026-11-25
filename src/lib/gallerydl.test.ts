@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import path from 'node:path'
 import test from 'node:test'
 import {
   galleryDlAssetName,
@@ -46,13 +47,20 @@ test('galleryDlAssetName returns correct binary for platform', () => {
   }
 })
 
-test('resolveGalleryDlPath defaults to ~/.open-omni/bin', () => {
-  const custom = resolveGalleryDlPath({OPEN_OMNI_DIR: '/custom/bin'})
+test('resolveGalleryDlPath defaults to ~/.open-omni/bin and ignores OPEN_OMNI_DIR', () => {
+  const fromMediaEnv = resolveGalleryDlPath({OPEN_OMNI_DIR: '/custom/media'})
+  assert.ok(!fromMediaEnv.startsWith('/custom/media'))
   if (process.platform === 'win32') {
-    assert.ok(custom.endsWith('\\gallery-dl.exe') || custom.endsWith('/gallery-dl.exe'))
+    assert.ok(fromMediaEnv.endsWith('\\gallery-dl.exe') || fromMediaEnv.endsWith('/gallery-dl.exe'))
   } else {
-    assert.ok(custom.endsWith('/gallery-dl'))
+    assert.ok(fromMediaEnv.endsWith('/gallery-dl'))
   }
+
+  const fromBinEnv = resolveGalleryDlPath({OPEN_OMNI_BIN_DIR: '/custom/bin'})
+  assert.equal(
+    fromBinEnv,
+    path.join('/custom/bin', process.platform === 'win32' ? 'gallery-dl.exe' : 'gallery-dl'),
+  )
 })
 
 test('parseGalleryDlOutput parses standard gallery-dl tuple array', () => {
@@ -365,7 +373,7 @@ test('updateGalleryDl installs if missing on darwin', async () => {
   assert.equal(res.updated, true)
 })
 
-test('buildGalleryDlProbeArgs formats probe arguments with proxy, limit-rate, and cookies', () => {
+test('buildGalleryDlProbeArgs formats probe arguments with limit-rate and cookies without exposing proxy in argv', () => {
   assert.deepEqual(
     buildGalleryDlProbeArgs('https://example.com/gallery'),
     ['-J', '--no-part', 'https://example.com/gallery']
@@ -373,7 +381,7 @@ test('buildGalleryDlProbeArgs formats probe arguments with proxy, limit-rate, an
 
   assert.deepEqual(
     buildGalleryDlProbeArgs('https://example.com/gallery', '/path/cookies.txt', {
-      proxy: 'http://127.0.0.1:8080',
+      proxy: 'http://user:pass@127.0.0.1:8080',
       limitRate: '1.5M',
     }),
     [
@@ -381,8 +389,6 @@ test('buildGalleryDlProbeArgs formats probe arguments with proxy, limit-rate, an
       '--no-part',
       '--cookies',
       '/path/cookies.txt',
-      '--proxy',
-      'http://127.0.0.1:8080',
       '--limit-rate',
       '1.5M',
       'https://example.com/gallery',
@@ -390,13 +396,13 @@ test('buildGalleryDlProbeArgs formats probe arguments with proxy, limit-rate, an
   )
 })
 
-test('buildGalleryDlDownloadArgs formats download arguments with destination, proxy, and limit-rate', () => {
+test('buildGalleryDlDownloadArgs formats download arguments without proxy creds and escapes filename braces', () => {
   assert.deepEqual(
     buildGalleryDlDownloadArgs({
       url: 'https://example.com/photo.jpg',
       destDir: '/downloads',
-      filename: 'photo.jpg',
-      proxy: 'socks5://127.0.0.1:1080',
+      filename: '01 - {_env[SECRET]}.jpg',
+      proxy: 'socks5://user:pass@127.0.0.1:1080',
       limitRate: '50K',
       cookieFile: '/cookies.txt',
     }),
@@ -406,12 +412,10 @@ test('buildGalleryDlDownloadArgs formats download arguments with destination, pr
       '--no-part',
       '--cookies',
       '/cookies.txt',
-      '--proxy',
-      'socks5://127.0.0.1:1080',
       '--limit-rate',
       '50K',
       '-f',
-      'photo.jpg',
+      '01 - {{_env[SECRET]}}.jpg',
       'https://example.com/photo.jpg',
     ]
   )
