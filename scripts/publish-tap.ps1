@@ -23,8 +23,8 @@ Copy-Item "$root\Formula\open-omni.rb" "$formulaDir\open-omni.rb" -Force
 $readmeContent = @'
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/OpenSelena/openomni/main/assets/logo-dark.svg">
-    <img src="https://raw.githubusercontent.com/OpenSelena/openomni/main/assets/logo-light.svg" alt="Open Selena" width="240">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/OpenSelena/open-omni/main/assets/logo-dark.svg">
+    <img src="https://raw.githubusercontent.com/OpenSelena/open-omni/main/assets/logo-light.svg" alt="Open Selena" width="240">
   </picture>
 </p>
 
@@ -35,8 +35,8 @@ $readmeContent = @'
 
 <p align="center">
   <a href="https://github.com/OpenSelena/homebrew-tap/actions"><img src="https://img.shields.io/badge/Homebrew-Tap-FBB040.svg?logo=homebrew&logoColor=white" alt="Homebrew Tap"></a>
-  <a href="https://github.com/OpenSelena/openomni"><img src="https://img.shields.io/badge/Open%20Omni-v__VERSION__-C15F3C.svg" alt="Open Omni Version"></a>
-  <a href="https://github.com/OpenSelena/openomni/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <a href="https://github.com/OpenSelena/open-omni"><img src="https://img.shields.io/badge/Open%20Omni-v__VERSION__-C15F3C.svg" alt="Open Omni Version"></a>
+  <a href="https://github.com/OpenSelena/open-omni/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
   <a href="mailto:igect@vk.com"><img src="https://img.shields.io/badge/contact-igect%40vk.com-blue.svg" alt="Contact Email"></a>
 </p>
 
@@ -197,15 +197,15 @@ Applicable copyright laws (such as Section 107 of the U.S. Copyright Act and com
 
 ## Links & Community
 
-- **Source Code Repository**: [https://github.com/OpenSelena/openomni](https://github.com/OpenSelena/openomni)
-- **Issue Tracker & Bug Reports**: [https://github.com/OpenSelena/openomni/issues](https://github.com/OpenSelena/openomni/issues)
+- **Source Code Repository**: [https://github.com/OpenSelena/open-omni](https://github.com/OpenSelena/open-omni)
+- **Issue Tracker & Bug Reports**: [https://github.com/OpenSelena/open-omni/issues](https://github.com/OpenSelena/open-omni/issues)
 - **npm Package**: [https://www.npmjs.com/package/open-omni](https://www.npmjs.com/package/open-omni)
 
 ---
 
 ## License & Inquiries
 
-Open Omni and this tap formula are released under the [MIT License](https://github.com/OpenSelena/openomni/blob/main/LICENSE).
+Open Omni and this tap formula are released under the [MIT License](https://github.com/OpenSelena/open-omni/blob/main/LICENSE).
 
 ### Contact, DMCA & Legal Inquiries
 For copyright concerns, DMCA takedown requests, legal inquiries, bug reports, security disclosures, or general questions regarding this project, please reach out directly:

@@ -295,7 +295,7 @@ export function validateWingetManifests(manifests: WingetManifests): ValidationR
   }
 
   const urlVals = getUniqueYamlProperty(manifests.installerManifest, 'installer', 'InstallerUrl');
-  if (urlVals.length !== 1 || !/^https:\/\/github\.com\/OpenSelena\/openomni\/releases\/[^\s#]+$/.test(urlVals[0]!)) {
+  if (urlVals.length !== 1 || !/^https:\/\/github\.com\/OpenSelena\/open-omni\/releases\/[^\s#]+$/.test(urlVals[0]!)) {
     errors.push('Installer manifest missing valid HTTPS installer URL');
   }
 

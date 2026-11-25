@@ -6,11 +6,11 @@ PackageVersion: 1.5.2
 PackageLocale: en-US
 Publisher: OpenSelena
 PublisherUrl: https://github.com/OpenSelena
-PublisherSupportUrl: https://github.com/OpenSelena/openomni/issues
+PublisherSupportUrl: https://github.com/OpenSelena/open-omni/issues
 PackageName: Open Omni
-PackageUrl: https://github.com/OpenSelena/openomni
+PackageUrl: https://github.com/OpenSelena/open-omni
 License: MIT
-LicenseUrl: https://github.com/OpenSelena/openomni/blob/main/LICENSE
+LicenseUrl: https://github.com/OpenSelena/open-omni/blob/main/LICENSE
 Copyright: Copyright (c) 2026 OpenSelena
 ShortDescription: Fast terminal media downloader and TUI for 1,800+ sites
 Description: Open Omni is a fast terminal-first media downloader and TUI for 1,800+ sites powered by yt-dlp and gallery-dl.

@@ -2,8 +2,8 @@ require "language/node"
 
 class OpenOmni < Formula
   desc "Fast terminal media downloader and TUI for 1,800+ sites"
-  homepage "https://github.com/OpenSelena/openomni"
-  url "https://github.com/OpenSelena/openomni/releases/download/v1.5.2/open-omni-1.5.2.tgz"
+  homepage "https://github.com/OpenSelena/open-omni"
+  url "https://github.com/OpenSelena/open-omni/releases/download/v1.5.2/open-omni-1.5.2.tgz"
   sha256 "a8060cf20b85e7b1fae11a53f2ec7af10cde7e72d13cc2e5e5793b7af96a0feb"
   license "MIT"
 

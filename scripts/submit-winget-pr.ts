@@ -94,7 +94,7 @@ const body = `## New Package Submission
 - **Publisher**: OpenSelena
 - **Package Name**: Open Omni
 - **License**: MIT
-- **Homepage**: https://github.com/OpenSelena/openomni
+- **Homepage**: https://github.com/OpenSelena/open-omni
 
 ### Description
 Fast terminal media downloader and TUI for 1,800+ sites powered by yt-dlp and gallery-dl.

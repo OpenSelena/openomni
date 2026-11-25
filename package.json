@@ -58,10 +58,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/OpenSelena/openomni.git"
+    "url": "git+https://github.com/OpenSelena/open-omni.git"
   },
-  "homepage": "https://github.com/OpenSelena/openomni#readme",
+  "homepage": "https://github.com/OpenSelena/open-omni#readme",
   "bugs": {
-    "url": "https://github.com/OpenSelena/openomni/issues"
+    "url": "https://github.com/OpenSelena/open-omni/issues"
   }
 }

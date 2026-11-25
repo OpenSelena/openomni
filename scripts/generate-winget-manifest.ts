@@ -31,7 +31,7 @@ function parseArgs(): { version: string; sha256: string; url?: string; outDir?: 
     process.exit(1);
   }
 
-  const installerUrl = url || `https://github.com/OpenSelena/openomni/releases/download/v${version}/open-omni-windows-x64.zip`;
+  const installerUrl = url || `https://github.com/OpenSelena/open-omni/releases/download/v${version}/open-omni-windows-x64.zip`;
 
   return { version, sha256, url: installerUrl, outDir };
 }
@@ -44,9 +44,9 @@ const options: WingetManifestOptions = {
   packageLocale: 'en-US',
   publisher: 'OpenSelena',
   publisherUrl: 'https://github.com/OpenSelena',
-  packageUrl: 'https://github.com/OpenSelena/openomni',
+  packageUrl: 'https://github.com/OpenSelena/open-omni',
   license: 'MIT',
-  licenseUrl: 'https://github.com/OpenSelena/openomni/blob/main/LICENSE',
+  licenseUrl: 'https://github.com/OpenSelena/open-omni/blob/main/LICENSE',
   shortDescription: 'Fast terminal media downloader and TUI for 1,800+ sites',
   installerUrl: config.url,
   installerSha256: config.sha256,

@@ -504,7 +504,7 @@ function InnerApp({
     return undefined
   }
 
-  const releaseUrl = `https://github.com/OpenSelena/openomni/releases/tag/v${version}`
+  const releaseUrl = `https://github.com/OpenSelena/open-omni/releases/tag/v${version}`
   const clickTargets: ClickTarget[] = []
   if (phase.name === 'input') {
     clickTargets.push({match: `v${version}`, padX: 1, action: () => openBrowser(releaseUrl)})

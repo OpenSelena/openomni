@@ -8,8 +8,8 @@
  * Deployable on Cloudflare Workers, Fastly Compute, or any V8 Edge runtime.
  */
 
-const UPSTREAM_INSTALLER_URL = 'https://raw.githubusercontent.com/OpenSelena/openomni/main/install.sh'
-const GITHUB_REPO_URL = 'https://github.com/OpenSelena/openomni'
+const UPSTREAM_INSTALLER_URL = 'https://raw.githubusercontent.com/OpenSelena/open-omni/main/install.sh'
+const GITHUB_REPO_URL = 'https://github.com/OpenSelena/open-omni'
 
 export default {
   async fetch(request) {

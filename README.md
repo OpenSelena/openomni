@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/OpenSelena/openomni/main/assets/logo-dark.svg">
-    <img src="https://raw.githubusercontent.com/OpenSelena/openomni/main/assets/logo-light.svg" alt="Open Omni" width="240">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/OpenSelena/open-omni/main/assets/logo-dark.svg">
+    <img src="https://raw.githubusercontent.com/OpenSelena/open-omni/main/assets/logo-light.svg" alt="Open Omni" width="240">
   </picture>
 </p>
 
@@ -12,13 +12,13 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/open-omni"><img src="https://img.shields.io/npm/v/open-omni.svg?color=C15F3C" alt="npm version"></a>
-  <a href="https://github.com/OpenSelena/openomni/actions/workflows/ci.yml"><img src="https://github.com/OpenSelena/openomni/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/OpenSelena/open-omni/actions/workflows/ci.yml"><img src="https://github.com/OpenSelena/open-omni/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D20-brightgreen" alt="Node version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/OpenSelena/openomni/main/assets/home.png" alt="Open Omni Interface" width="100%">
+  <img src="https://raw.githubusercontent.com/OpenSelena/open-omni/main/assets/home.png" alt="Open Omni Interface" width="100%">
 </p>
 
 ---
@@ -204,7 +204,7 @@ open-omni -U
 ## Interactive Interface
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/OpenSelena/openomni/main/assets/download-options.png" alt="Format and quality picker" width="100%">
+  <img src="https://raw.githubusercontent.com/OpenSelena/open-omni/main/assets/download-options.png" alt="Format and quality picker" width="100%">
 </p>
 
 - **URL Input**: Paste URLs directly or press `Tab` to insert the current clipboard contents.

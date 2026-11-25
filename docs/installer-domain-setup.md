@@ -12,7 +12,7 @@ downloads and executes the Open Omni installer ([`install.sh`](../install.sh)).
 
 When a user runs `curl -fsSL https://mint.dev.cv | sh`:
 1. `mint.dev.cv` receives the HTTP `GET` request.
-2. The edge network (Cloudflare) returns a `307` or `302` redirect to `https://raw.githubusercontent.com/OpenSelena/openomni/main/install.sh`.
+2. The edge network (Cloudflare) returns a `307` or `302` redirect to `https://raw.githubusercontent.com/OpenSelena/open-omni/main/install.sh`.
 3. `curl` follows the redirect via `-L` and streams `install.sh` directly into `sh`.
 
 ---
@@ -31,7 +31,7 @@ When a user runs `curl -fsSL https://mint.dev.cv | sh`:
    * Name: `Open Omni Installer`
    * When: `All incoming requests`
    * URL redirect: `Static`
-   * Target URL: `https://raw.githubusercontent.com/OpenSelena/openomni/main/install.sh`
+   * Target URL: `https://raw.githubusercontent.com/OpenSelena/open-omni/main/install.sh`
    * Status code: `307 - Temporary Redirect`
 
 ---
@@ -49,11 +49,11 @@ server {
     listen 443 ssl;
 
     location = / {
-        return 302 https://raw.githubusercontent.com/OpenSelena/openomni/main/install.sh;
+        return 302 https://raw.githubusercontent.com/OpenSelena/open-omni/main/install.sh;
     }
 
     location / {
-        return 302 https://github.com/OpenSelena/openomni;
+        return 302 https://github.com/OpenSelena/open-omni;
     }
 }
 ```

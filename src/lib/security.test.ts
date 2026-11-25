@@ -359,11 +359,11 @@ test('watcher, platforms, sanitizer, format, config, and distribution enforce se
         packageVersion: '1.5.1\nInstallerUrl: https://evil.example/a.zip',
         publisher: 'OpenSelena',
         publisherUrl: 'https://github.com/OpenSelena',
-        packageUrl: 'https://github.com/OpenSelena/openomni',
+        packageUrl: 'https://github.com/OpenSelena/open-omni',
         license: 'MIT',
-        licenseUrl: 'https://github.com/OpenSelena/openomni/blob/main/LICENSE',
+        licenseUrl: 'https://github.com/OpenSelena/open-omni/blob/main/LICENSE',
         shortDescription: 'Desc',
-        installerUrl: 'https://github.com/OpenSelena/openomni/releases/download/v1.5.1/open-omni-windows-x64.zip',
+        installerUrl: 'https://github.com/OpenSelena/open-omni/releases/download/v1.5.1/open-omni-windows-x64.zip',
         installerSha256: 'a'.repeat(64),
         commands: ['open-omni'],
         tags: ['cli'],
@@ -374,7 +374,7 @@ test('watcher, platforms, sanitizer, format, config, and distribution enforce se
   const badYamlValidation = validateWingetManifests({
     versionManifest: 'PackageIdentifier: OpenSelena.OpenOmni\nPackageVersion: 1.5.1\nManifestType: version',
     installerManifest:
-      'PackageIdentifier: OpenSelena.OpenOmni\nPackageVersion: 1.5.1\nInstallerType: zip\nNestedInstallerType: portable\nNestedInstallerFiles:\n# InstallerUrl: https://github.com/OpenSelena/openomni/releases/v1.5.1/x.zip\nInstallerUrl: https://evil.example/evil.zip\nInstallerSha256: ' +
+      'PackageIdentifier: OpenSelena.OpenOmni\nPackageVersion: 1.5.1\nInstallerType: zip\nNestedInstallerType: portable\nNestedInstallerFiles:\n# InstallerUrl: https://github.com/OpenSelena/open-omni/releases/v1.5.1/x.zip\nInstallerUrl: https://evil.example/evil.zip\nInstallerSha256: ' +
       'a'.repeat(64),
     localeManifest: 'PackageIdentifier: OpenSelena.OpenOmni\nPackageVersion: 1.5.1',
   })
