@@ -1,266 +1,210 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/OpenSelena/open-omni/main/assets/logo-dark.svg">
-    <img src="https://raw.githubusercontent.com/OpenSelena/open-omni/main/assets/logo-light.svg" alt="Open Omni" width="240">
+    <img src="https://raw.githubusercontent.com/OpenSelena/open-omni/main/assets/logo-light.svg" alt="Open Omni" width="280" />
   </picture>
 </p>
 
 <p align="center">
-  <b>Fast terminal media downloader and TUI for 1,800+ sites.</b><br/>
-  Download videos, music, and photo galleries from YouTube, Instagram, X, TikTok, and more.
+  <b>Terminal-first video, audio, and photo downloader for 1,800+ supported sites.<br/>Paste a link, get the file. Local on your machine, no telemetry.</b>
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/open-omni"><img src="https://img.shields.io/npm/v/open-omni.svg?color=C15F3C" alt="npm version"></a>
-  <a href="https://github.com/OpenSelena/open-omni/actions/workflows/ci.yml"><img src="https://github.com/OpenSelena/open-omni/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D20-brightgreen" alt="Node version"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <a href="https://www.npmjs.com/package/open-omni"><img src="https://img.shields.io/npm/v/open-omni?style=for-the-badge&color=C15F3C" alt="npm version" /></a>
+  <a href="https://github.com/OpenSelena/open-omni/releases/latest"><img src="https://img.shields.io/github/v/release/OpenSelena/open-omni?style=for-the-badge&label=release&color=F28500" alt="Latest release" /></a>
+  <a href="https://github.com/OpenSelena/open-omni/releases"><img src="https://img.shields.io/github/downloads/OpenSelena/open-omni/total?style=for-the-badge&label=downloads&color=1E6FE8" alt="Total downloads" /></a>
+  <a href="https://github.com/OpenSelena/open-omni/stargazers"><img src="https://img.shields.io/github/stars/OpenSelena/open-omni?style=for-the-badge&color=FFD426" alt="GitHub stars" /></a>
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/OpenSelena/open-omni/main/assets/home.png" alt="Open Omni Interface" width="100%">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2AA845?style=for-the-badge" alt="License MIT" /></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D20-2AA845?style=for-the-badge&logo=node.js&logoColor=white" alt="Node 20+" /></a>
+  <a href="https://github.com/OpenSelena/open-omni/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/OpenSelena/open-omni/ci.yml?style=for-the-badge&label=CI&logo=githubactions&logoColor=white" alt="CI status" /></a>
+  <a href="https://t.me/OpenSelena"><img src="https://img.shields.io/badge/Telegram-channel-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram channel" /></a>
+</p>
+
+<p align="center">
+  <a href="#download-and-install"><img src="https://img.shields.io/badge/Install_for_Windows,_macOS_or_Linux-→-C15F3C?style=for-the-badge" alt="Download and install Open Omni" height="40" /></a>
+  &nbsp;
+  <a href="#cli-reference"><img src="https://img.shields.io/badge/CLI_reference-→-1E6FE8?style=for-the-badge" alt="CLI reference" height="40" /></a>
 </p>
 
 ---
 
 ## Contents
 
-- [Why Open Omni](#why-open-omni)
-- [Key features](#key-features)
-- [How It Compares](#how-it-compares)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Interactive Interface](#interactive-interface)
-- [CLI Reference](#cli-reference)
-- [Configuration](#configuration)
-- [Shell Autocompletion](#shell-autocompletion)
-- [Privacy & Local First](#privacy--local-first)
+- [Overview](#overview)
+- [Download and install](#download-and-install)
+- [Quick start](#quick-start)
+- [Engines and sources](#engines-and-sources)
+- [CLI reference](#cli-reference)
+- [Configuration and shell completion](#configuration-and-shell-completion)
+- [Privacy and refusals](#privacy-and-refusals)
 - [Fair Use Notice](#fair-use-notice)
-- [License & Inquiries](#license--inquiries)
+- [Build from source](#build-from-source)
+- [Credits and license](#credits-and-license)
 
 ---
 
-## Why Open Omni
+## Overview
 
-You want to download a video, an audio track, or a photo set without clicking through suspicious popups, fake download buttons, or ad-laden web converters. You also don't want to memorize dozens of complicated command-line flags.
+Open Omni puts `yt-dlp`, `gallery-dl`, and `ffmpeg` behind one terminal UI and four matching aliases (`open-omni`, `openomni`, `omni`, `oo`). Paste a link, pick a quality or playlist subset, and download straight to disk. Missing extraction engines download into `~/.open-omni/bin` when first used, and `ffmpeg-static` handles muxing when `ffmpeg` is not on `PATH`.
 
-Open Omni combines the flexibility of an interactive terminal interface with scriptable command-line speed. Paste a link from your clipboard with one key, preview available formats, and download directly to your machine. 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/OpenSelena/open-omni/main/assets/home.png" alt="Open Omni home screen" width="900" />
+</p>
 
-Under the hood, Open Omni automatically provisions and manages [`yt-dlp`](https://github.com/yt-dlp/yt-dlp), [`gallery-dl`](https://codeberg.org/mikf/gallery-dl), and `ffmpeg` binaries so you never have to manually configure external dependencies.
-
----
-
-## Key features
-
-- Press `o` on completion to highlight the downloaded file in your file manager (Explorer, Finder, or Linux file managers).
-- Route downloads through HTTP, HTTPS, or SOCKS5 proxies with `--proxy`, or pass country codes with `--geo-bypass` and `--geo-country`. Passwords in proxy URLs are masked in logs.
-- Throttle download speeds with `--limit-rate` (for example, `1.5M` or `500K`).
-- Skip sponsored segments and channel intros during download with `--sponsorblock` and `--sponsorblock-remove`.
-- Automatically routes video extractors to `yt-dlp` and multi-photo social carousels to `gallery-dl`.
-- Skips already-downloaded files using `--skip-existing` by checking the local history ledger against disk.
-- Interactive terminal interface with clipboard paste (`Tab`), format selection, and progress bars.
-
----
-
-## How It Compares
-
-| | Open Omni | yt-dlp | Web converters |
+| | Open Omni | `yt-dlp` alone | Web converters |
 | :--- | :--- | :--- | :--- |
-| **Interface** | Keyboard-driven terminal TUI | Command-line flags | Browser UI with ads |
-| **Engines** | Auto-provisions `yt-dlp`, `gallery-dl`, `ffmpeg` | Manual binary or Python setup | Hosted / unknown backends |
-| **Media** | Video, audio, photos & carousels | Video & audio | Inconsistent / compressed |
-| **Selection** | Interactive checklist (`Space` / `A` keys) | Index ranges (`--playlist-items`) | Single URL at a time |
-| **Workflow** | `Tab` clipboard paste → pick format → Enter | Build flags manually | Paste → wait → download |
-| **Local-first** | 100% local, zero telemetry | 100% local, open-source | Remote servers & ad trackers |
+| **Interface** | Terminal UI and scriptable CLI | Command-line flags | Ad-supported web forms |
+| **Engines** | Auto-provisions `yt-dlp`, `gallery-dl`, and `ffmpeg` | Manual binary setup | Hosted remote backends |
+| **Media** | Video, audio, photo posts, and mixed carousels | Video and audio | Single URL, often re-encoded |
+| **Selection** | Interactive checklist (`Space` / `A`), `--photos-only`, `--videos-only` | Index ranges (`--playlist-items`) | One link per request |
+| **Workflow** | `Tab` clipboard paste, format picker, `--watch` mode | Flags typed per run | Manual link pasting |
+| **Local-first** | Runs locally on your machine | Runs locally | Remote servers and tracking |
+
+`yt-dlp`, `gallery-dl`, and `ffmpeg` do the extraction and muxing work. If you already script those tools directly in your shell, keep using them directly.
 
 ---
 
-## Installation
+## Download and install
 
-### One-liner (macOS & Linux)
+Requires **Node 20+** for npm, Homebrew, and the shell installer. The standalone Windows `.zip` bundles Node.
 
-```sh
-curl -fsSL https://mint.dev.cv | sh
-```
-
-### Via Homebrew (macOS & Linux)
-
-```sh
-brew install OpenSelena/tap/open-omni
-```
-
-### Via Winget (Windows)
-
-```powershell
-winget install OpenSelena.OpenOmni
-```
-
-### Via npm (Global)
-
-```sh
-npm install -g open-omni
-```
-
-### Run Directly via npx
-
-```sh
-npx open-omni [url]
-```
-
-Once installed, Open Omni is accessible via any of these commands:
-- `open-omni` (canonical)
-- `openomni` (hyphen-free)
-- `omni` (concise)
-- `oo` (ultra-fast alias)
-
-> **Requirements**: Node 20+ (when using npm or Homebrew; standalone Windows package bundles its own runtime). Extraction engines (`yt-dlp`, `gallery-dl`, and `ffmpeg`) are downloaded automatically to `~/.open-omni/bin` on demand.
+<table>
+  <tr>
+    <th align="left">Method</th>
+    <th align="left">Command</th>
+    <th align="left">Notes</th>
+  </tr>
+  <tr>
+    <td><b>macOS & Linux script</b></td>
+    <td><code>curl -fsSL https://mint.dev.cv | sh</code></td>
+    <td>Installs into <code>~/.open-omni</code></td>
+  </tr>
+  <tr>
+    <td><b>Windows (WinGet)</b></td>
+    <td><code>winget install OpenSelena.OpenOmni</code></td>
+    <td>Portable package (or download <code>open-omni-windows-x64.zip</code> from <a href="https://github.com/OpenSelena/open-omni/releases/latest">Releases</a>)</td>
+  </tr>
+  <tr>
+    <td><b>Homebrew</b></td>
+    <td><code>brew install OpenSelena/tap/open-omni</code></td>
+    <td>Installs CLI aliases with <code>yt-dlp</code>, <code>gallery-dl</code>, and <code>ffmpeg</code></td>
+  </tr>
+  <tr>
+    <td><b>npm</b></td>
+    <td><code>npm install -g open-omni</code></td>
+    <td>Registers <code>open-omni</code>, <code>openomni</code>, <code>omni</code>, and <code>oo</code></td>
+  </tr>
+  <tr>
+    <td><b>npx</b></td>
+    <td><code>npx open-omni [url]</code></td>
+    <td>Runs without global install</td>
+  </tr>
+</table>
 
 ---
 
-## Quick Start
+## Quick start
 
-Launch interactive mode:
+1. Run `open-omni` (or `omni`, `oo`, `openomni`).
+2. Paste a URL or press **`Tab`** to use the link currently on your clipboard.
+3. Choose a format, switch containers with **`a`** / **`v`**, toggle playlist items with **`Space`** / **`A`**, and press **`Enter`**. Press **`o`** on completion to open the saved file in your file manager.
 
-```sh
-open-omni
-```
+<p align="center">
+  <img src="https://raw.githubusercontent.com/OpenSelena/open-omni/main/assets/download-options.png" alt="Open Omni format picker" width="900" />
+</p>
 
-Or pass a URL directly to inspect available media formats:
+To download newly copied links automatically in the background, run `open-omni -w` (or `open-omni --watch --best`). Pre-existing clipboard contents, multi-line text, loopback/LAN addresses, and unrelated URLs are ignored.
+
+### Common examples
 
 ```sh
 open-omni https://youtu.be/dQw4w9WgXcQ
-```
-
-Direct scriptable downloads:
-
-```sh
-# Download highest resolution video directly
 open-omni <url> --best
-
-# Watch clipboard and auto-download copied links
-open-omni --watch
-open-omni -w --best
-
-# Extract audio to MP3 or lossless FLAC in a specific directory
 open-omni <url> --mp3 -o ~/Music
-open-omni <url> --audio-format flac -o ~/Music
-
-# Download video in specific container format (mp4, mkv, webm)
-open-omni <url> --video-format mkv
-
-# Download specific time range or clip section
-open-omni <url> --time 01:00-02:30
-
-# Skip items already downloaded and recorded in download ledger
-open-omni <url> --skip-existing
-
-# Download with embedded subtitles
-open-omni <url> --embed-subs --subs=en,es
-
-# Embed metadata tags and chapter markers into media container
-open-omni <url> --metadata --embed-chapters
-
-# Download thumbnail artwork and embed into file
-open-omni <url> --thumb --embed-thumb
-
-# Download only photos from an Instagram or X gallery
-open-omni <url> --photos-only
-
-# Zero-config: extract cookies automatically from local browser session
-open-omni <url> --cookies-from-browser auto
-
-# Target a specific browser or profile explicitly
-open-omni <url> --cookies-from-browser firefox
-
-# Download using an exported Netscape cookie file
-open-omni <url> --cookies ~/cookies.txt
-
-# Route downloads through HTTP/HTTPS/SOCKS proxy
-open-omni <url> --proxy http://127.0.0.1:8080
-
-# Bypass geographic restriction with synthetic header or country code
-open-omni <url> --geo-bypass
-open-omni <url> --geo-country US
-
-# Throttle bandwidth consumption
-open-omni <url> --limit-rate 1.5M
-
-# Remove sponsored segments using SponsorBlock
-open-omni <url> --sponsorblock
-open-omni <url> --sponsorblock-remove sponsor,intro
-
-# Custom filename template
-open-omni <url> --output-template "%(uploader)s - %(title)s.%(ext)s"
-
-# Parallel batch downloads (e.g. 4 concurrent downloads)
-open-omni <url> --concurrency 4
-
-# Update bundled extraction engines (yt-dlp and gallery-dl)
+open-omni <url> --audio-format flac --metadata --embed-chapters
+open-omni <url> --video-format mkv --embed-subs --subs=en,es
+open-omni <url> --thumb --embed-thumb --time 01:00-02:30
+open-omni <url> --photos-only --concurrency 4 --skip-existing
+open-omni <url> --cookies-from-browser firefox --proxy http://127.0.0.1:8080
+open-omni --watch --best
 open-omni -U
 ```
 
----
+### TUI hotkeys
 
-## Interactive Interface
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/OpenSelena/open-omni/main/assets/download-options.png" alt="Format and quality picker" width="100%">
-</p>
-
-- **URL Input**: Paste URLs directly or press `Tab` to insert the current clipboard contents.
-- **Format Picker**: Select from highest quality video, optimized 1080p/720p tiers, or audio-only extraction.
-- **Playlists & Carousels**: Toggle individual tracks with `Space` or select all with `A`.
-- **Themes**: Switch between `dark`, `light`, and `auto` terminal palette integration.
-- **Reveal in Folder**: Press `O` on completion screen to reveal downloaded media in your native file manager.
-
----
-
-## CLI Reference
-
-| Flag | Description |
+| Key | Action |
 | :--- | :--- |
-| `[url]` | Video, playlist, or gallery URL |
-| `--best` | Download highest available video quality directly |
-| `--mp3` | Extract audio track as MP3 directly |
-| `--audio-format <fmt>` | Audio extraction format (`best`, `aac`, `flac`, `mp3`, `m4a`, `opus`, `vorbis`, `wav`, `alac`) |
-| `--video-format <fmt>` | Video container format (`mp4`, `mkv`, `webm`) |
-| `--metadata` | Embed metadata (artist, title, date, etc.) into media container |
-| `--add-metadata` | Alias for `--metadata` |
-| `--embed-chapters` | Embed chapter markers into media container |
-| `--subs [langs]` | Download subtitles (e.g. `--subs=en,es`) |
-| `--embed-subs` | Mux subtitles into the video container |
-| `--thumb` | Save video thumbnail image |
-| `--embed-thumb` | Embed thumbnail artwork into media container |
-| `--photos-only` | Download only images from social post or carousel |
-| `--videos-only` | Download only videos from social post or carousel |
-| `--skip-existing` | Skip download if recorded in ledger and present on disk |
-| `--time <range>` | Download specific time range (e.g. `01:00-02:30` or `60-150`) |
-| `--section <range>` | Alias for `--time` |
-| `--cookies <path>` | Load session cookies from a Netscape format file |
-| `--cookies-from-browser <spec>` | Extract cookies from browser (`auto`, `firefox`, `chrome`, `zen`, etc.) |
-| `--proxy <url>` | Route requests via HTTP/HTTPS/SOCKS proxy (e.g. `socks5://...`) |
-| `--geo-bypass` | Bypass geographic restriction via synthetic `X-Forwarded-For` header |
-| `--geo-country <code>` | Bypass geographic restriction with 2-letter country code (e.g. `US`, `DE`) |
-| `--limit-rate <rate>` | Limit download bandwidth (e.g. `50K`, `1.5M`, `2G`) |
-| `--sponsorblock` | Remove sponsored segments using SponsorBlock |
-| `--sponsorblock-remove <cats>` | SponsorBlock categories to remove (default: `all`) |
-| `--output-template <pattern>` | Custom filename template (e.g. `%(uploader)s/%(title)s.%(ext)s` or `{title}.{ext}`) |
-| `-c, --concurrency <N>` | Maximum parallel download workers for batch queue |
-| `-o, --output <dir>` | Destination folder (default: Downloads or `$OPEN_OMNI_DIR`) |
-| `-U, --update` | Update bundled `yt-dlp` and `gallery-dl` binaries |
-| `--update-ytdlp` | Update only bundled `yt-dlp` binary |
-| `--update-gallerydl` | Update only bundled `gallery-dl` binary |
-| `--force` | Force overwrite existing downloads or re-fetch binaries |
-| `--theme <mode>` | Color theme: `auto`, `light`, or `dark` |
-| `--completion <shell>` | Generate completions (`bash`, `zsh`, `fish`, `powershell`) |
-| `-h, --help` | Show help screen |
-| `-v, --version` | Show version number |
+| **`Tab`** | Paste URL from clipboard |
+| **`↑`** | Cycle previously entered URLs |
+| **`a`** / **`v`** | Cycle audio format / video container in picker |
+| **`s`** / **`t`** | Toggle subtitles / thumbnail options in picker |
+| **`Space`** / **`A`** | Toggle item / select or clear all in batches |
+| **`Enter`** | Submit URL or start download |
+| **`o`** | Reveal saved file or folder |
+| **`^t`** *(Ctrl+T)* | Cycle theme (`auto` / `light` / `dark`) |
+| **`Esc`** / **`^c`** | Back or cancel / quit |
 
 ---
 
-## Configuration
+## Engines and sources
 
-Settings can be customized in `~/.config/open-omni/config.json`:
+| Area | How it works |
+|---|---|
+| <img src="https://img.shields.io/badge/-Video_%26_Audio-C15F3C?style=for-the-badge&labelColor=555555&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik0yIDR2MTZoMjBWNEgyem03LjUgMTJWOGw3IDQtNyA0eiIvPjwvc3ZnPg==" height="24" alt="Video & Audio" /> | Uses `yt-dlp` across 1,800+ sites with time slicing and SponsorBlock filtering. |
+| <img src="https://img.shields.io/badge/-Photos_%26_Posts-F28500?style=for-the-badge&labelColor=555555&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik0yIDR2MTZoMjBWNEgyem00IDNoM3YzSDZWN3ptMTQgMTFINGw1LTYgMy41IDQgMi41LTMgNSA1eiIvPjwvc3ZnPg==" height="24" alt="Photos & Posts" /> | Resolves public Instagram `/embed/captioned/` posts and Bluesky AT Protocol (`public.api.bsky.app`) threads directly, and hands 250+ gallery sites to `gallery-dl`. |
+| <img src="https://img.shields.io/badge/-FFmpeg_%26_Streams-007808?style=for-the-badge&labelColor=555555&logo=ffmpeg&logoColor=white" height="24" alt="FFmpeg & Streams" /> | Uses system `ffmpeg` (or bundled `ffmpeg-static`) to merge adaptive streams, convert audio formats, remux Bluesky HLS playlists, and embed subtitles, covers, and chapters. |
+| <img src="https://img.shields.io/badge/-Batches_%26_Resume-1E6FE8?style=for-the-badge&labelColor=555555&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik0zIDVoM3YzSDNWNXptNSAxaDEzdjJIOFY2em0tNSA1aDN2M0gzdi0zem01IDFoMTN2Mkg4di0yem0tNSA1aDN2M0gzdi0zem01IDFoMTN2Mkg4di0yeiIvPjwvc3ZnPg==" height="24" alt="Batches & Resume" /> | Runs bounded parallel workers and tracks finished files in `ledger.json` so interrupted queues resume cleanly. |
+| <img src="https://img.shields.io/badge/-Cookies_%26_Proxies-2AA845?style=for-the-badge&labelColor=555555&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik03IDEwVjZhNSA1IDAgMCAxIDEwIDB2NGgydjExSDVWMTBoMnptMiAwaDZWNmEzIDMgMCAwIDAtNiAwdjR6bTIgNHY0aDJ2LTRoLTJ6Ii8+PC9zdmc+" height="24" alt="Cookies & Proxies" /> | Extracts local browser cookies (Firefox, Zen, Chrome, Brave, Edge, Floorp, Waterfox, Safari) only on auth walls (`401`/`403`/login redirect), or reads Netscape files. |
+
+---
+
+## CLI reference
+
+| Flag / Command | Description |
+| :--- | :--- |
+| `[url]` | Video, playlist, or social post URL |
+| `config <path\|get\|set>` | Print config path, read saved keys, or set persistent defaults |
+| `--best` | Download highest video quality directly |
+| `--mp3` | Extract audio as MP3 directly |
+| `--audio-format <fmt>` | Audio format (`best`, `aac`, `flac`, `mp3`, `m4a`, `opus`, `vorbis`, `wav`, `alac`) |
+| `--video-format <fmt>` | Video container (`mp4`, `mkv`, `webm`) |
+| `--metadata`, `--add-metadata` | Embed metadata tags into output container |
+| `--embed-chapters` | Embed chapter markers into output container |
+| `--subs [langs]` | Download subtitles (e.g. `--subs=en,es`) |
+| `--embed-subs` | Mux subtitles into video container |
+| `--thumb` | Save thumbnail image alongside media |
+| `--embed-thumb` | Embed thumbnail cover inside output container |
+| `--photos-only` | Download only images from post or carousel |
+| `--videos-only` | Download only videos from post or carousel |
+| `--skip-existing` | Skip downloads recorded in `ledger.json` and present on disk |
+| `--time <range>`, `--section <range>` | Slice time range (e.g. `01:00-02:30` or `60-150`) |
+| `--cookies <path>` | Load cookies from Netscape text file |
+| `--cookies-from-browser <spec>` | Extract browser cookies (`auto`, `firefox`, `zen`, `chrome`, etc.) |
+| `--proxy <url>` | Route HTTP, HTTPS, or SOCKS proxy traffic (e.g. `socks5://127.0.0.1:1080`) |
+| `--geo-bypass` | Send synthetic `X-Forwarded-For` header |
+| `--geo-country <code>` | Two-letter country code for geo bypass (`US`, `DE`, etc.) |
+| `--limit-rate <rate>` | Cap transfer speed (e.g. `50K`, `1.5M`, `2G`) |
+| `--sponsorblock` | Strip sponsored segments via SponsorBlock |
+| `--sponsorblock-remove <cats>` | SponsorBlock categories to strip (default: `all`) |
+| `--output-template <pattern>` | Output filename template (e.g. `%(uploader)s/%(title)s.%(ext)s`) |
+| `-c, --concurrency <N>` | Parallel workers for batch queue |
+| `-w, --watch` | Watch clipboard and download copied media links |
+| `-o, --output <dir>` | Destination folder (defaults to `$OPEN_OMNI_DIR` or OS Downloads) |
+| `-U, --update` | Update bundled `yt-dlp` and `gallery-dl` binaries |
+| `--update-ytdlp`, `--update-gallerydl` | Update only `yt-dlp` or only `gallery-dl` |
+| `--force` | Overwrite existing outputs or re-fetch binaries |
+| `--theme <mode>` | Color mode: `auto`, `light`, or `dark` |
+| `--completion <shell>` | Output completion script (`bash`, `zsh`, `fish`, `powershell`) |
+| `-h, --help`, `-v, --version` | Show CLI help or version |
+
+---
+
+## Configuration and shell completion
+
+Settings live in `~/.config/open-omni/config.json` (`0700` directory, `0600` file permissions) and can be updated via `open-omni config set <key> <value>`:
 
 ```json
 {
@@ -292,13 +236,7 @@ Settings can be customized in `~/.config/open-omni/config.json`:
 }
 ```
 
-*Precedence*: Command-line flags > Environment variables (`ALL_PROXY`, `OPEN_OMNI_DIR`) > `config.json` > OS default Downloads.
-
----
-
-## Shell Autocompletion
-
-Add autocomplete support to your shell profile:
+Precedence: CLI flags > environment (`ALL_PROXY`, `HTTPS_PROXY`, `HTTP_PROXY`, `OPEN_OMNI_DIR`) > `config.json` > OS Downloads folder.
 
 ```sh
 # Bash (~/.bashrc)
@@ -318,43 +256,48 @@ if (Get-Command open-omni -ErrorAction SilentlyContinue) {
 
 ---
 
-## Privacy & Local First
+## Privacy and refusals
 
-Open Omni runs entirely on your local machine:
+Open Omni runs locally with no accounts or telemetry. Beyond the URLs you download, the only network calls it makes are binary updates (`-U` or first-run fetches from official GitHub and Codeberg releases).
 
-- **No Remote Telemetry**: No tracking, metrics, analytics, or third-party servers.
-- **Direct Fetch**: Network connections are established exclusively between your computer and the target media platform.
-- **Local Storage**: All media, metadata, and engine binaries remain under your local user directory.
+Browser cookie extraction runs only when recovering from an authentication error, filters Netscape jars strictly by target domain, path, `secure` attribute, and expiry inside temporary `0700`/`0600` directories deleted on exit, and strips credentials across cross-origin redirects. Proxy URLs pass to child engines via environment variables, file writes stay verified inside the target folder, and Open Omni does not crack DRM or bypass paywalls.
 
 ---
 
 ## Fair Use Notice
 
-Open Omni is an open-source educational utility intended for personal archiving, local offline study, and fair-use research.
+Open Omni is an open-source interface to `yt-dlp` and `gallery-dl` for personal archiving and study under applicable copyright and fair-use laws. It does not grant copyright ownership, licenses, or permission for downloaded media. You are solely responsible for following local copyright laws and each platform's terms of service.
 
-### Copyright and Tool Purpose
-The software functions as an automated terminal interface to established media extraction backends (`yt-dlp` and `gallery-dl`). Analogous to a standard web browser or media player, Open Omni retrieves publicly available media streams strictly at the direct instruction of the user. Open Omni does not operate remote media servers, store or index content, bypass digital rights management (DRM) encryption, or circumvent technical access controls or digital paywalls.
-
-### Fair Use Principles
-Applicable copyright laws (such as Section 107 of the U.S. Copyright Act and comparable fair-dealing statutes internationally) permit the use of copyrighted works without express authorization under specific circumstances, including:
-- Non-commercial personal archiving and format shifting for offline viewing
-- Criticism, commentary, parody, and transformative research
-- News reporting, classroom teaching, scholarship, and academic analysis
-
-Whether a specific download or utilization qualifies as fair use depends on jurisdictional statutory factors, including the purpose and character of the use, the nature of the copyrighted work, the amount and substantiality of the portion used, and the effect upon the potential market or value of the work.
-
-### User Responsibility & Disclaimers
-- **No Grant of Ownership or Rights**: Open Omni is an open-source tool and does not grant users copyright ownership, licenses, or authorization to reproduce, distribute, publicly display, or monetize protected content unlawfully.
-- **User Responsibility**: Users are solely responsible for ensuring that their capture and subsequent use of any media complies with applicable local copyright laws, intellectual property rights, and third-party terms of service.
-- **Not Legal Advice**: This notice is provided for informational and educational purposes only and does not constitute formal legal counsel.
+Contact for copyright, security, or general inquiries: [igect@vk.com](mailto:igect@vk.com).
 
 ---
 
-## License & Inquiries
+## Build from source
 
-Open Omni is released under the [MIT License](LICENSE).
+Requires **Node 20+** and npm:
 
-### Contact & Inquiries
-For copyright concerns, legal inquiries, bug reports, security reports, or general questions regarding this project, please reach out directly:
+```sh
+git clone https://github.com/OpenSelena/open-omni.git
+cd open-omni
+npm ci
+npm test && npm run typecheck && npm run build
+npm start
+```
 
-- **Email**: [igect@vk.com](mailto:igect@vk.com)
+On filesystems without symlink support (such as exFAT), install with `npm ci --no-bin-links` as documented in [AGENTS.md](AGENTS.md).
+
+---
+
+## Credits and license
+
+Built on [yt-dlp](https://github.com/yt-dlp/yt-dlp), [gallery-dl](https://codeberg.org/mikf/gallery-dl), [FFmpeg](https://ffmpeg.org/), [React](https://react.dev/), [Ink](https://github.com/vadimdemedes/ink), [tsup](https://tsup.egoist.dev/), and [tsx](https://tsx.is/).
+
+Bug reports and pull requests go to [Issues](https://github.com/OpenSelena/open-omni/issues) and [Pull requests](https://github.com/OpenSelena/open-omni/pulls). Questions live on [Telegram](https://t.me/OpenSelena) or via email at [igect@vk.com](mailto:igect@vk.com). Released under the [MIT License](LICENSE) by [OpenSelena](https://github.com/OpenSelena).
+
+<p align="center">
+  <a href="https://star-history.com/#OpenSelena/open-omni&Date"><img src="https://api.star-history.com/svg?repos=OpenSelena/open-omni&type=Date" alt="Star history of OpenSelena/open-omni" width="600" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/OpenSelena/open-omni/releases/latest"><b>Download Open Omni</b></a> · <a href="https://www.npmjs.com/package/open-omni">npm</a> · <a href="LICENSE">MIT</a>
+</p>
