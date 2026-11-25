@@ -109,7 +109,7 @@ test('App accepts initialSubtitles prop without regression', async () => {
       onOutcome: () => {},
     }),
   )
-  assert.ok(rendered.includes('v1.5.1'))
+  assert.ok(rendered.includes('v1.5.2'))
 })
 
 test('App accepts initialThumbnail prop without regression', async () => {
@@ -125,7 +125,7 @@ test('App accepts initialThumbnail prop without regression', async () => {
       onOutcome: () => {},
     }),
   )
-  assert.ok(rendered.includes('v1.5.1'))
+  assert.ok(rendered.includes('v1.5.2'))
 })
 
 test('SingleDoneView and PlaylistDoneView render reveal in folder shortcut', async () => {

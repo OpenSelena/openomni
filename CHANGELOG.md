@@ -4,6 +4,24 @@ All notable changes to Open Omni are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.2] - 2026-11-25
+
+[Diff: v1.5.1...v1.5.2](https://github.com/OpenSelena/openomni/compare/v1.5.1...v1.5.2)
+
+### Security & Fixes
+
+- **Browser Cookie Isolation & Lazy Extraction**:
+  - Required non-empty `targetDomain`, path matching, `secure` attribute checks, and expiry filtering in `parseNetscapeCookieContent` so unrelated browser cookies are not sent to Instagram or cross-origin redirects.
+  - Moved default `{browser: 'auto'}` extraction out of CLI startup so Instagram is not contacted before a login-wall recovery, extracted offline (`--ignore-config`), isolated cookie jars and `yt-dlp` probe `info.json` files inside `0o700` temp directories with `0o600` exclusive files, and enforced `0o700`/`0o600` permissions on config, history, and ledger paths.
+- **Proxy Routing & Origin Allowlists**:
+  - Added HTTPS/HTTP `CONNECT` proxy helper (`src/lib/proxy-fetch.ts`) with manual redirect validation and cross-origin `Cookie`/`Authorization` stripping; forwarded `--proxy` across native Instagram, Bluesky, and cookie extraction flows while passing child proxy settings via environment variables instead of process `argv`.
+  - Restricted Instagram `Cookie` transmission strictly to official Instagram HTTPS domains, tightened Bluesky CDN host suffix matching and `ffmpeg` protocol whitelists, and failed closed when proxying `.m3u8` streams with unsupported proxy schemes.
+- **Path, Template & Terminal Sanitization**:
+  - Enforced destination containment (`assertContainedPath`) and extension sanitization across `yt-dlp`, `gallery-dl`, Bluesky, Instagram, and batch downloads; escaped `{`/`}` in `gallery-dl -f` and `%` in `yt-dlp -o`.
+  - Removed `OPEN_OMNI_DIR` binary lookup fallback in `gallerydl.ts` (`OPEN_OMNI_BIN_DIR` only), hardened `--watch` against multi-line inputs, loopback/private hosts, and generic URLs, and stripped C0/C1/ANSI terminal control sequences across UI/CLI outputs.
+- **Updaters, Packaging & CI Hardening**:
+  - Added HTTPS host allowlists and optional `SHA2-256SUMS` verification to `yt-dlp` updates, strict `codeberg.org` host and version validation to `gallery-dl` updates, MSVC argument quoting to `scripts/shim.cs`, HTTPS/header hardening to `install.sh` and `workers/installer.js`, and YAML/semver validation plus scoped `WINGET_TOKEN` usage to release packaging workflows.
+
 ## [1.5.1] - 2026-11-01
 
 [Diff: v1.5.0...v1.5.1](https://github.com/OpenSelena/openomni/compare/v1.5.0...v1.5.1)

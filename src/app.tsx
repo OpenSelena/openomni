@@ -171,7 +171,7 @@ function InnerApp({
   clipboardUrl,
   autoSelect,
   outDir,
-  version = '1.5.1',
+  version = '1.5.2',
   initialSubtitles,
   initialThumbnail,
   initialMetadata,
